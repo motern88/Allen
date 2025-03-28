@@ -4,7 +4,7 @@
 
 contracts:
   - contract_type: "投放类合同"
-    contract_description: ""  # 对投放类合同分辨方式的描述
+    contract_description: "内容中有“分成比例”、“支付场地租金/物业费”等字样"  # 对投放类合同分辨方式的描述
     table_header:
       - field_name: "内部合同号"  # 字段名
         field_description: "用于表示合同的唯一标识ID"  # 对字段名的解释
@@ -24,7 +24,7 @@ contracts:
 
       - field_name: "签约主体"
         field_description: "指乙方，即我司"
-        expect_format: "期望返回提取到的乙方公司名，如：“深圳市沐腾科技有限公司”或“深圳市四两九科技有限公司"
+        expect_format: "期望返回提取到的乙方公司名，如：“深圳市沐腾科技有限公司”或“深圳市四两九科技有限公司”"
 
       - field_name: "网点名称"
         field_description: "指甲方场地名"
@@ -35,7 +35,7 @@ contracts:
         expect_format: "期望返回提取到的甲方公司名，如“佛山市地铁运营有限公司”"
 
       - field_name: "货品名称"
-        field_description: "如无特殊说明，统一记为“寄存柜”。如在合同中明确提及“员工储物”、“员工柜”，则记为“员工柜”。"
+        field_description: "如无特殊说明，统一记为“寄存柜”。如在合同中明确提及“吹风机”、“洗脚柱”，“淋浴房”则需详细记录”。"
         expect_format: "期望返回“寄存柜”或“员工柜”"
 
       - field_name: "柜子数"
@@ -43,7 +43,7 @@ contracts:
         expect_format: "期望返回统计后的所有主柜数量和所有副柜数量，如“3主2副”或“投放柜2主4副，改造柜2主3副”"
 
       - field_name: "柜子总价"
-        field_description: "所有主柜和所有副柜的总价格，需根据表格内容进行统计"
+        field_description: "所有主柜和所有副柜的总价格，需根据表格内容进行统计，注意：只包含柜子，不用算上运费和配件的金额"
         expect_format: "期望返回所有主柜和所有副柜的总价格，如“11000”"
 
       - field_name: "运费"
@@ -67,28 +67,28 @@ contracts:
         expect_format: "期望返回百分比形式，如“6.5%”"
 
       - field_name: "手续费"
-        field_description: "指按照合同中约定的一方需要承担的手续比例"
-        expect_format: "“0.8%”"
+        field_description: "指按照合同中约定的一方需要承担的手续费比例"
+        expect_format: "“期望返回百分比形式，如0.8%”"
 
       - field_name: "收费模式"
-        field_description: ""
-        expect_format: ""
+        field_description: "指设备在甲方场地以何种收费模式进行收费"
+        expect_format: "尽量简洁描述，如:“小中大柜3/4/5元/时，封顶15/20/30元。”或“5元/次，20元押金”"
 
       - field_name: "有无排他"
-        field_description: ""
-        expect_format: ""
+        field_description: "指是否存在排他性条款，即合作方（甲方）是否被限制在合作期间内不得与其他第三方开展同类业务合作"
+        expect_format: "期望返回有无存在排他性条款，如：‘有’或‘无’"
 
       - field_name: "业务人员"
-        field_description: ""
-        expect_format: ""
+        field_description: "指我司（乙方）的联系人"
+        expect_format: "期望返回合同中指定的乙方联系人"
 
       - field_name: "合同付款方式"
-        field_description: ""
-        expect_format: ""
+        field_description: "分为‘后台分成’和‘付租金’两种，‘后台分成’：按合同约定好分成比例，每月比例在小铁后台结算；‘付租金’：合同约定由我方支付场地租金、服务费、管理费之类的，甲方不参与分成，收益全归乙方。"
+        expect_format: "期望返回合同中指定的付款方式，如“后台分成”或“付租金”"
 
       - field_name: "网点扣费项"
-        field_description: ""
-        expect_format: ""
+        field_description: "指在合同如果明确指出运费/配件费xx元由乙方为甲方垫付时，则网点扣费项就是所垫付的运费/配件费，如果明确指出由乙方支付则网点扣费项为0"
+        expect_format: "期望返回由运费/配件费所计算的网点扣费项"
 
       #（可追加新字段）
       - field_name: ""
@@ -97,92 +97,48 @@ contracts:
 
 
   - contract_type: "销售(改造)与服务合同"
-    contract_description: "<对销售(改造)与服务合同分辨方式的描述>"
+    contract_description: "合同标题有售卖/服务费字样" # 对销售(改造)与服务合同分辨方式的描述
     table_header:
       - field_name: "内部合同号"  # 字段名
         field_description: "用于表示合同的唯一标识ID"  # 对字段名的解释
         expect_format: "不用在此字段填充任何值,该字段的值由后续程序自动生成"  # 对该字段期望返回格式的描述与示例
 
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
+      - field_name: "签订日"
+        field_description: "指合同落款里手写的日期"
+        expect_format: "期望返回合同落款里手写的日期，如“2025/2/28”"
 
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
+      - field_name: "售卖类别"
+        field_description: "指合同里的货品名称的属性，可以是以下三种之一：“寄存柜”，“寄存柜物料”，“智慧行政”"
+        expect_format: "期望返回提取到的货品名称的属性，如“寄存柜”，“智慧行政”，“寄存柜物料”"
 
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
+      - field_name: "签约主体"
+        field_description: "指乙方，即我司"
+        expect_format: "期望返回提取到的乙方公司名，如：“深圳市沐腾科技有限公司”或“深圳市四两九科技有限公司”"
 
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
+      - field_name: "网点名称"
+        field_description: "指甲方场地名"
+        expect_format: "期望返回提取到的甲方场地名，如：“佛山地铁”"
 
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
+      - field_name: "合作方"
+        field_description: "指甲方公司名"
+        expect_format: "期望返回提取到的甲方公司名，如：“佛山市地铁运营有限公司”"
 
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
+      - field_name: "货品名称"
+        field_description: "通过合同里明确指出的商品名称"
+        expect_format: "期望返回提取到的具体商品名称，如：“室内主柜5门”，“锁控系统”，“企业储物柜副柜”"
 
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
+      - field_name: "数量"
+        field_description: "通过合同里货品名称所对应的数量值"
+        expect_format: "期望返回提取到的明确数量，如：“1”、“2”"
 
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
+      - field_name: "单价"
+        field_description: "通过合同里货品名称所对应的单价"
+        expect_format: "期望返回提取到明确的单价，如：“2800”，“2520”"
 
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
+      - field_name: "合同金额"
+        field_description: "通过合同里全部货品的总价，计算规则为单价*数量"
+        expect_format: "期望提取到明确的合同售卖总价，如“2800”，“5040”"
 
-      - field_name: ""
+      - field_name: "收款日期"
         field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
-
-      - field_name: ""
-        field_description: ""
-        expect_format: ""
+        expect_format: "不用在此字段填充任何值,该字段的值由收到款后人工填写"
