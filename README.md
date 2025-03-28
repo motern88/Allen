@@ -9,19 +9,10 @@ Allen：Muti-Agent System by Motern AI
 
 ```
 Allen/
+├── data/
 ├── mas/
-|   ├── agent/
-|   |   ├── base/
-|   |   |   ├── agent_base.py
-|   |   |   └── llm_base.py
-|   |   ├── configs/
-|   |   |   └── llm_config.py
-|   |   ├── skills/
-|   |   ├── state/
-|   |   ├── tools/
-|   |   └── agent.py
-|   ├── role_config
-|   |   └── qwq32b.yamal
+├── example/
+
 ```
 
 
