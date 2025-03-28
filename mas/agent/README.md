@@ -3,6 +3,7 @@
 ```python
 ├──base
 |   ├──agent_base.py  # agent基础类
+|   ├──executor_base.py  # 执行器基础类(为skills与tools定义统一的方法)
 |   └──llm_base.py  # LLM基础调用类
 ├──configs
 |   └──llm_config.py  # LLM配置类 

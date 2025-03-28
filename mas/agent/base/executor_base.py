@@ -1,0 +1,4 @@
+'''
+定义executor基础类，所有的skills与tools都继承自executor基类
+Router类通过type与executor的str返回一个具体执行器，这个执行器具备executor基础类的通用实现方法
+'''
