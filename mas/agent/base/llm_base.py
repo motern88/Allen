@@ -4,7 +4,7 @@
 
 在LLMClient.call中传入单独维度的LLMContext
 '''
-from ..configs.llm_config import LLMConfig
+from mas.agent.configs.llm_config import LLMConfig
 
 import requests
 from typing import Dict, Any, Union, List

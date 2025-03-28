@@ -8,7 +8,7 @@ from typing import Optional
 
 class LLMType(Enum):  # 定义 LLMType 枚举，表示支持的 LLM 类型
     '''
-    当前仅支持OLLAMA
+    当前仅支持OLLAMA与openai
     '''
     OPENAI = "openai"  # OpenAI API
     # ANTHROPIC = "anthropic"  # Anthropic 提供的模型

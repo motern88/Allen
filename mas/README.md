@@ -4,8 +4,11 @@
 
 总览
 
-```
-├──agent
+```python
+├──agent  # 单Agent组件实现
+├──role_config  # 角色配置文件
+├──skills  # 技能
+├──tools  # 工具
 ```
 
 
