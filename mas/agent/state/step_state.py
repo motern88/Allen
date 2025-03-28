@@ -8,7 +8,7 @@ import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import queue
 
-class StepSate:
+class StepState:
     '''
     由Agent生成的最小执行单位。包含LLM的文本回复（思考/反思/规划/决策）或一次工具调用。
 
@@ -31,7 +31,6 @@ class StepSate:
         text_content (str): 文本内容，如果是技能调用则是填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
         instruction_content (str): 指令内容，如果是工具调用则是具体工具命令
         execute_result (str): 执行结果，如果是文本回复则是文本内容，如果是工具调用则是工具返回结果
-
     '''
 
     def __init__(
@@ -132,18 +131,18 @@ class AgentStep:
         step_id: Optional[str] = None,
         stage_id: Optional[str] = None,
         task_id: Optional[str] = None,
-    ) -> Optional[StepState]:
+    ) -> List[StepState]:
         """
         从 step_list 中根据 step_id 获取 step
         如果是 task_id 或 stage_id，会返回所有匹配的 step
         """
         if step_id:
-            return next((step for step in self.step_list if step.step_id == step_id), None)
+            return [next((step for step in self.step_list if step.step_id == step_id), None)]
         elif stage_id:
             return [step for step in self.step_list if step.stage_id == stage_id]
         elif task_id:
             return [step for step in self.step_list if step.task_id == task_id]
-        return None
+        return []
 
     # 更新step状态
     def update_step_status(self, step_id: str, new_state: str):

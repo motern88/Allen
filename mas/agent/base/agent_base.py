@@ -3,11 +3,8 @@ Agent基础类，这里实现关于LLM驱动的相关基础功能，不涉及到
 '''
 
 
-from mas.agent.state.step_state import (
-    StepState,
-    AgentStep
-)
-
+from mas.agent.state.step_state import StepState, AgentStep
+from mas.agent.state.stage_state import StageState
 
 
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
@@ -129,6 +126,7 @@ class AgentBase():
         """
         不断从 agent_state.todo_list 获取 step_id 并执行 step_action
         agent_state.todo_list 是一个queue.Queue()共享队列，用于存放待执行的 step_id
+        对 todo_list.get() 到的每个step执行step_action()
         """
         agent_step = self.agent_state["agent_step"]
 
@@ -140,7 +138,7 @@ class AgentBase():
                 continue
 
             # 2. 根据step_id获取step_state
-            step_state = agent_step.get_step(step_id)
+            step_state = agent_step.get_step(step_id)[0]
 
             # 3. 执行step_action
             self.step_action(step_state)
@@ -167,6 +165,8 @@ class AgentBase():
         task_id = stage_state["task_id"]
         stage_id = stage_state["stage_id"]
         stage_goal_prompt = stage_state["stage_intention"]  # 阶段目标  # TODO:实现stage_state中指定这个Agent做的事情，构造阶段目标提示
+        # TODO:提示词包含可使用的skill与tool权限
+
 
         # 获取
         agent_step = self.agent_state["agent_step"]
@@ -179,12 +179,10 @@ class AgentBase():
                 step_intention = "规划Agent执行当前阶段需要哪些具体step",
                 step_type = "skill",
                 executor = "planning",
-                text_content = stage_goal_prompt
+                text_content = stage_goal_prompt  # TODO提示词的构造
             )
 
-        # 3. Agent执行逻辑的具体实现，不断循环执行当前stage_id的每一个Step的具体Action
-        while True:
-            self.step_action(step_state)
+
 
 
 
