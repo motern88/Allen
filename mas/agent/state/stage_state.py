@@ -1,7 +1,6 @@
 '''
 Agent被分配执行或协作执行一个任务时，任务会由管理Agent拆分成具体阶段Stage。
-阶段内容包含 。
-
+阶段内容包含 所属任务ID与参与阶段的 Agent ID，阶段的意图与每个Agent需要完成的阶段目标，阶段与Agent的状态等。
 '''
 
 import uuid
@@ -16,7 +15,7 @@ class StageState:
         task_id (str): 任务ID，用于标识一个任务的唯一ID
         stage_id (str): 阶段ID，用于标识一个阶段的唯一ID
 
-        step_intention (str): 阶段的意图, 由创建Agent填写(仅作参考并不需要匹配特定格式)。例如：'Extract contract information and archive it...'
+        stage_intention (str): 阶段的意图, 由创建Agent填写(仅作参考并不需要匹配特定格式)。例如：'Extract contract information and archive it...'
         agent_allocation (Dict[<agent_id>, <stage_goal>]):
             阶段中Agent的分配情况，key为Agent ID，value为Agent在这个阶段职责的详细说明
 
@@ -29,6 +28,8 @@ class StageState:
             "idle" 空闲
             "working" 工作中
             "offline" 离线
+
+        completion_summary (Dict[<agent_id>, <completion_summary>]): 阶段中每个Agent的完成情况
     '''
 
     def __init__(
@@ -51,7 +52,14 @@ class StageState:
         self.execution_state = execution_state  # 阶段整体状态 'init', 'running', 'finished', 'failed'
         self.every_agent_state = every_agent_state or {}  # 每个Agent的状态
 
-    def update
+        # 完成情况
+        self.completion_summary = {}  # Dict[<agent_id>, <completion_summary>] 阶段中每个Agent的完成情况总结
+
+    def update_agent_state(self, agent_id: str, state: str):
+        '''
+        更新阶段中某个Agent的状态
+        '''
+        self.every_agent_state[agent_id] = state
 
 
 

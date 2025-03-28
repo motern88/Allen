@@ -28,9 +28,11 @@ class StepState:
             'finished' 已完成
             'failed' 失败（步骤执行异常终止）
 
-        text_content (str): 文本内容，如果是技能调用则是填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
-        instruction_content (str): 指令内容，如果是工具调用则是具体工具命令
-        execute_result (str): 执行结果，如果是文本回复则是文本内容，如果是工具调用则是工具返回结果
+        text_content (str): 文本内容，
+            如果是技能调用则是填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
+            step中的这个属性是只包含当前步骤目标的提示词，不包含Agent自身属性（如技能与工具权限）的提示词
+        instruction_content (Dict[str, Any]): 指令内容，如果是工具调用则是具体工具命令  TODO：Dict[str, Any]具体格式
+        execute_result (Dict[str, Any]): 执行结果，如果是文本回复则是文本内容，如果是工具调用则是工具返回结果  TODO：Dict[str, Any]具体格式
     '''
 
     def __init__(
@@ -42,7 +44,7 @@ class StepState:
         step_type: str,
         executor: str,  # TODO：实现一个executor的枚举类用于约束该字段
         execution_state: str = "init",  # 'init', 'pending', 'running', 'finished', 'failed'
-        text_content: Optional[Dict[str, Any]] = None,
+        text_content: Optional[str] = None,
         instruction_content: Optional[Dict[str, Any]] = None,
         execute_result: Optional[Dict[str, Any]] = None,
     ):

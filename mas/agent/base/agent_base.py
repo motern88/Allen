@@ -12,6 +12,9 @@ import threading
 import queue
 import time
 
+from develop开发中.MetaGPT.metagpt.ext.stanford_town.memory.retrieve import agent_retrieve
+
+
 class AgentBase():
     '''
     基础Agent类，定义各基础模块的流转逻辑
@@ -96,6 +99,9 @@ class AgentBase():
 
         return agent_state
 
+    # 上：初始化
+    # ---------------------------------------------------------------------------------------------
+    # 下：Agent的执行逻辑
 
     def step_action(
         self,
@@ -149,42 +155,49 @@ class AgentBase():
             # 5. 通知队列任务完成
             agent_step.todo_list.task_done()
 
+    # 上：Agent的执行逻辑
+    # ---------------------------------------------------------------------------------------------
+    # 下：Agent的任务逻辑
 
     def start_stage(
         self,
         stage_state: StageState,  # Agent从当前StageState来获取信息明确目标
     ):
         '''
-        用于开始一个任务阶段:
+        用于开始一个任务阶段:一个stage的第一个step必定是planning方法
 
         1. 从stage_state中获取当前阶段的目标
-        2. 如果当前stage没有任何step，则增加一个规划step
+        2. 构造Agent规划当前阶段的提示词
+        3. 如果当前stage没有任何step，则增加一个规划step
         '''
+        agent_id = self.agent_state["agent_id"]
 
-        # 1. 从stage_state中获取当前阶段的目标等属性  # TODO:实现stage_state类
+        # 1. 从stage_state中获取当前阶段的目标等属性
         task_id = stage_state["task_id"]
         stage_id = stage_state["stage_id"]
-        stage_goal_prompt = stage_state["stage_intention"]  # 阶段目标  # TODO:实现stage_state中指定这个Agent做的事情，构造阶段目标提示
-        # TODO:提示词包含可使用的skill与tool权限
+        stage_intention = stage_state["stage_intention"]  # 整体阶段目标 (str)
+        agent_goal = stage_state["agent_allocation"][agent_id]  # 阶段中这个Agent自己的目标
 
+        # 2. 构造Agent规划当前阶段的提示词
+        agent_stage_prompt = (f"你被分配协助完成当前阶段stage的目标。"
+                              f"当前阶段整体目标为：{stage_intention},"
+                              f"你的所负责的具体目标为：{agent_goal}")
 
-        # 获取
-        agent_step = self.agent_state["agent_step"]
-
-        # 2. 如果没有任何step,则增加step_0,一个规划模块
-        if len(agent_step.get_step(stage_id=stage_id)) == 0:
+        # 3. 如果没有任何step,则增加step_0,一个规划模块
+        if len(self.agent_state["agent_step"].get_step(stage_id=stage_id)) == 0:
             self.add_step(
                 task_id = task_id,
                 stage_id = stage_id,
                 step_intention = "规划Agent执行当前阶段需要哪些具体step",
                 step_type = "skill",
                 executor = "planning",
-                text_content = stage_goal_prompt  # TODO提示词的构造
+                text_content = agent_stage_prompt
             )
 
 
-
-
+    # 上：Agent的任务逻辑
+    # ---------------------------------------------------------------------------------------------
+    # 下：Agent的工具方法
 
 
     def add_step(
@@ -194,7 +207,7 @@ class AgentBase():
         step_intention: str,  # Step的目的
         step_type: str,  # Step的类型 'skill', 'tool'
         executor: str,  # Step的执行模块
-        text_content: Optional[Dict[str, Any]] = None,  # Step的文本内容
+        text_content: Optional[str] = None,  # Step的文本内容
         instruction_content: Optional[Dict[str, Any]] = None,  # Step的指令内容
     ):
         '''
@@ -209,7 +222,7 @@ class AgentBase():
             step_type = step_type,
             executor = executor,
             execution_state = "init",  # 'init', 'pending', 'running', 'finished', 'failed'
-            text_content = text_content,  # Optional[Dict[str, Any]]
+            text_content = text_content,  # Optional[str]
             instruction_content = instruction_content,  # Optional[Dict[str, Any]]
             execute_result = None,  # Optional[Dict[str, Any]]
         )
