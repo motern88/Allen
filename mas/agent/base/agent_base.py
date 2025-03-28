@@ -8,12 +8,21 @@ from mas.agent.state.step_state import (
     AgentStep
 )
 
-from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
+
+from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
+import threading
+import queue
+import time
 
 class AgentBase():
     '''
     基础Agent类，定义各基础模块的流转逻辑
+
+    整体分为两个部分，执行线程和任务分发线程
+    执行线程action方法只负责执行每一个step，有新的step就执行新的step。
+    任务线程用于管理任务进度，（当一个任务阶段的所有step都执行完毕后，再执行下一个任务阶段）。
+
     '''
     def __init__(
         self,
@@ -21,10 +30,22 @@ class AgentBase():
         config,  # Agent配置文件
     ):
 
-
+        # 初始化路由器 # TODO: 实现路由器,接收一个type和executor的str，返回一个具体执行器
+        self.router = None
+        # TODO: 实现状态同步器
+        self.sync_state = None
         # 初始化Agent状态
-        self.agent_state = self.init_agent_state(agent_id)  # TODO: 传入字段
-        pass
+        self.agent_state = self.init_agent_state(
+            agent_id,
+            name,
+            role,
+            profile,
+            working_memory,
+            tools,
+            skills,
+            llm_config,
+        )  # TODO: 传入字段的获取来源
+
 
     # Agent被实例化时需要初始化自己的 agent_state, agent_state 会被持续维护用于记录Agent的基本信息、状态与记忆。
     # 不同的Agent唯一的区别就是 agent_state 的区别
@@ -59,8 +80,8 @@ class AgentBase():
         agent_state["llm_config"] = llm_config
 
         # TODO:Agent工作记忆
-        # Agent工作记忆 {<task_id>: {<stage_id>: {<step_id>: <step_state>,...},...},...}
-        # Agent工作记忆以任务视角，包含多个task，每个task多个stage，每个stage多个step的状态信息
+        # Agent工作记忆 {<task_id>: {<stage_id>: [<step_id>,...],...},...} 记录Agent还未完成的属于自己的任务
+        # Agent工作记忆以任务视角，包含多个task，每个task多个stage，每个stage多个step
         agent_state["working_memory"] = working_memory if working_memory else {}
 
         # TODO:Agent持续性记忆
@@ -79,38 +100,78 @@ class AgentBase():
         return agent_state
 
 
-    def action_step(
+    def step_action(
         self,
-
+        step_state: StepState,  # Agent从当前StepState来获取信息明确目标
     ):
         '''
-        执行每一个Step的具体Action
+        执行单个step_state的具体Action
+        1. 根据Step的executor执行具体的Action，由路由器分发执行器
+        2. 执行器执行
+        3. 更新Step的执行状态
         '''
-        pass
+        # 更新step状态为执行中 running
+        step_state.update_execution_state("running")  # 更新step状态为running
+
+        # 1. 根据Step的executor执行具体的Action，由路由器分发执行
+        # TODO: 实现路由器,接收一个type和executor的str，返回一个具体执行器
+        executor = self.router(type=step_state.type, executor=step_state.executor)
+
+        # 2. 执行路由器返回的执行器
+        # TODO: 实现执行器 与 执行器executor_base的基类
+        executor_output = executor.execute(step_state)
+
+        # 3. 更新Step的执行结果与执行状态
+        self.sync_state(executor_output)
 
 
-    def action_stage(
+    def action(self):
+        """
+        不断从 agent_state.todo_list 获取 step_id 并执行 step_action
+        agent_state.todo_list 是一个queue.Queue()共享队列，用于存放待执行的 step_id
+        """
+        agent_step = self.agent_state["agent_step"]
+
+        while True:
+            # 1. 从agent_state.todo_list获取step_id
+            step_id = agent_step.todo_list.get()
+            if step_id is None:
+                time.sleep(1)  # 队列为空时等待，避免 CPU 空转
+                continue
+
+            # 2. 根据step_id获取step_state
+            step_state = agent_step.get_step(step_id)
+
+            # 3. 执行step_action
+            self.step_action(step_state)
+
+            print("打印所有step_state:")
+            agent_step.print_all_steps()  # 打印所有step_state
+
+            # 5. 通知队列任务完成
+            agent_step.todo_list.task_done()
+
+
+    def start_stage(
         self,
         stage_state: StageState,  # Agent从当前StageState来获取信息明确目标
     ):
         '''
-        Agent执行当前 任务-阶段 的目标的具体实现:
+        用于开始一个任务阶段:
 
         1. 从stage_state中获取当前阶段的目标
-        2. Agent执行逻辑的具体实现，不断循环执行每一个Step的具体Action
+        2. 如果当前stage没有任何step，则增加一个规划step
         '''
 
-        # 1.从stage_state中获取当前阶段的目标等属性  # TODO:实现stage_state类
+        # 1. 从stage_state中获取当前阶段的目标等属性  # TODO:实现stage_state类
         task_id = stage_state["task_id"]
         stage_id = stage_state["stage_id"]
-        stage_goal_prompt = stage_state[]  # 阶段目标  # TODO:实现stage_state中指定这个Agent做的事情，构造阶段目标提示
-
-
+        stage_goal_prompt = stage_state["stage_intention"]  # 阶段目标  # TODO:实现stage_state中指定这个Agent做的事情，构造阶段目标提示
 
         # 获取
         agent_step = self.agent_state["agent_step"]
 
-        # 如果没有任何step,则增加step_0,一个规划模块
+        # 2. 如果没有任何step,则增加step_0,一个规划模块
         if len(agent_step.get_step(stage_id=stage_id)) == 0:
             self.add_step(
                 task_id = task_id,
@@ -120,6 +181,10 @@ class AgentBase():
                 executor = "planning",
                 text_content = stage_goal_prompt
             )
+
+        # 3. Agent执行逻辑的具体实现，不断循环执行当前stage_id的每一个Step的具体Action
+        while True:
+            self.step_action(step_state)
 
 
 
@@ -151,9 +216,16 @@ class AgentBase():
             execute_result = None,  # Optional[Dict[str, Any]]
         )
 
+        if step_type == "tool" and instruction_content is None:
+            # 如果是工具调用且没有具体指令，则状态为待填充 pending
+            step_state.update_execution_state = "pending"
+
         # 2. 添加一个该Step到agent_step中
         agent_step = self.agent_state["agent_step"]
         agent_step.add_step(step_state)
+
+        # 3. 返回添加的step_id, 记录在工作记忆中  # TODO:实现工作记忆
+        self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
 
 
 

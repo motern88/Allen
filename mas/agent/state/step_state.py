@@ -6,6 +6,7 @@ Agent被分配执行或协作执行一个阶段时，Agent会为自己规划数�
 '''
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
+import queue
 
 class StepSate:
     '''
@@ -87,19 +88,25 @@ class AgentStep:
     Agent的执行步骤管理类，用于管理Agent的执行步骤列表。
     包括添加、删除、修改、查询等操作。
 
-    初始化会对应上agent_id，会初始化一个step_list用于承载StepState，同时记录当前执行到的步骤索引为-1表示未开始执行
-    Agent执行Action是按照step_list的索引顺序执行，但是更新与修改操作可以根据step_id、stage_id、task_id操作
+    初始化会对应上agent_id，会初始化一个step_list用于承载StepState，同时将每个未执行的StepState的step_id放入todo_list中。
+    Agent执行Action是按照todo_list的共享队列顺序执行，但是更新与修改操作可以根据step_id、stage_id、task_id操作
     '''
     def __init__(self, agent_id: str):
         self.agent_id = agent_id
-        self.step_list: List[StepState] = []
-        self.current_step_index: int = -1  # 记录当前执行到的步骤索引，-1表示未开始执行
+        self.todo_list = queue.Queue()  # 只存放待执行的 step_id，执行者从队列里取出任务进行处理，一旦执行完就不会再回到 todo_list
+        self.step_list: List[StepState] = []  # 持续记录所有 StepState，即使执行完毕也不会被删除，方便后续查询、状态更新和管理。
 
     # 添加step
     def add_step(self, step: StepState) -> int:
-        """添加新的 step 到队列，返回 step_idx（索引）"""
+        """
+        添加新的 step 到队列
+        如果 step 未被执行过，则自动添加到待执行队列todo_list
+        """
         self.step_list.append(step)
-        return len(self.step_list) - 1  # 返回新 step 的索引作为 step_id
+        # 如果step未被执行过，则添加到待执行队列
+        if step.execution_state not in ["finished", "failed"]:
+            self.todo_list.put(step.step_id)
+            print(f"step {step.step_id} 已添加到todo_list")
 
     # 移除step
     def remove_step(
@@ -122,18 +129,15 @@ class AgentStep:
     # 获取step
     def get_step(
         self,
-        step_idx: Optional[int] = None,
         step_id: Optional[str] = None,
         stage_id: Optional[str] = None,
         task_id: Optional[str] = None,
     ) -> Optional[StepState]:
         """
-        根据 step_idx（索引） 或 step_id 获取 step
+        从 step_list 中根据 step_id 获取 step
         如果是 task_id 或 stage_id，会返回所有匹配的 step
         """
-        if step_idx is not None and 0 <= step_idx < len(self.step_list):
-            return self.step_list[step_idx]
-        elif step_id:
+        if step_id:
             return next((step for step in self.step_list if step.step_id == step_id), None)
         elif stage_id:
             return [step for step in self.step_list if step.stage_id == stage_id]
@@ -142,9 +146,9 @@ class AgentStep:
         return None
 
     # 更新step状态
-    def update_step_status(self, step_idx: int, new_state: str):
+    def update_step_status(self, step_id: str, new_state: str):
         """更新 step 执行状态"""
-        step = self.get_step(step_idx)
+        step = self.get_step(step_id=step_id)
         if step:
             step.update_execution_state(new_state)
 
