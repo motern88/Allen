@@ -5,7 +5,7 @@ Agent基础类，这里实现关于LLM驱动的相关基础功能，不涉及到
 
 from mas.agent.state.step_state import StepState, AgentStep
 from mas.agent.state.stage_state import StageState
-
+from mas.agent.base.router import Router
 
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import threading
@@ -29,9 +29,7 @@ class AgentBase():
         agent_id: str,  # Agent ID 由更高层级的Agent管理器生成，不由配置文件中读取
         config,  # Agent配置文件
     ):
-
-        # 初始化路由器 # TODO: 实现路由器,接收一个type和executor的str，返回一个具体执行器
-        self.router = None
+        self.router = Router()  # 在action中用于分发具体executor的路由器
         # TODO: 实现状态同步器
         self.sync_state = None
         # 初始化Agent状态
@@ -105,7 +103,9 @@ class AgentBase():
 
     def step_action(
         self,
-        step_state: StepState,  # Agent从当前StepState来获取信息明确目标
+        step_id,
+        step_type,
+        step_executor,
     ):
         '''
         执行单个step_state的具体Action
@@ -114,18 +114,19 @@ class AgentBase():
         3. 更新Step的执行状态
         '''
         # 更新step状态为执行中 running
-        step_state.update_execution_state("running")  # 更新step状态为running
+        self.agent_state["agent_step"].update_step_execution_state(step_id, "running")
 
         # 1. 根据Step的executor执行具体的Action，由路由器分发执行
-        # TODO: 实现路由器,接收一个type和executor的str，返回一个具体执行器
-        executor = self.router(type=step_state.type, executor=step_state.executor)
+        # 接收一个type和executor的str，返回一个具体执行器
+        executor = self.router.get_executor(type=step_type, executor=step_executor)
 
         # 2. 执行路由器返回的执行器
-        # TODO: 实现执行器 与 执行器executor_base的基类
-        executor_output = executor.execute(step_state)
+        executor_output, self.agent_state = executor.execute(step_id=step_id, agent_state=self.agent_state)  # 部分执行器需要具备操作agent本身的能力
+        # TODO:这里self.agent_state不要直接同步，这样的话执行线程对agent_state的修改会覆盖任务线程对agent_state的修改
+        # TODO:可以尝试在执行过程中锁住self.agent_state, 等execute的执行结果agent_state优先覆盖self.agent_state后再放开，允许任务分配线程更新self.agent_state
 
         # 3. 更新Step的执行结果与执行状态
-        self.sync_state(executor_output)
+        self.agent_state = self.sync_state(executor_output, self.agent_state)  # TODO:实现状态同步器
 
 
     def action(self):
@@ -145,9 +146,11 @@ class AgentBase():
 
             # 2. 根据step_id获取step_state
             step_state = agent_step.get_step(step_id)[0]
+            step_type = step_state.step_type
+            step_executor = step_state.executor
 
             # 3. 执行step_action
-            self.step_action(step_state)
+            self.step_action(step_id, step_type, step_executor)
 
             print("打印所有step_state:")
             agent_step.print_all_steps()  # 打印所有step_state
@@ -232,14 +235,10 @@ class AgentBase():
             step_state.update_execution_state = "pending"
 
         # 2. 添加一个该Step到agent_step中
-        agent_step = self.agent_state["agent_step"]
-        agent_step.add_step(step_state)
+        self.agent_state["agent_step"].add_step(step_state)
 
         # 3. 返回添加的step_id, 记录在工作记忆中  # TODO:实现工作记忆
         self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
-
-
-
 
 
 
