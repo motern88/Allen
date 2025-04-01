@@ -4,9 +4,12 @@
 
 Planning需要有操作Agent中AgentStep的能力，AgentStep是Agent的执行步骤管理器，用于管理Agent的执行步骤列表。
 '''
+import re
+import json
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor
+from mas.agent.base.llm_base import LLMContext, LLMClient
 
 # 注册规划技能到类型 "skill", 名称 "planning"
 @Executor.register(executor_type="skill", executor_name="planning")
@@ -14,6 +17,25 @@ class PlanningSkill(Executor):
     def __init__(self):
         super().__init__()  # 调用父类的构造方法（如果有）
 
+    def extract_planned_step(self, text: str) -> Optional[List[Dict[str, Any]]]:
+        '''
+        从文本中提取规划步骤
+        '''
+        # 使用正则表达式提取 <planned_step> ... </planned_step> 之间的内容
+        match = re.search(r"<planned_step>\s*(.*?)\s*</planned_step>", text, re.DOTALL)
+
+        if match:
+            step_content = match.group(1)  # 获取匹配内容
+            try:
+                # 将字符串解析为 Python 列表
+                planned_step = json.loads(step_content)
+                return planned_step
+            except json.JSONDecodeError:
+                print("解析 JSON 失败，请检查格式")
+                return None
+        else:
+            print("未找到 <planned_step> 标记")
+            return None
 
     def get_planning_prompt(self, step_id, agent_state):
         '''
@@ -31,9 +53,10 @@ class PlanningSkill(Executor):
         agent_role_prompt = self.get_agent_role_prompt(agent_state)  # 包含 # 二级标题的md格式文本
 
         # 2.组装Agent工具与技能权限提示词
-        agent_skills = agent_state["skills"]
-        agent_tools = agent_state["tools"]
-        available_skills_and_tools = self.get_skill_and_tool_prompt(agent_skills, agent_tools)  # 包含 # 二级标题的md格式文本
+        available_skills_and_tools = self.get_skill_and_tool_prompt(
+            agent_state["skills"],
+            agent_state["tools"]
+        )  # 包含 # 二级标题的md格式文本
 
         # 3.组装Agent持续性记忆提示词
         persistent_memory = self.get_persistent_memory_prompt(agent_state)  # 包含 # 二级标题的md格式文本
@@ -68,13 +91,30 @@ class PlanningSkill(Executor):
         # 获取MAS系统的基础提示词
         base_prompt = self.get_base_prompt(key="base_prompt")  # 包含 # 一级标题的md格式文本
         # 获取Planning技能的提示词
-        prompt = self.get_planning_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
+        skill_prompt = self.get_planning_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
 
-        # TODO 2. LLM调用
+        # 2. LLM调用
+        llm_config = agent_state["llm_config"]
+        llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
+        chat_context = LLMContext(context_size=15)  # 创建一个对话上下文, 限制上下文轮数 15
+
+        chat_context.add_message("user", base_prompt)
+        response = llm_client.call(skill_prompt, context=chat_context)
+        print(response)
+
+        # 3. 权限判定，保证Planning的多个step不超出Agent的权限范畴
+        planned_step = self.extract_planned_step(response)
+        not_allowed_executors = []
+        for step in planned_step:
+            if step["type"] is "skill" and step["executor"] not in agent_state["skills"]:
+                not_allowed_executors.append(step["executor"])
+            if step["type"] is "tool" and step["executor"] not in agent_state["tools"]:
+                not_allowed_executors.append(step["executor"])
+
+        # TODO
 
 
-
-
+        # 如果超出，给出提示并重新 <2. LLM调用> 进行规划
 
 
         return executor_output, agent_state
