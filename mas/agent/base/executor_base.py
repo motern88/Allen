@@ -38,7 +38,7 @@ class Executor(ABC):
         return wrapper
 
     @abstractmethod
-    def execute(self, step_state: StepState) -> None:
+    def execute(self, step_id: str, agent_state: Dict[str, Any]):
         """由子类必须实现的具体execute方法"""
         pass
 
@@ -109,13 +109,80 @@ class Executor(ABC):
                 md_output.append(f"- **{tool_name}**: {tool_prompt}")
         return "\n".join(md_output)
 
-    # TODO：实现组装Agent角色背景提示词
+    # MAS系统的基础提示词
+    def get_base_prompt(self, base_prompt="mas/agent/base/base_prompt.yaml", key="base_prompt"):
+        '''
+        获取MAS系统的基础提示词, 该方法供子类使用
+        获取到yaml文件中以base_prompt为键的值：包含 # 一级标题的md格式文本
+        '''
+        with open(base_prompt, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)[key]
+
+    # Role角色提示词
     def get_agent_role_prompt(self, agent_state):
         '''
         组装Agent角色背景提示词，该方法供子类使用
         '''
         md_output = []
         md_output.append("## agent_role\n")
+        md_output.append(
+            "**你是一个智能Agent，具有自己的角色和特点。这个章节agent_role是关于你的身份设定，请牢记它，你接下来任何事情都是以这个身份进行的:**\n"
+        )
+        md_output.append(
+            f"**Name(你的名字)**: {agent_state['name']}\n"
+            f"**Role(你的角色)**: {agent_state['role']}\n"
+            f"**Profile(你的简介)**: {agent_state['profile']}"
+        )
+
+        return "\n".join(md_output)
+
+    # Agent持续性记忆提示词
+    def get_persistent_memory_prompt(self, agent_state):
+        '''
+        组装Agent持续性记忆提示词，该方法供子类使用
+        '''
+        md_output = []
+        md_output.append("## persistent_memory\n")
+        md_output.append(
+            "**这里是你的持续性记忆，它完全由你自己编写，记录了一些你认为非常重要且需要及时查看的信息**:\n"
+        )
+        md_output.append(agent_state["persistent_memory"])
+
+        return "\n".join(md_output)
+
+    # 组装Agent当前执行的skill_step的提示词
+    def get_current_skill_step_prompt(self, step_id, agent_state):
+        '''
+        组装Agent当前执行的技能Step的提示词，该方法供子类使用
+
+        1.当前步骤的简要意图
+        2.技能规则提示
+        3.从step.text_content获取的具体目标
+
+        '''
+        step_state = agent_state["agent_step"].get_step(step_id)
+        skill_config = self.load_skill_config(step_state.executor)
+
+        md_output = []
+        md_output.append("## current_step\n")
+        md_output.append(
+            "**这是你当前需要执行的步骤！你将结合背景设定、你的角色agent_role、持续记忆persistent_memory、来遵从当前步骤(本小节'current_step')的提示完成具体目标**:\n"
+        )
+
+        md_output.append(f"**当前步骤的简要意图**: {step_state.step_id}\n")
+        md_output.append(f"{skill_config["use_prompt"].get("skill_prompt", "暂无描述")}\n")
+        md_output.append(f"**return_format**: {skill_config["use_prompt"].get("return_format", "暂无描述")}\n")
+
+        md_output.append(f"**你使用当前技能的具体目标**: {step_state.text_content}\n")
+
+        return "\n".join(md_output)
+
+    # TODO:组装Agent当前执行的tool_step的提示词
+    def get_current_tool_step_prompt(self, step_id, agent_state):
+        '''
+        组装Agent当前执行的工具Step的提示词，该方法供子类使用
+        '''
+        pass
 
 
 

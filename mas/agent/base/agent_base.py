@@ -80,11 +80,12 @@ class AgentBase():
         # TODO:Agent工作记忆
         # Agent工作记忆 {<task_id>: {<stage_id>: [<step_id>,...],...},...} 记录Agent还未完成的属于自己的任务
         # Agent工作记忆以任务视角，包含多个task，每个task多个stage，每个stage多个step
+        # 注意：工作记忆不要放到提示词里面，提示词里面放持续性记忆
         agent_state["working_memory"] = working_memory if working_memory else {}
 
         # TODO:Agent持续性记忆
         # 永久追加精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空
-        agent_state["persistent_memory"] = {}
+        agent_state["persistent_memory"] = ""  # md格式纯文本，里面只能用三级标题 ### 及以下！不允许出现一二级标题！
 
         # 初始化AgentStep,用于管理Agent的执行步骤列表
         # （一般情况下步骤中只包含当前任务当前阶段的步骤，在下一个阶段时，
