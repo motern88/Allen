@@ -11,8 +11,8 @@ contracts:
         expect_format: "不用在此字段填充任何值,该字段的值由后续程序自动生成"  # 对该字段期望返回格式的描述与示例
 
       - field_name: "登记月份"
-        field_description: "提取表格信息的时间，一般指现在"
-        expect_format: "期望返回当前的年月时间，如：2025年2月"
+        field_description: "提取表格信息的时间，一般指当前日期（now）"
+        expect_format: "不用在此字段填充任何值,该字段的值由后续程序自动生成"
 
       - field_name: "合同起始日"
         field_description: "合同中明确指出有效期开始时间"
@@ -39,16 +39,40 @@ contracts:
         expect_format: "期望返回“寄存柜”或“员工柜”"
 
       - field_name: "柜子数"
+        field_type: "dynamic_count"
         field_description: "所有主柜数量和所有副柜数量，需根据表格内容进行统计，若表格中存在多个主柜或副柜，需分别加和计算。若柜子分为投放柜和改造柜，则需分别统计并注明"
-        expect_format: "期望返回统计后的所有主柜数量和所有副柜数量，如“3主2副”或“投放柜2主4副，改造柜2主3副”"
+        table_identifier:
+          header_keywords: ["名称及配置", "数量"]   # 通过表头定位表格
+        rules:
+          main_keywords: ["主柜", "主箱"]  # 支持多关键词
+          sub_keywords: ["副柜", "副箱"]
+          special_type: ["投放柜", "改造柜"]
+        expect_format: "类型统计，如“投放柜2主3副”"
+        # expect_format: "期望返回统计后的所有主柜数量和所有副柜数量，如“3主2副”或“投放柜2主4副，改造柜2主3副”"
 
       - field_name: "柜子总价"
+        field_type: "dynamic_sum"
         field_description: "所有主柜和所有副柜的总价格，需根据表格内容进行统计，注意：只包含柜子，不用算上运费和配件的金额"
-        expect_format: "期望返回所有主柜和所有副柜的总价格，如“11000”"
+        table_identifier:
+          header_keywords: ["小计","金额"]
+        rules:
+          item_patterns:
+            include: ["*主柜.*","*副柜.*", "*柜体.*"]
+            exclude: ["运费", "配件", "安装费"]
+          amount_clean:
+            regex: "[^0-9.]"
+        expect_format: "浮点数，如11000.00"
+        # expect_format: "期望返回所有主柜和所有副柜的总价格，如“11000”"
 
       - field_name: "运费"
+        field_type: "dynamic_find"
         field_description: "指总共的运输费用"
-        expect_format: "期望返回提取到的运费金额。如“800”"
+        table_identifier:
+          header_keywords: ["费用项", "小计"]
+        rules:
+          row_pattern: "运费|运输费|物流费"       # 正则表达式模式
+          amount_column: -1                      # 最后一列
+        expect_format: "浮点数，如“800.00”"
 
       - field_name: "配件"
         field_description: "表格中所有非柜子物品的总价"
