@@ -3,7 +3,7 @@
 api_type: "ollama"
 base_url: "http://192.168.30.16:11434/api"
 model: "qwq:32b"
-max_tokens: 2048
-temperature: 0.9
-timeout: 300
+max_tokens: 8192
+temperature: 0.1
+timeout: 600
 

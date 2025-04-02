@@ -44,6 +44,9 @@ class AgentBase():
             llm_config,
         )  # TODO: 传入字段的获取来源
 
+        # 初始化线程锁
+        self.agent_state_lock = threading.Lock()
+
 
     # Agent被实例化时需要初始化自己的 agent_state, agent_state 会被持续维护用于记录Agent的基本信息、状态与记忆。
     # 不同的Agent唯一的区别就是 agent_state 的区别
@@ -122,12 +125,11 @@ class AgentBase():
         executor = self.router.get_executor(type=step_type, executor=step_executor)
 
         # 2. 执行路由器返回的执行器
-        executor_output, self.agent_state = executor.execute(step_id=step_id, agent_state=self.agent_state)  # 部分执行器需要具备操作agent本身的能力
-        # TODO:这里self.agent_state不要直接同步，这样的话执行线程对agent_state的修改会覆盖任务线程对agent_state的修改
-        # TODO:可以尝试在执行过程中锁住self.agent_state, 等execute的执行结果agent_state优先覆盖self.agent_state后再放开，允许任务分配线程更新self.agent_state
+        with self.agent_state_lock:  # 防止任务分配线程与任务执行线程同时修改agent_state，这里优先保证任务执行线程的修改
+            executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state)  # 部分执行器需要具备操作agent本身的能力
 
         # 3. 更新Step的执行结果与执行状态
-        self.agent_state = self.sync_state(executor_output, self.agent_state)  # TODO:实现状态同步器
+        self.agent_state = self.sync_state(executor_output, self.agent_state)  # TODO:实现状态同步器，根据executor_output更新相应状态
 
 
     def action(self):
