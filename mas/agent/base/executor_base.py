@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import yaml
 import os
-
+import re
 
 
 class Executor(ABC):
@@ -94,7 +94,7 @@ class Executor(ABC):
         if agent_skills:
             md_output.append("### 可用技能 skills\n")
             for skill in agent_skills:
-                config = self.load_skill_config(f"{skill}_config.yaml")  # 读取 YAML
+                config = self.load_skill_config(skill)  # 读取 YAML
                 skill_name = config["use_guide"].get("skill_name", skill)
                 skill_prompt = config["use_guide"].get("description", "暂无描述")
                 md_output.append(f"- **{skill_name}**: {skill_prompt}")
@@ -103,14 +103,14 @@ class Executor(ABC):
         if agent_tools:
             md_output.append("\n### 可用工具 tools\n")
             for tool in agent_tools:
-                config = self.load_tool_config(f"{tool}_config.yaml")  # 读取 YAML
+                config = self.load_tool_config(tool)  # 读取 YAML
                 tool_name = config["use_guide"].get("tool_name", tool)
                 tool_prompt = config["use_guide"].get("description", "暂无描述")
                 md_output.append(f"- **{tool_name}**: {tool_prompt}")
         return "\n".join(md_output)
 
     # MAS系统的基础提示词
-    def get_base_prompt(self, base_prompt="mas/agent/base/base_prompt.yaml", key="base_prompt"):
+    def get_base_prompt(self, base_prompt="mas/agent/base/base_prompt.yaml", key="system_prompt"):
         '''
         获取MAS系统的基础提示词, 该方法供子类使用
         获取到yaml文件中以base_prompt为键的值：包含 # 一级标题的md格式文本
@@ -144,11 +144,24 @@ class Executor(ABC):
         md_output = []
         md_output.append("## persistent_memory\n")
         md_output.append(
-            "**这里是你的持续性记忆，它完全由你自己编写，记录了一些你认为非常重要且需要及时查看的信息**:\n"
+            "**这里是你的持续性记忆，它完全由过去的你自己编写，记录了一些过去的你认为非常重要且现在的你可能需要及时查看或参考的信息**:\n"
         )
         md_output.append(agent_state["persistent_memory"])
 
         return "\n".join(md_output)
+
+    def extract_persistent_memory(self, response):
+        '''
+        从文本中解析持续性记忆，该方法供子类使用
+        '''
+        # 使用正则表达式提取 <persistent_memory> ... </persistent_memory> 之间的内容
+        match = re.search(r"<persistent_memory>\s*(.*?)\s*</persistent_memory>", response, re.DOTALL)
+
+        if match:
+            step_content = match.group(1)  # 获取匹配内容
+            return step_content
+        else:
+            return None
 
     # 组装Agent当前执行的skill_step的提示词
     def get_current_skill_step_prompt(self, step_id, agent_state):
@@ -156,11 +169,11 @@ class Executor(ABC):
         组装Agent当前执行的技能Step的提示词，该方法供子类使用
 
         1.当前步骤的简要意图
-        2.技能规则提示
-        3.从step.text_content获取的具体目标
+        2.从step.text_content获取的具体目标
+        3.技能规则提示
 
         '''
-        step_state = agent_state["agent_step"].get_step(step_id)
+        step_state = agent_state["agent_step"].get_step(step_id)[0]
         skill_config = self.load_skill_config(step_state.executor)
 
         md_output = []
@@ -169,11 +182,13 @@ class Executor(ABC):
             "**这是你当前需要执行的步骤！你将结合背景设定、你的角色agent_role、持续记忆persistent_memory、来遵从当前步骤(本小节'current_step')的提示完成具体目标**:\n"
         )
 
+        skill_prompt = skill_config["use_prompt"].get("skill_prompt", "暂无描述")
+        return_format = skill_config["use_prompt"].get("return_format", "暂无描述")
         md_output.append(f"**当前步骤的简要意图**: {step_state.step_id}\n")
-        md_output.append(f"{skill_config["use_prompt"].get("skill_prompt", "暂无描述")}\n")
-        md_output.append(f"**return_format**: {skill_config["use_prompt"].get("return_format", "暂无描述")}\n")
+        md_output.append(f"**需要用技能实现的具体目标**: {step_state.text_content}\n")
 
-        md_output.append(f"**你使用当前技能的具体目标**: {step_state.text_content}\n")
+        md_output.append(f"{skill_prompt}\n")
+        md_output.append(f"**return_format**: {return_format}\n")
 
         return "\n".join(md_output)
 

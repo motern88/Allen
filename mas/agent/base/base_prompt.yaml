@@ -1,4 +1,4 @@
-base_prompt: |
+system_prompt: |
   # 基础设定
   你必须牢记基础设定的内容，这对于你的工作至关重要。
   
@@ -84,4 +84,67 @@ base_prompt: |
   工具的定义是LLM本身所不具备的能力，而通过访问Agent外部模块接口实现的一系列功能。相比于技能，工具更接近现实世界的交互行为，能够获取或改变Agent系统外的事物。
   工具库包括向量数据库检索增强生成 `rag`、搜索引擎 `search_engine`、光学字符识别 `ocr` 等。
   
+  ### Step State
+  本小节将简要介绍 step_state 涉及的字段
   
+  属性:
+    task_id (str): 任务ID，用于标识一个任务的唯一ID
+    stage_id (str): 阶段ID，用于标识一个阶段的唯一ID
+    agent_id (str): Agent ID，用于标识一个Agent的唯一ID
+    step_id (str): 步骤ID，用于标识一个步骤的唯一ID，自动生成
+    step_intention (str): 步骤的意图, 由创建Agent填写(仅作参考并不需要匹配特定格式)。例如：'ask a question', 'provide an answer', 'use tool to check...'
+
+    type (str): 步骤的类型,例如：'skill', 'tool'
+    executor (str): 执行该步骤的对象，如果是 type 是 'tool' 则填工具名称，如果是 'skill' 则填技能名称
+    execution_state (str): 步骤的执行状态：
+        'init' 初始化（步骤已创建）
+        'pending' 等待内容填充中（依赖数据未就绪），一般情况下只出现在工具指令填充，技能使用不需要等待前一步step去填充
+        'running' 执行中
+        'finished' 已完成
+        'failed' 失败（步骤执行异常终止）
+
+    text_content (str): 文本内容，
+        如果是技能调用则是填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
+        step中的这个属性是只包含当前步骤目标的提示词，不包含Agent自身属性（如技能与工具权限）的提示词
+    instruction_content (Dict[str, Any]): 指令内容，如果是工具调用则是具体工具命令  TODO：Dict[str, Any]具体格式
+    execute_result (Dict[str, Any]): 执行结果，如果是文本回复则是文本内容，如果是工具调用则是工具返回结果  TODO：Dict[str, Any]具体格式
+  
+  ### Agent State
+  agent_state 是 Agent的重要承载体，它是一个字典包含了一个Agent的所有状态信息。
+  Agent被实例化时需要初始化自己的 agent_state, agent_state 会被持续维护用于记录Agent的基本信息、状态与记忆。
+  所有Agent使用相同的类，具有相同的方法属性，相同的代码构造。不同的Agent唯一的区别就是 agent_state 的区别。
+  
+  本小节将简要介绍 agent_state 字典涉及的key。
+  
+  参数：
+    agent_id (str): Agent 的唯一标识符，由更高层级的 Agent 管理器生成。
+    name (str): Agent 的名称。
+    role (str): Agent 的角色，例如 "数据分析师"、"客服助手" 等。
+    profile (str): Agent 的角色简介，描述该 Agent 的核心能力和任务。
+    working_state (str): Agent 的工作状态，例如 Unassigned 未分配任务, idle 空闲, working 工作中, awaiting 等待执行反馈中。
+    llm_config (Dict[str, Any]): LLM（大语言模型）的配置信息
+    working_memory (Dict[str, Any]: 
+        - 以任务视角存储 Agent 的工作记忆。  
+        - 结构为 `{<task_id>: {<stage_id>: [<step_id>, ...], ...}, ...}`  
+        - 记录未完成的任务、阶段和步骤，不用于长期记忆。  
+    persistent_memory (str): 永久追加精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空
+        - md格式纯文本，里面只能用三级标题 ### 及以下！不允许出现一二级标题！
+    agent_step (AgentStep): AgentStep是一个对step_state的管理类，维护一个包含step_state的列表
+    tools (List[str], 可选): Agent 可用的工具列表，例如 `["搜索引擎", "计算器"]`，默认为空列表。
+    skills (List[str], 可选): Agent 可用的技能列表，例如 `["文本摘要", "图像识别"]`，默认为空列表。
+
+persistent_memory_prompt:
+  "
+  # 管理永久持续性记忆
+  persistent_memory 是存储在Agent_state['persistent_memory']中的永久持续性记忆。
+  你可以通过追加永久持续性记忆的方式，将一些重要的信息永久保存在你的Agent中，这些信息不会因为任务的结束而被清空。
+  **你需要自主的在每次技能/工具使用时关注或修改永久持续性记忆的信息**。
+  这很关键，因为永久持续性记忆persistent_memory可以跨越不同step的执行，帮助你在多个step中保持一致，就像LLM的上下文一样。
+  
+  你可以通过在输出结果中添加以下格式的文本来追加永久持续性记忆：
+  <persistent_memory>
+  中间是你要追加的永久持续性记忆内容
+  </persistent_memory>
+  
+  **记住在必要的时候主动以这种方式为自己记录一些精简的重要信息！！**
+  "

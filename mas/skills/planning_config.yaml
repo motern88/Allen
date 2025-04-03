@@ -19,17 +19,18 @@ use_prompt:
     你现在正在执行规划技能，你需要根据当前Agent被分配的stage目标，来规划多个step以完成该目标。
     step是Agent执行的最小单位，每个step只包含一次skill或tool的调用（可选skill与tool见 available_skills_and_tools）。
     请根据当前stage目标，规划多个step以完成该目标。
-    请仔细阅读 return_format 的返回格式信息，并将规划好的step信息按照 return_format 指导的形式给出。
+    你将按照 return_format 的返回格式信息，将规划好的step信息按照 return_format 指导的形式给出。
+    通过 return_format 中的方式来具为Agent添加新的step
     "
   return_format:
     "
-    - 输出格式为完成多个的step顺序组成的列表 List[Dict[str,str]]，列表中的每个字典表示你规划的一个step，包含以下字段：
+    - 输出格式为完成多个的step顺序组成的列表 List[Dict[str,str]]，列表中的每个字典表示你规划的一个step。你生成的每个step要包含以下字段并填充具体值：
       step_intention (str): 步骤的简要意图
       type (str): 步骤的类型,例如：'skill', 'tool'
       executor (str): 执行该步骤的对象，如果是 type 是 'tool' 则填工具名称，如果是 'skill' 则填技能名称
       text_content (Optional[str]): 如果是使用技能，则必须填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
     
-    - 请在<planned_step>和</planned_step>之间填入由多个step字典组成的列表：
+    - 请将你规划的结果(由多个step字典组成的列表)放在<planned_step>和</planned_step>之间：
     <planned_step>
     [
       <Step_Dict>,
@@ -37,6 +38,8 @@ use_prompt:
       ...
     ]
     </planned_step>
+    
+    - **规划结果放在<planned_step>和</planned_step>之间，否则将无法被系统识别。**
     "
 
 

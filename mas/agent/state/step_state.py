@@ -32,7 +32,7 @@ class StepState:
             如果是技能调用则是填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
             step中的这个属性是只包含当前步骤目标的提示词，不包含Agent自身属性（如技能与工具权限）的提示词
         instruction_content (Dict[str, Any]): 指令内容，如果是工具调用则是具体工具命令  TODO：Dict[str, Any]具体格式
-        execute_result (Dict[str, Any]): 执行结果，如果是文本回复则是文本内容，如果是工具调用则是工具返回结果  TODO：Dict[str, Any]具体格式
+        execute_result (Dict[str, Any]): 执行结果，一般作用是用来指导状态同步器  TODO：Dict[str, Any]具体格式
     '''
 
     def __init__(
@@ -149,7 +149,7 @@ class AgentStep:
     # 更新step状态
     def update_step_status(self, step_id: str, new_state: str):
         """更新 step 执行状态"""
-        step = self.get_step(step_id=step_id)
+        step = self.get_step(step_id=step_id)[0]
         if step:
             step.update_execution_state(new_state)
 
