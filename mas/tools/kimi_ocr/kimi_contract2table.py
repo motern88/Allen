@@ -6,6 +6,7 @@ import yaml
 from openai import OpenAI
 import pandas as pd
 import json
+from pathlib import Path  
 
 
 class KimiContract2Table:
@@ -33,7 +34,7 @@ class KimiContract2Table:
 
     def generate_prompt(self, contract_type: str) -> str:
         """
-        生成智能提示词（支持动态表格定位和字段级规则）
+        生成智能提示词（支持动态表格定位、字段校验及反推规则）
         """
         # 获取合同配置
         contract_info = next(
@@ -58,8 +59,9 @@ class KimiContract2Table:
 
     3. **计算逻辑**：
     - 禁止直接使用"总计"行数据
-    - 必须自行计算汇总值
-    - 保留两位小数
+    - 必须自行计算汇总值，保留两位小数  
+    - 动态校验：数量字段应满足【数量 × 单价 ≈ 小计】  
+    - 若数量缺失，基于【小计 ÷ 单价】反推补全；若金额缺失，反推小计；记录补全结果来源  
 
     ### 字段级提取规范
     """
@@ -73,52 +75,59 @@ class KimiContract2Table:
             # 动态添加处理规则
             if "柜子总价" in field['field_name']:
                 field_prompt += """
-    - 处理步骤：
-    1. 定位柜体信息表格
-    2. 筛选行条件：
-        ✓ 必须包含：主柜、副柜
-        ✗ 必须排除：运费、配件、安装
-    3. 提取【小计】列数值
-    4. 数据清洗：
-        - 去除所有非数字字符（如￥12,500 → 12500）
-    5. 累加所有有效数值
+- 核心识别逻辑：
+  1. 特征分析三步法：
+    ✓ 步骤一：检查是否包含柜体结构描述（如"850mm宽 x 1950mm高 x 600mm深"）
+    ✓ 步骤二：确认是否标注门数（如"5门"、"10门"）
+    ✓ 步骤三：验证是否具备完整参数（尺寸/材质/门数）
+  
+  2. 金额计算优先级：
+    (1) 首选：小计列数值（若存在）
+    (2) 备选：单价 × 数量（需验证乘积关系）
+    (3) 末选：从名称中解析（如"850-5门"对应标准价格）
+  
+  3. 错误检查与剔除：  
+    ✗ 无完整柜体参数（尺寸、材质） → 剔除记录  
+    ✗ 非柜体条目（如"AED除颤设备"） → 剔除记录  
+    ✗ 冗余标注（如配件、运费） → 剔除  
     """
             elif "柜子数" in field['field_name']:
                 field_prompt += """
-    - 处理步骤：
-    1. 定位柜体信息表格
-    2. 分类统计：
-        - 主柜：名称包含"主柜"的条目
-        - 副柜：名称包含"副柜"的条目
-    3. 特殊类型处理：
-        - 投放柜/改造柜需单独分类统计
-    4. 累加【数量】列
+- 数据提取规则：  
+  1. 按字段名称查找包含【主柜】或【副柜】条目；  
+  2. 对符合条件行的【数量】列进行分类汇总：  
+      ✓ 主柜：包含“主柜”或等效关键词  
+      ✓ 副柜：包含“副柜”或等效关键词  
+  3. 若数量缺失，根据【小计 ÷ 单价】动态反推，并记录“修正来源”。  
+  4. 排除不包含【柜】相关字样的条目或冗余记录。  
     """
             elif "运费" in field['field_name']:
                 field_prompt += """
-    - 处理步骤：
-    1. 定位费用相关表格
-    2. 精确匹配行：
-        - 名称包含：运费、运输费、物流费
-    3. 提取【金额】列数值
-    4. 若存在多笔运费需累加
+- 核心提取逻辑：  
+  1. 定位表格中包含【费用项】和【金额/小计】的列；  
+  2. 精确匹配行：  
+      ✓ 包含关键词：运费、运输费、物流费  
+  3. 累加金额列值，若无相关记录则返回0.0，并记录状态。
     """
 
             # 添加示例
             examples = {
                 "柜子总价": """
     示例表格：
-    | 名称及配置       | 小计    |
-    |------------------|---------|
-    | 主柜A型         | ￥5,500 |
-    | 副柜B型         | 13,500元|
-    | 运输费          | 1,200   |
-    正确结果：5500 + 13500 = 19000.00""",
+示例1（有效条目）：
+| 名称及配置              | 规格参数                          | 小计 |
+|-------------------------|-----------------------------------|------|
+| 智能寄存柜(主)          | 800x2000x600mm 不锈钢 6门        | 8800 |
+| 室内标准副柜B型-10门    | 550x1000x900mm                   | 3500 |
+| 户外储物箱-副箱         | 1000x2000x800mm 镀锌板 8门       | 12500|
+    正确结果：8800 + 3500 + 12500 = 24800
+    """,
                 "柜子数": """
     示例表格：
     | 名称及配置        | 数量 |
     |-------------------|------|
     | 投放柜-主柜      | 2    |
+    | 寄存柜（主柜-10门）| 2    |
     | 改造柜-主柜      | 1    |
     | 投放柜-副柜      | 3    |
     正确结果：投放柜2主3副，改造柜1主0副"""
@@ -133,15 +142,18 @@ class KimiContract2Table:
         
     ### 错误防范措施
     1. 金额验证：总价 = Σ(单价×数量)
-    2. 逻辑校验：投入合计 = 柜子总价 + 运费 + 配件
-    3. 格式检查：使用正则校验日期/百分比格式
-    4. 排重处理：同一表格中重复条目取首次出现值
+    2. 动态补全规则：  
+    - 若【数量】缺失，则：数量 = 小计 ÷ 单价；  
+    - 若【小计】缺失，则：小计 = 单价 × 数量；  
+    3. 逻辑校验：投入合计 = 柜子总价 + 运费 + 配件  
+    4. 数据类型检查：金额保留两位小数，使用正则校验日期格式。  
+    5. 冗余排除：剔除未关联柜体的条目。  
 
     请以严格JSON格式输出，确保数值精确到小数点后两位。"""
 
         return prompt
 
-    def extract_contract_info(self, pdf_path: str, contract_type: str):
+    def extract_contract_info(self, pdf_path: str, contract_type: str, preview_len: int = 100):
         """
         调用Kimi API提取合同信息并转换为表格
         """
@@ -154,6 +166,10 @@ class KimiContract2Table:
         with open(pdf_path, "rb") as file:  # 使用 open() 打开 PDF 文件并传递给 API
             file_object = self.client.files.create(file=file, purpose="file-extract")
             file_content = self.client.files.content(file_id=file_object.id).text
+
+            # 打印关键内容预览
+            print("\n=========关键内容预览=========")
+            print(file_content[:preview_len] + ("..." if len(file_content)>preview_len else ""))
 
         # 构建消息内容
         messages = [
@@ -171,10 +187,10 @@ class KimiContract2Table:
         )
 
         # 解析并打印结果
-        result = json.loads(completion.choices[0].message.content)
         print("\n====== 提取结果 ======")
-        print(json.dumps(result, indent=4, ensure_ascii=False))
         result = json.loads(completion.choices[0].message.content)
+        # print(json.dumps(result, indent=4, ensure_ascii=False))
+        
         return result
 
 
@@ -194,6 +210,32 @@ class KimiContract2Table:
 
         except Exception as e:
             print(f"保存 JSON 到 Excel 失败: {e}")
+
+    def append_results_to_excel(self, result: dict, output_file: str, filename: str):  
+                """  
+                将提取的结果增量写入到一个Excel文件  
+                result: 提取的JSON数据  
+                output_file: 输出Excel文件路径  
+                filename: 当前处理的文件名，用作标识  
+                """  
+                # 转换结果为DataFrame，并添加文件名字段  
+                record = {**result, "filename": filename}  
+                df_new = pd.DataFrame([record])  
+
+                try:  
+                    # 如果文件已存在，直接追加写入  
+                    if Path(output_file).exists():  
+                        df_old = pd.read_excel(output_file, engine="openpyxl")  
+                        df_combined = pd.concat([df_old, df_new], ignore_index=True)  
+                    else:  
+                        df_combined = df_new  
+                    
+                    # 存储结果  
+                    df_combined.to_excel(output_file, index=False, engine="openpyxl")  
+                    print(f"文件 {filename} 的提取结果已保存至 {output_file}")  
+                except Exception as e:  
+                    print(f"增量写入Excel失败: {e}")  
+
 
     def delete_all_files(self):
         '''
@@ -217,13 +259,16 @@ if __name__ == "__main__":
     )
     print("KimiContract2Table 初始化完成")
 
-        # 需要诊断的文件路径
+    # 需要提取信息的文件路径
     test_file = r"C:\Users\Administrator\Desktop\7-2023120101750101-沈阳时尚商业有限公司-沈阳时尚地下购物广场-何鑫山.pdf"
 
-    contract_info = processor.extract_contract_info(test_file, contract_type="投放类合同")
-
-    # 打印输出提取的合同信息
-    print(json.dumps(contract_info, indent=4))
+    contract_info = processor.extract_contract_info(test_file, contract_type="投放类合同",preview_len=1500)
+    print("contract_info: \n", contract_info)
+    # # 执行复核验证
+    # from double_check import validate_quantity_price_subtotal
+    # config = {"formula_check": True, "backfill_missing": True}  
+    # validated_json = validate_quantity_price_subtotal(contract_info)
+    # print("validated_json:\n", validated_json)
 
     # 将kimi的结果保存在Excel中
     processor.save_json2excel(

@@ -54,11 +54,15 @@ contracts:
         field_type: "dynamic_sum"
         field_description: "所有主柜和所有副柜的总价格，需根据表格内容进行统计，注意：只包含柜子，不用算上运费和配件的金额"
         table_identifier:
-          header_keywords: ["小计","金额"]
+          header_keywords: ["名称及配置", "规格参数","小计"]
         rules:
           item_patterns:
-            include: ["*主柜.*","*副柜.*", "*柜体.*"]
-            exclude: ["运费", "配件", "安装费"]
+            include: 
+            - (柜|箱).*(\d{3,4}mm.*){2}.*\d+门"
+            - ".*柜.*[主副].*"
+            exclude: 
+            - "运费|配件|耗材"
+            - "[医用AED设备]"
           amount_clean:
             regex: "[^0-9.]"
         expect_format: "浮点数，如11000.00"
