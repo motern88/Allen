@@ -12,8 +12,6 @@ import threading
 import queue
 import time
 
-from develop开发中.MetaGPT.metagpt.ext.stanford_town.memory.retrieve import agent_retrieve
-
 
 class AgentBase():
     '''
@@ -129,13 +127,13 @@ class AgentBase():
             executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state)  # 部分执行器需要具备操作agent本身的能力
 
         # 3. 更新Step的执行结果与执行状态
-        self.agent_state = self.sync_state(executor_output, self.agent_state)  # TODO:实现状态同步器，根据executor_output更新相应状态
+        self.sync_state(executor_output, self.agent_state)  # TODO:实现状态同步器，根据executor_output更新相应状态
 
 
     def action(self):
         """
-        不断从 agent_state.todo_list 获取 step_id 并执行 step_action
-        agent_state.todo_list 是一个queue.Queue()共享队列，用于存放待执行的 step_id
+        不断从 agent_step.todo_list 获取 step_id 并执行 step_action
+        agent_step.todo_list 是一个queue.Queue()共享队列，用于存放待执行的 step_id
         对 todo_list.get() 到的每个step执行step_action()
         """
         agent_step = self.agent_state["agent_step"]

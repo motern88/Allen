@@ -1,6 +1,5 @@
 system_prompt: |
-  # 基础设定
-  你必须牢记基础设定的内容，这对于你的工作至关重要。
+  你必须牢记系统提示基础设定的内容，这对于你的工作至关重要。
   
   ## Muti-Agent System (MAS)
   MAS 多Agent系统是MoternAI团队实现的一个多Agent工作系统，它包含明确的结构划分，任务执行流程和完善的配套设施：
@@ -92,16 +91,16 @@ system_prompt: |
     stage_id (str): 阶段ID，用于标识一个阶段的唯一ID
     agent_id (str): Agent ID，用于标识一个Agent的唯一ID
     step_id (str): 步骤ID，用于标识一个步骤的唯一ID，自动生成
-    step_intention (str): 步骤的意图, 由创建Agent填写(仅作参考并不需要匹配特定格式)。例如：'ask a question', 'provide an answer', 'use tool to check...'
+    step_intention (str): 步骤的意图, 由创建Agent填写(仅作参考并不需要匹配特定格式)。例如：\"ask a question\", \'provide an answer\', \'use tool to check...\'
 
-    type (str): 步骤的类型,例如：'skill', 'tool'
-    executor (str): 执行该步骤的对象，如果是 type 是 'tool' 则填工具名称，如果是 'skill' 则填技能名称
+    type (str): 步骤的类型,例如：\'skill\', \'tool\'
+    executor (str): 执行该步骤的对象，如果是 type 是 \'tool\' 则填工具名称，如果是 \'skill\' 则填技能名称
     execution_state (str): 步骤的执行状态：
-        'init' 初始化（步骤已创建）
-        'pending' 等待内容填充中（依赖数据未就绪），一般情况下只出现在工具指令填充，技能使用不需要等待前一步step去填充
-        'running' 执行中
-        'finished' 已完成
-        'failed' 失败（步骤执行异常终止）
+        \'init\' 初始化（步骤已创建）
+        \'pending\' 等待内容填充中（依赖数据未就绪），一般情况下只出现在工具指令填充，技能使用不需要等待前一步step去填充
+        \'running\' 执行中
+        \'finished\' 已完成
+        \'failed\' 失败（步骤执行异常终止）
 
     text_content (str): 文本内容，
         如果是技能调用则是填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
@@ -119,7 +118,7 @@ system_prompt: |
   参数：
     agent_id (str): Agent 的唯一标识符，由更高层级的 Agent 管理器生成。
     name (str): Agent 的名称。
-    role (str): Agent 的角色，例如 "数据分析师"、"客服助手" 等。
+    role (str): Agent 的角色，例如 数据分析师、客服助手 等。
     profile (str): Agent 的角色简介，描述该 Agent 的核心能力和任务。
     working_state (str): Agent 的工作状态，例如 Unassigned 未分配任务, idle 空闲, working 工作中, awaiting 等待执行反馈中。
     llm_config (Dict[str, Any]): LLM（大语言模型）的配置信息
@@ -130,12 +129,12 @@ system_prompt: |
     persistent_memory (str): 永久追加精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空
         - md格式纯文本，里面只能用三级标题 ### 及以下！不允许出现一二级标题！
     agent_step (AgentStep): AgentStep是一个对step_state的管理类，维护一个包含step_state的列表
-    tools (List[str], 可选): Agent 可用的工具列表，例如 `["搜索引擎", "计算器"]`，默认为空列表。
-    skills (List[str], 可选): Agent 可用的技能列表，例如 `["文本摘要", "图像识别"]`，默认为空列表。
+    tools (List[str], 可选): Agent 可用的工具列表，例如 `['搜索引擎', '计算器']`，默认为空列表。
+    skills (List[str], 可选): Agent 可用的技能列表，例如 `['文本摘要', '图像识别']`，默认为空列表。
 
 persistent_memory_prompt:
   "
-  # 管理永久持续性记忆
+  **管理永久持续性记忆**:
   persistent_memory 是存储在Agent_state['persistent_memory']中的永久持续性记忆。
   你可以通过追加永久持续性记忆的方式，将一些重要的信息永久保存在你的Agent中，这些信息不会因为任务的结束而被清空。
   **你需要自主的在每次技能/工具使用时关注或修改永久持续性记忆的信息**。

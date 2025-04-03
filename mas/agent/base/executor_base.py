@@ -80,6 +80,7 @@ class Executor(ABC):
         根据Agent的技能与工具权限 List[str]，获取涉及到的技能与工具的配置文件中读取使用说明提示词
 
         返回markdown:
+            ## 角色可用技能与工具 available_skills_and_tools
             ### 可用技能skills
             - **<skill_name>**: <skill_prompt>
             - **<skill_name>**: <skill_prompt>
@@ -89,7 +90,6 @@ class Executor(ABC):
             - **<tool_name>**: <tool_prompt>
         '''
         md_output = []
-        md_output.append("## available_skills_and_tools\n")
         # 获取技能说明
         if agent_skills:
             md_output.append("### 可用技能 skills\n")
@@ -124,7 +124,6 @@ class Executor(ABC):
         组装Agent角色背景提示词，该方法供子类使用
         '''
         md_output = []
-        md_output.append("## agent_role\n")
         md_output.append(
             "**你是一个智能Agent，具有自己的角色和特点。这个章节agent_role是关于你的身份设定，请牢记它，你接下来任何事情都是以这个身份进行的:**\n"
         )
@@ -136,17 +135,20 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
+
+
     # Agent持续性记忆提示词
     def get_persistent_memory_prompt(self, agent_state):
         '''
         组装Agent持续性记忆提示词，该方法供子类使用
         '''
         md_output = []
-        md_output.append("## persistent_memory\n")
         md_output.append(
-            "**这里是你的持续性记忆，它完全由过去的你自己编写，记录了一些过去的你认为非常重要且现在的你可能需要及时查看或参考的信息**:\n"
+            "**这里是你的持续性记忆，它完全由过去的你自己编写，记录了一些过去的你认为非常重要且现在的你可能需要及时查看或参考的信息**(如果是空的则说明过去你还未写入记忆):\n"
         )
-        md_output.append(agent_state["persistent_memory"])
+        md_output.append(f"<persistent_memory>"
+                         f"{agent_state['persistent_memory']}"
+                         f"</persistent_memory>")
 
         return "\n".join(md_output)
 
@@ -177,7 +179,6 @@ class Executor(ABC):
         skill_config = self.load_skill_config(step_state.executor)
 
         md_output = []
-        md_output.append("## current_step\n")
         md_output.append(
             "**这是你当前需要执行的步骤！你将结合背景设定、你的角色agent_role、持续记忆persistent_memory、来遵从当前步骤(本小节'current_step')的提示完成具体目标**:\n"
         )
@@ -192,8 +193,8 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
-    # TODO:组装Agent当前执行的tool_step的提示词
-    def get_current_tool_step_prompt(self, step_id, agent_state):
+    # TODO:组装为的tool_step执行指令生成时的提示词
+    def get_tool_instruction_generation_step_prompt(self, step_id, agent_state):
         '''
         组装Agent当前执行的工具Step的提示词，该方法供子类使用
         '''
@@ -202,42 +203,43 @@ class Executor(ABC):
 
 
 
-
+    # 为planning、reflection等技能实现通用add_step的方法
     def add_step(
         self,
+        planned_step: List[Dict[str, Any]],
+        step_id: str,
         agent_state,
-        stage_id: str,
-        step_intention: str,  # Step的目的
-        step_type: str,  # Step的类型 'skill', 'tool'
-        executor: str,  # Step的执行模块
-        text_content: Optional[str] = None,  # Step的文本内容
-        instruction_content: Optional[Dict[str, Any]] = None,  # Step的指令内容
-    ):  # TODO:为planning reflection等技能实现通用add_step的方法
+    ):
         '''
-        为agent_step的列表中添加一个Step
+        为agent_step的列表中添加多个Step
+
+        接受planned_step格式为：
+        [
+            {
+                "step_intention": "获取当前时间",
+                "type": "tool",
+                "executor": "time_tool",
+                "text_content": "获取当前时间"
+            },
+            ...
+        ]
         '''
-        # 1. 构造一个完整的StepState
-        step_state = StepState(
-            task_id = task_id,
-            stage_id = stage_id,
-            agent_id = self.agent_state["agent_id"],
-            step_intention = step_intention,
-            step_type = step_type,
-            executor = executor,
-            execution_state = "init",  # 'init', 'pending', 'running', 'finished', 'failed'
-            text_content = text_content,  # Optional[str]
-            instruction_content = instruction_content,  # Optional[Dict[str, Any]]
-            execute_result = None,  # Optional[Dict[str, Any]]
-        )
+        agent_step = agent_state["agent_step"]
+        current_step = agent_step.get_step(step_id)[0]  # 获取当前Planning step的信息
+        for step in planned_step:
+            # 构造新的StepState
+            step_state = StepState(
+                task_id=current_step.task_id,
+                stage_id=current_step.stage_id,
+                agent_id=current_step.agent_id,
+                step_intention=step["step_intention"],
+                step_type=step["type"],
+                executor=step["executor"],
+                text_content=step["text_content"]
+            )
+            # 添加到AgentStep中
+            agent_step.add_step(step_state)
+            # 记录在工作记忆中
+            agent_state["working_memory"][current_step.task_id][current_step.stage_id,].append(step_state.step_id)
 
-        if step_type == "tool" and instruction_content is None:
-            # 如果是工具调用且没有具体指令，则状态为待填充 pending
-            step_state.update_execution_state = "pending"
-
-        # 2. 添加一个该Step到agent_step中
-        agent_step = self.agent_state["agent_step"]
-        agent_step.add_step(step_state)
-
-        # 3. 返回添加的step_id, 记录在工作记忆中  # TODO:实现工作记忆
-        self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
 
