@@ -1,6 +1,6 @@
 ## 工具库
 
-该目录下用于存放技能的配置文件 `{TOOLNAME}_config.yaml` 和技能具体实现 `{TOOLNAME}.py`
+该目录下用于存放工具的配置文件 `{TOOLNAME}_config.yaml` 和工具具体实现 `{TOOLNAME}.py`
 
 ```python
 mas/tools
@@ -44,7 +44,7 @@ class XXXTool(Executor):
         super().__init__()  # 调用父类的构造方法
 ```
 
-实现一个 `execute(self, step_id: str, agent_state: Dict[str, Any])` 方法来覆盖父类的 execute 方，在该方法中实现这个工具的主要功能。
+实现一个 `execute(self, step_id: str, agent_state: Dict[str, Any])` 方法来覆盖父类的 execute 方法，在该方法中实现这个工具的主要功能。
 
 技能 executor 大致流程如下：
 
