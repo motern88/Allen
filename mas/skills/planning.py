@@ -22,9 +22,9 @@ Planning需要有操作Agent中AgentStep的能力，AgentStep是Agent的执行�
             1.4.2 Agent持续性记忆内容提示词（## 二级标题）
 
     2. llm调用
-    3. 解析llm返回的步骤信息，更新AgentStep中的步骤列表
+    3. 解析llm返回的步骤信息，更新AgentStep中的步骤列表（核心行为需要包含失败判定，如果失败更新step执行失败状态）
     4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
-    5. 返回用于指导状态同步的execute_result（如果有的话）
+    5. 返回用于指导状态同步的execute_output
 '''
 import re
 import json
@@ -118,10 +118,41 @@ class PlanningSkill(Executor):
         # print("\n".join(md_output))
         return "\n".join(md_output)
 
+    def get_execute_output(self, step_id: str, agent_state: Dict[str, Any], state: str) -> Dict[str, Any]:
+        '''
+        构造Planning技能的execute_output
+        1. 通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态
+        2. 添加步骤信息到task共享消息池
+        '''
+        execute_output = {}
+
+        # 1. 通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态
+        # 获取当前步骤的task_id与stage_id
+        step_state = agent_state["agent_step"].get_step(step_id)[0]
+        task_id = step_state.task_id
+        stage_id = step_state.stage_id
+        # 构造execute_output
+        execute_output["update_stage_agent_state"] = {
+            "task_id": task_id,
+            "stage_id": stage_id,
+            "agent_id": agent_state["agent_id"],
+            "state": state,
+        }
+
+        # 2. 添加步骤信息到task共享消息池
+        execute_output["send_shared_message"] = {
+            "agent_id": agent_state["agent_id"],
+            "role": agent_state["role"],
+            "stage_id": stage_id,
+            "content": f"执行Planning步骤:{state}，"
+        }
+
+        return execute_output
 
     def execute(self, step_id: str, agent_state: Dict[str, Any]):
         '''
         Planning技能的具体执行方法:
+        (step_state需要在execute内完成更新)
 
         1. 组装 LLM Planning 提示词
         2. LLM调用
@@ -129,9 +160,10 @@ class PlanningSkill(Executor):
             保证Planning的多个step不超出Agent的权限范畴。如果超出，给出提示并重新 <2. LLM调用> 进行规划
         4. 更新AgentStep中的步骤列表
         5. 解析persistent_memory并追加到Agent持续性记忆中
+        6. 构造execute_output用于指导sync_state更新stage_state.every_agent_state中自己的状态
         '''
 
-        # 更新当前step状态为 running
+        # step状态更新为 running
         agent_state["agent_step"].update_step_status(step_id, "running")
 
         # 1. 组装 LLM Planning 提示词 (基础提示词与技能提示词)
@@ -171,33 +203,47 @@ class PlanningSkill(Executor):
         # 解析Planning_step
         planned_step = self.extract_planned_step(response) or {}
 
-        # 技能与工具权限判定，保证Planning的多个step不超出Agent的权限范畴
-        not_allowed_executors = [
-            step["executor"]
-            for step in planned_step
-            # 是skill则查找是否位于skills中，是tool则查找是否位于tools中，否则将step["executor"]追加进列表
-            if (step["type"] == "skill" and step["executor"] not in agent_state["skills"])
-            or (step["type"] == "tool" and step["executor"] not in agent_state["tools"])
-        ]
-        if len(not_allowed_executors) != 0:  # 如果超出，给出提示并重新 <2. LLM调用> 进行规划
-            print("planning技能规划的步骤中包含不在使用权限内的技能与工具，正在重新规划...")
-            response = llm_client.call(
-                f"以下技能与工具不在使用权限内:{not_allowed_executors}。请确保只使用 available_skills_and_tools 小节中提示的可用技能与工具来完成当前阶段Stage目标。**规划结果放在<planned_step>和</planned_step>之间。**",
-                context=chat_context
-            )
-            planned_step = self.extract_planned_step(response)
+        # 如果无法解析到规划步骤，说明LLM没有返回规划结果
+        if not planned_step:
+            # step状态更新为 failed
+            agent_state["agent_step"].update_step_status(step_id, "failed")
+            # 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
+            execute_output = self.get_execute_output(step_id, agent_state, "failed")
+            return execute_output
 
-        # 清空对话历史
-        chat_context.clear()
+        else:  # 如果解析到规划步骤
+            # 技能与工具权限判定，保证Planning的多个step不超出Agent的权限范畴
+            not_allowed_executors = [
+                step["executor"]
+                for step in planned_step
+                # 是skill则查找是否位于skills中，是tool则查找是否位于tools中，否则将step["executor"]追加进列表
+                if (step["type"] == "skill" and step["executor"] not in agent_state["skills"])
+                or (step["type"] == "tool" and step["executor"] not in agent_state["tools"])
+            ]
+            if len(not_allowed_executors) != 0:  # 如果超出，给出提示并重新 <2. LLM调用> 进行规划
+                print("planning技能规划的步骤中包含不在使用权限内的技能与工具，正在重新规划...")
+                response = llm_client.call(
+                    f"以下技能与工具不在使用权限内:{not_allowed_executors}。请确保只使用 available_skills_and_tools 小节中提示的可用技能与工具来完成当前阶段Stage目标。**规划结果放在<planned_step>和</planned_step>之间。**",
+                    context=chat_context
+                )
+                planned_step = self.extract_planned_step(response)
 
-        # 4. 更新AgentStep中的步骤列表
-        self.add_step(planned_step, step_id, agent_state)  # 将规划的步骤列表添加到AgentStep中
+            # 清空对话历史
+            chat_context.clear()
 
-        # 5. 解析persistent_memory并追加到Agent持续性记忆中
-        new_persistent_memory = self.extract_persistent_memory(response)
-        agent_state["persistent_memory"] += "\n" + new_persistent_memory
+            # 4. 更新AgentStep中的步骤列表
+            self.add_step(planned_step, step_id, agent_state)  # 将规划的步骤列表添加到AgentStep中
 
-        return None  # Planning技能无execute_result返回值
+            # 5. 解析persistent_memory并追加到Agent持续性记忆中
+            new_persistent_memory = self.extract_persistent_memory(response)
+            agent_state["persistent_memory"] += "\n" + new_persistent_memory
+
+            # step状态更新为 finished
+            agent_state["agent_step"].update_step_status(step_id, "finished")
+
+            # 6. 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
+            execute_output = self.get_execute_output(step_id, agent_state, "working")
+            return execute_output
 
 
 # Debug

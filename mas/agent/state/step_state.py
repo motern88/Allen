@@ -32,7 +32,7 @@ class StepState:
             如果是技能调用则是填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
             step中的这个属性是只包含当前步骤目标的提示词，不包含Agent自身属性（如技能与工具权限）的提示词
         instruction_content (Dict[str, Any]): 指令内容，如果是工具调用则是具体工具命令  TODO：Dict[str, Any]具体格式
-        execute_result (Dict[str, Any]): 执行结果，一般作用是用来指导状态同步器  TODO：Dict[str, Any]具体格式
+        execute_output (Dict[str, Any]): 作用是用来指导状态同步器的输出结果
     '''
 
     def __init__(
@@ -46,7 +46,7 @@ class StepState:
         execution_state: str = "init",  # 'init', 'pending', 'running', 'finished', 'failed'
         text_content: Optional[str] = None,
         instruction_content: Optional[Dict[str, Any]] = None,
-        execute_result: Optional[Dict[str, Any]] = None,
+        execute_output: Optional[Dict[str, Any]] = None,
     ):
         # step基本信息（id与简略意图）
         self.task_id = task_id
@@ -65,7 +65,7 @@ class StepState:
         # step内容
         self.text_content = text_content or {}
         self.instruction_content = instruction_content or {}
-        self.execute_result = execute_result or {}
+        self.execute_output = execute_output or {}
 
     def update_execution_state(self, new_state: str):
         """更新执行状态"""
@@ -79,9 +79,9 @@ class StepState:
         """
         self.instruction_content = new_content
 
-    def update_execute_result(self, new_result: Dict[str, Any]):
+    def update_execute_output(self, new_result: Dict[str, Any]):
         """更新执行结果"""
-        self.execute_result = new_result
+        self.execute_output = new_result
 
 
 class AgentStep:
@@ -161,5 +161,5 @@ class AgentStep:
                 f"Task ID: {step.task_id}, Stage ID: {step.stage_id}, Step ID: {step.step_id}, "
                 f"Execution State: {step.execution_state}, Type: {step.type}, Executor: {step.executor}, "
                 f"Intention: {step.step_intention}, Text Content: {step.text_content}, "
-                f"Instruction Content: {step.instruction_content}, Execute Result: {step.execute_result}"
+                f"Instruction Content: {step.instruction_content}, Execute Result: {step.execute_output}"
             )

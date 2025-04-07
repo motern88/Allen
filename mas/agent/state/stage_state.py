@@ -24,10 +24,13 @@ class StageState:
             "running" 执行中
             "finished" 已完成
             "failed" 失败（阶段执行异常终止）
+
         every_agent_state (Dict[<agent_id>, <agent_state>]): 阶段中每个Agent的状态
             "idle" 空闲
             "working" 工作中
-            "offline" 离线
+            "finished" 已完成
+            "failed" 失败（agent没能完成阶段目标）
+            这里的状态是指Agent在这个阶段的状态，不是全局状态
 
         completion_summary (Dict[<agent_id>, <completion_summary>]): 阶段中每个Agent的完成情况
     '''
@@ -38,7 +41,6 @@ class StageState:
         stage_intention: str,
         agent_allocation: Dict[str, str],
         execution_state: str = "init",
-        every_agent_state: Dict[str, str] = None,
     ):
         # 阶段基本信息
         self.task_id = task_id
@@ -50,9 +52,9 @@ class StageState:
 
         # 执行状态
         self.execution_state = execution_state  # 阶段整体状态 'init', 'running', 'finished', 'failed'
-        self.every_agent_state = every_agent_state or {}  # 每个Agent的状态
+        self.every_agent_state = {agent_id: "idle" for agent_id in agent_allocation}  # 每个Agent的状态 'idle'
 
-        # 完成情况
+        # 完成情况 TODO:实现阶段完成情况的总结
         self.completion_summary = {}  # Dict[<agent_id>, <completion_summary>] 阶段中每个Agent的完成情况总结
 
     def update_agent_state(self, agent_id: str, state: str):

@@ -26,10 +26,10 @@ class AgentBase():
         self,
         agent_id: str,  # Agent ID 由更高层级的Agent管理器生成，不由配置文件中读取
         config,  # Agent配置文件
+        sync_state,  # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给)，由外部实例化后传给所有Agent
     ):
-        self.router = Router()  # 在action中用于分发具体executor的路由器
-        # TODO: 实现状态同步器
-        self.sync_state = None
+        self.router = Router()  # 在action中用于分发具体executor的路由器，用于同步stage_state与task_state
+        self.sync_state = sync_state  # 状态同步器
         # 初始化Agent状态
         self.agent_state = self.init_agent_state(
             agent_id,
@@ -84,7 +84,6 @@ class AgentBase():
         # 注意：工作记忆不要放到提示词里面，提示词里面放持续性记忆
         agent_state["working_memory"] = working_memory if working_memory else {}
 
-        # TODO:Agent持续性记忆
         # 永久追加精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空
         agent_state["persistent_memory"] = ""  # md格式纯文本，里面只能用三级标题 ### 及以下！不允许出现一二级标题！
 
@@ -126,8 +125,8 @@ class AgentBase():
         with self.agent_state_lock:  # 防止任务分配线程与任务执行线程同时修改agent_state，这里优先保证任务执行线程的修改
             executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state)  # 部分执行器需要具备操作agent本身的能力
 
-        # 3. 更新Step的执行结果与执行状态
-        self.sync_state(executor_output, self.agent_state)  # TODO:实现状态同步器，根据executor_output更新相应状态
+        # 3. 使用sync_state专门同步stage_state与task_state
+        self.sync_state.sync_state(executor_output)  # 根据executor_output更新stage,task相应状态
 
 
     def action(self):
