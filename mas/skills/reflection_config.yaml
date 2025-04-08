@@ -1,0 +1,63 @@
+# Date: 2025/04/08
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  skill_name: "reflection"
+  description:
+    "
+    该技能用于反思Agent已执行的step。
+    reflection技能可以获取到Agent已执行的step结果，并且评估反思Agent已执行结果是否完成阶段目标。
+    reflection能够在无法达成阶段目标的时候追加新的step来修正Agent的执行结果，也能在达成阶段目标的时候进行总结。
+    reflection是Agent自我反思自我修正的重要实现方式。
+    "
+
+# 技能实际调用的提示词
+use_prompt:
+  skill_name: "reflection"
+  skill_prompt:
+    "
+    **你现在正在执行反思技能，你需要根据Agent已执行的多个step信息，来判定Agent是否符合预期(能够顺利完成其被分配的stage目标)。**
+    你需要反思的已执行的历史step信息在**history_step**章节中给出，你需要对齐的stage目标在**history_step**中的第一个planning step的text_context中记录。
+    - 如果你认为Agent没有完成stage目标，你需要规划多个新的step以完成该目标（规划的最后一个step应当是一个reflection step）。
+    - 如果你认为Agent已经完成stage目标，你需要添加一个总结步骤(summary step)。
+    
+    **添加step的方式：**
+    step是Agent执行的最小单位，每个step只包含一次skill或tool的调用（可选skill与tool见 available_skills_and_tools）。
+    请根据当前stage目标，规划多个step以完成该目标。
+    你将按照 return_format 中提供的返回格式信息，将规划好的step信息按照 return_format 指导的形式给出。
+    通过 return_format 中的方式来具为Agent添加新的step
+    "
+  return_format: |
+    - 输出格式为完成多个的step顺序组成的列表 List[Dict[str,str]]，列表中的每个字典表示你规划的一个step。你生成的每个step要包含以下字段并填充具体值：
+      step_intention (str): 步骤的简要意图
+      type (str): 步骤的类型,例如：'skill', 'tool'
+      executor (str): 执行该步骤的对象，如果是 type 是 'tool' 则填工具名称，如果是 'skill' 则填技能名称
+      text_content (Optional[str]): 如果是使用技能，则必须填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
+
+    - 请将你规划的结果(由多个step字典组成的列表)收尾用<reflection_step>和</reflection_step>标记，不要将其放在代码块中：
+    <reflection_step>
+    [
+      <Step_Dict>,
+      <Step_Dict>,
+      ...
+    ]
+    </planned_step>
+
+    - **规划结果首尾用<reflection_step>和</reflection_step>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例：
+    <reflection_step>
+    [
+      {
+        "step_intention": "快速回答问题",
+        "type": "skill",
+        "executor": "quick_think",
+        "text_content": "写一首诗"
+      },
+      {
+        "step_intention": "反思执行结果",
+        "type": "skill",
+        "executor": "reflection",
+        "text_content": "反思前文的执行结果，判断是否完成阶段目标"
+      }
+    ]
+    </reflection_step>

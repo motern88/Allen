@@ -191,7 +191,7 @@ class AgentBase():
             self.add_step(
                 task_id = task_id,
                 stage_id = stage_id,
-                step_intention = "规划Agent执行当前阶段需要哪些具体step",
+                step_intention = f"规划Agent执行当前阶段需要哪些具体step",
                 step_type = "skill",
                 executor = "planning",
                 text_content = agent_stage_prompt

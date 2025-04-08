@@ -8,6 +8,7 @@ from mas.agent.state.step_state import StepState
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import yaml
+import json
 import os
 import re
 
@@ -135,8 +136,6 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
-
-
     # Agent持续性记忆提示词
     def get_persistent_memory_prompt(self, agent_state):
         '''
@@ -192,6 +191,37 @@ class Executor(ABC):
         md_output.append(f"**return_format**: {return_format}\n")
 
         return "\n".join(md_output)
+
+    # TODO: 组装历史步骤信息提示词
+    def get_history_steps_prompt(self, step_id, agent_state):
+        '''
+        获取当前stage_id下所有step信息，并将其结构化组装。
+        通常本方法应用与reflection，summary技能中
+        '''
+        # 获取当前阶段的所有步骤
+        agent_step = agent_state["agent_step"]
+        current_step = agent_step.get_step(step_id)[0]
+        history_steps = agent_step.get_step(stage_id=current_step.stage_id) # 根据当前步骤的stage_id查找所有步骤
+
+        # 结构化组装历史step信息
+        md_output = [f"当前阶段的历史step信息如下:\n"]
+        for idx, step in enumerate(history_steps, 1):
+            step_info = [
+                f"[step {idx}]**",
+                f"- 属性: {step.type}-{step.step_intention}",
+                f"- 意图: {step.step_intention}",
+                f"- 文本内容(skills): {step.text_content}",
+                f"- 指令内容: {json.dumps(step.instruction_content, ensure_ascii=False) if step.instruction_content else '无'}",
+                f"- 执行结果: {json.dumps(step.execute_result, ensure_ascii=False) if step.execute_result else '无'}",
+            ]
+            md_output.append(f"{step_info}")
+        md_output.append(f"\n以上是已执行step信息（共 {len(history_steps)} 步）")
+
+        return "\n".join(md_output)
+
+
+
+
 
     # TODO:组装为的tool_step执行指令生成时的提示词
     def get_tool_instruction_generation_step_prompt(self, step_id, agent_state):

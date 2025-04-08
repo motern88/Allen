@@ -1,0 +1,21 @@
+# Date: 2025/04/10
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  skill_name: "summary"
+  description:
+    "
+    该技能用于总结Agent执行当前stage目标的完成情况（上一步reflection判定Agent所需要执行的stage目标完成才会进入summary步骤）。
+    summary技能可以获取到Agent对特定stage已执行的step结果，并且总结整理stage下该Agent执行过的所有step，完成向上级状态传递执行该stage的最终执行结果。
+    summary标志着Agent执行一个stage的结束，是Agent更新与同步stage执行结果的重要环节。
+    "
+
+# 技能实际调用的提示词
+use_prompt:
+  skill_name: "summary"
+  skill_prompt:
+    "
+
+    "
+  return_format: |
