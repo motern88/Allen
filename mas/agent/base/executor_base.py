@@ -207,12 +207,12 @@ class Executor(ABC):
         md_output = [f"当前阶段的历史step信息如下:\n"]
         for idx, step in enumerate(history_steps, 1):
             step_info = [
-                f"[step {idx}]**",
-                f"- 属性: {step.type}-{step.step_intention}",
-                f"- 意图: {step.step_intention}",
-                f"- 文本内容(skills): {step.text_content}",
-                f"- 指令内容: {json.dumps(step.instruction_content, ensure_ascii=False) if step.instruction_content else '无'}",
-                f"- 执行结果: {json.dumps(step.execute_result, ensure_ascii=False) if step.execute_result else '无'}",
+                f"[step {idx}]**\n",
+                f"- 属性: {step.type}-{step.step_intention}\n",
+                f"- 意图: {step.step_intention}\n",
+                f"- 文本内容(skills): {step.text_content}\n",
+                f"- 指令内容: {json.dumps(step.instruction_content, ensure_ascii=False) if step.instruction_content else '无'}\n",
+                f"- 执行结果: {json.dumps(step.execute_result, ensure_ascii=False) if step.execute_result else '无'}\n",
             ]
             md_output.append(f"{step_info}")
         md_output.append(f"\n以上是已执行step信息（共 {len(history_steps)} 步）")
