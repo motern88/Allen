@@ -192,7 +192,7 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
-    # TODO: 组装历史步骤信息提示词
+    # 组装历史步骤信息提示词
     def get_history_steps_prompt(self, step_id, agent_state):
         '''
         获取当前stage_id下所有step信息，并将其结构化组装。
