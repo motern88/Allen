@@ -42,7 +42,7 @@ use_prompt:
       <Step_Dict>,
       ...
     ]
-    </planned_step>
+    </reflection_step>
 
     - **规划结果首尾用<reflection_step>和</reflection_step>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例：
     <reflection_step>
