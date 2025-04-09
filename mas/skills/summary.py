@@ -2,6 +2,8 @@
 技能名称: Summary
 期望作用: Agent通过Summary总结并结束自己的一个stage，标志着一个stage的结束。
     整理该stage内所有step的信息并通过execute_output同步在stage_state.completion_summary(Dict[<agent_id>, <completion_summary>])中
+    (Summary只负责Agent执行step的汇总，不负责交付阶段stage结果。
+    例如假设阶段目标是输出一段文本，那么输出文本的这个交付过程应当由一个交付工具例如"send_message"执行，而非留给Summary技能来完成。)
 
 Summary需要获取到过去执行步骤的信息。
 我们整理过去执行步骤的结果和阶段目标以特定格式输入LLM进行总结，同时通过同时通过提示词约束LLM以特定格式返回其总结结果。
@@ -53,12 +55,18 @@ class SummarySkill(Executor):
         '''
         Summary技能的具体执行方法:
 
-
-
-
+        1. 组装 LLM Summary 提示词
+        2. LLM调用
+        3. 解析 LLM 返回的步骤信息，生成 execute_output 指令
+        4. 解析persistent_memory并追加到Agent持续性记忆中
         '''
 
+        # step状态更新为 running
+        agent_state["agent_step"].update_step_status(step_id, "running")
 
+        # 1. 组装 LLM Summary 提示词 (基础提示词与技能提示词)
+        summary_step_prompt = self.get_summary_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
+        print(summary_step_prompt)
 
 
 
