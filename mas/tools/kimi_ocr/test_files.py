@@ -5,7 +5,7 @@ if __name__ == "__main__":
         # 初始化处理器  
     processor = KimiContract2Table(  
         contract_config_path="mas/tools/kimi_ocr/contract2table.yaml",  
-        api_key = "sk-GqiNrqNiJixxEcA6OYIRmu9EVopLuAMZlc071StzUfPScozm",
+        api_key = "sk-",
         base_url = "https://api.moonshot.cn/v1")  
 
     print("批量处理初始化完成")  
