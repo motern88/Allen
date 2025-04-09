@@ -10,6 +10,7 @@ executor执行返回的executor_output用于指导sync_state工作
 
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from mas.agent.state.task_state import TaskState
+from mas.agent.state.stage_state import StageState
 
 class SyncState:
     '''
@@ -72,10 +73,56 @@ class SyncState:
                     f"添加了来自 agent{info["agent_id"]} 的消息")
 
 
-        # TODO：如果字典的key是"add_task",则添加新任务
+        # 如果字典的key是"add_task",则添加新任务
+        if "add_task" in executor_output:
+            info = executor_output["add_task"]
+            # 创建新的任务状态
+            new_task = TaskState(
+                task_intention=info["task_intention"],
+                task_group=info["task_group"]
+            )
+            # 将新任务添加到任务字典中
+            self.add_task(new_task)
+            print(f"[SyncState] 已添加新任务 {task_state.task_id} 到任务字典中")
 
-        # TODO：如果字典的key是"add_stage",则为任务添加新阶段
 
-        # TODO：如果字典的key是"update_task_state",则更新任务状态
+        # 如果字典的key是"add_stage",则为任务添加新阶段
+        if "add_stage" in executor_output:
+            info = executor_output["add_stage"]
+            # 获取任务状态
+            task_state = self.all_tasks.get(info["task_id"])
+            # 创建新阶段状态
+            if task_state:
+                stage_state = StageState(
+                    task_id=info["task_id"],
+                    stage_id=info["stage_id"],
+                    stage_intention=info["stage_intention"],
+                    agent_allocation=info["agent_allocation"]
+                )
+                # 将新阶段添加到任务状态中
+                task_state.add_stage(stage_state)
+                print(f"[SyncState] 已为任务{info["task_id"]}添加新阶段 {stage_state.stage_id}")
 
-        # TODO：如果字典的key是"update_stage_state",则更新阶段状态
+        # 如果字典的key是"update_task_state",则更新任务状态
+        if "update_task_stage" in executor_output:
+            info = executor_output["update_task_stage"]
+            # 获取任务状态
+            task_state = self.all_tasks.get(info["task_id"])
+            # 更新任务状态
+            if task_state:
+                task_state.update_execution_state(info["execution_state"])
+                print(f"[SyncState] 已更新任务{info["task_id"]}的状态为 {info["execution_state"]}")
+
+        # 如果字典的key是"update_stage_state",则更新阶段状态
+        if "update_stage_state" in executor_output:
+            info = executor_output["update_stage_state"]
+            # 获取任务状态
+            task_state = self.all_tasks.get(info["task_id"])
+            if task_state:
+                # 获取对应阶段状态
+                stage_state = task_state.get_stage(info["stage_id"])
+                if stage_state:
+                    # 更新阶段状态
+                    stage_state.update_execution_state(info["execution_state"])
+                    print(f"[SyncState] 已更新任务{info["task_id"]}的阶段{info["stage_id"]}的状态为 {info["execution_state"]}")
+                
