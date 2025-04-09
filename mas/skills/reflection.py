@@ -22,14 +22,15 @@ Reflection需要获取到过去执行步骤的信息，并且具备操作AgentSt
             1.3.1 step.step_intention 当前步骤的简要意图（## 二级标题）
             1.3.2 step.text_content 具体目标（## 二级标题）
             1.3.3 技能规则提示(reflection_config["use_prompt"])（## 二级标题）
-        1.4 历史步骤执行结果:（# 一级标题） TODO!!!
-
+        1.4 历史步骤执行结果（# 一级标题）
         1.5 持续性记忆:（# 一级标题）
             1.5.1 Agent持续性记忆说明提示词（## 二级标题）
             1.5.2 Agent持续性记忆内容提示词（## 二级标题）
 
     2. llm调用
-
+    3. 解析llm返回的步骤信息，更新AgentStep中的步骤列表（核心行为需要包含失败判定，如果失败更新step执行失败状态）
+    4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
+    5. 返回用于指导状态同步的execute_output
 '''
 import re
 import json

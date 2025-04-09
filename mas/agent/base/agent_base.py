@@ -5,6 +5,7 @@ Agent基础类，这里实现关于LLM驱动的相关基础功能，不涉及到
 
 from mas.agent.state.step_state import StepState, AgentStep
 from mas.agent.state.stage_state import StageState
+from mas.agent.state.sync_state import SyncState
 from mas.agent.base.router import Router
 
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
@@ -26,7 +27,7 @@ class AgentBase():
         self,
         agent_id: str,  # Agent ID 由更高层级的Agent管理器生成，不由配置文件中读取
         config,  # Agent配置文件
-        sync_state,  # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给)，由外部实例化后传给所有Agent
+        sync_state: SyncState,  # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给Agent)，由外部实例化后传给所有Agent
     ):
         self.router = Router()  # 在action中用于分发具体executor的路由器，用于同步stage_state与task_state
         self.sync_state = sync_state  # 状态同步器
@@ -86,6 +87,7 @@ class AgentBase():
 
         # 永久追加精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空
         agent_state["persistent_memory"] = ""  # md格式纯文本，里面只能用三级标题 ### 及以下！不允许出现一二级标题！
+        # TODO：实现持久性记忆的清除，(目前已实现持久性记忆的追加)
 
         # 初始化AgentStep,用于管理Agent的执行步骤列表
         # （一般情况下步骤中只包含当前任务当前阶段的步骤，在下一个阶段时，
@@ -115,7 +117,7 @@ class AgentBase():
         3. 更新Step的执行状态
         '''
         # 更新step状态为执行中 running
-        self.agent_state["agent_step"].update_step_execution_state(step_id, "running")
+        self.agent_state["agent_step"].update_step_status(step_id, "running")
 
         # 1. 根据Step的executor执行具体的Action，由路由器分发执行
         # 接收一个type和executor的str，返回一个具体执行器
@@ -128,7 +130,7 @@ class AgentBase():
         # 3. 使用sync_state专门同步stage_state与task_state
         self.sync_state.sync_state(executor_output)  # 根据executor_output更新stage,task相应状态
 
-
+    # TODO:考虑开始一个stage到完成当前stage进入下一个stage的过程，是根据工作记忆来执行还是根据todo_list执行？
     def action(self):
         """
         不断从 agent_step.todo_list 获取 step_id 并执行 step_action
@@ -240,8 +242,7 @@ class AgentBase():
         # 3. 返回添加的step_id, 记录在工作记忆中  # TODO:实现工作记忆
         self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
 
-
-
+    # TODO: 清除Agent某一个stage的所有step (记得同步工作记忆)
 
 
 

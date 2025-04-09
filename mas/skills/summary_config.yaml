@@ -7,8 +7,9 @@ use_guide:
   description:
     "
     该技能用于总结Agent执行当前stage目标的完成情况（上一步reflection判定Agent所需要执行的stage目标完成才会进入summary步骤）。
-    summary技能可以获取到Agent对特定stage已执行的step结果，并且总结整理stage下该Agent执行过的所有step，完成向上级状态传递执行该stage的最终执行结果。
+    summary技能可以获取到Agent在当前stage中所有已执行的step结果，并且总结整理stage下该Agent执行过的所有step，完成向上级状态传递执行该stage的最终执行结果。
     summary标志着Agent执行一个stage的结束，是Agent更新与同步stage执行结果的重要环节。
+    **注：summary技能是对Agent对多个step执行结果的总结，不是对单次输入的文本总结**。
     "
 
 # 技能实际调用的提示词
@@ -16,6 +17,9 @@ use_prompt:
   skill_name: "summary"
   skill_prompt:
     "
-
+    **你现在正在执行总结技能，你需要根据Agent已执行的多个step信息，来总结Agent对当前阶段stage目标的完成情况。**
+    你需要总结的已执行的历史step信息在**history_step**章节中给出。当前阶段的目标在**history_step**中的第一个planning step的text_context中记录。
+    
+    
     "
   return_format: |
