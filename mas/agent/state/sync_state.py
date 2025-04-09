@@ -73,7 +73,7 @@ class SyncState:
                     f"添加了来自 agent{info["agent_id"]} 的消息")
 
 
-        # 如果字典的key是"add_task",则添加新任务
+        # TODO: 如果字典的key是"add_task",则添加新任务
         if "add_task" in executor_output:
             info = executor_output["add_task"]
             # 创建新的任务状态
@@ -86,7 +86,7 @@ class SyncState:
             print(f"[SyncState] 已添加新任务 {task_state.task_id} 到任务字典中")
 
 
-        # 如果字典的key是"add_stage",则为任务添加新阶段
+        # TODO: 如果字典的key是"add_stage",则为任务添加新阶段
         if "add_stage" in executor_output:
             info = executor_output["add_stage"]
             # 获取任务状态
@@ -103,7 +103,7 @@ class SyncState:
                 task_state.add_stage(stage_state)
                 print(f"[SyncState] 已为任务{info["task_id"]}添加新阶段 {stage_state.stage_id}")
 
-        # 如果字典的key是"update_task_state",则更新任务状态
+        # TODO: 如果字典的key是"update_task_state",则更新任务状态
         if "update_task_stage" in executor_output:
             info = executor_output["update_task_stage"]
             # 获取任务状态
@@ -113,7 +113,7 @@ class SyncState:
                 task_state.update_execution_state(info["execution_state"])
                 print(f"[SyncState] 已更新任务{info["task_id"]}的状态为 {info["execution_state"]}")
 
-        # 如果字典的key是"update_stage_state",则更新阶段状态
+        # TODO: 如果字典的key是"update_stage_state",则更新阶段状态
         if "update_stage_state" in executor_output:
             info = executor_output["update_stage_state"]
             # 获取任务状态
