@@ -196,7 +196,7 @@ class ReflectionSkill(Executor):
         chat_context = LLMContext(context_size=15)  # 创建一个对话上下文, 限制上下文轮数 15
 
         chat_context.add_message("assistant", "好的，我会作为你提供的Agent角色，执行reflection操作"
-                                              "请你根据 history_step，来反思判定是否满足阶段条件，"
+                                              "我会根据 history_step，来反思判定是否满足阶段条件，"
                                               "如果不满足，我会根据最早planning_step的初衷，使用available_skills_and_tools中提供的权限规划实现阶段要求需要追加的step，"
                                               "如果满足，我会增加一个总结步骤。"
                                               "并在<reflection_step>和</reflection_step>之间输出规划结果，"
@@ -340,9 +340,7 @@ if __name__ == "__main__":
         step_type="skill",
         executor="reflection",
         text_content="如果任务完成，则添加summary，否则追加能够完成任务的step",
-        execute_result={
-            "contract_key_word": "<测试文本（假设能满足阶段要求）>"
-        },
+        execute_result={},
     )
 
     agent_state["agent_step"].add_step(step1)

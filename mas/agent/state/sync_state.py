@@ -72,6 +72,18 @@ class SyncState:
             print(f"[SyncState] 已更新任务{info["task_id"]}的共享消息池，"
                     f"添加了来自 agent{info["agent_id"]} 的消息")
 
+        # 如果字典的key是"update_stage_agent_completion",则更新阶段中Agent完成情况
+        if "update_stage_agent_completion" in executor_output:
+            info = executor_output["update_stage_agent_completion"]
+            # 获取任务状态
+            task_state = self.all_tasks.get(info["task_id"])
+            # 获取对应阶段状态
+            stage_state = task_state.get_stage(info["stage_id"])
+            # 更新阶段中agent完成情况
+            stage_state.update_agent_cpmpletion(info["agent_id"], info["completion_summary"])
+            print(f"[SyncState] 已更新 stage{info["stage_id"]}"
+                  f"中 agent{info["agent_id"]} 的完成情况")
+
 
         # TODO: 如果字典的key是"add_task",则添加新任务,(未确定实现方式)
         if "add_task" in executor_output:

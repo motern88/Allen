@@ -54,7 +54,7 @@ class StageState:
         self.execution_state = execution_state  # 阶段整体状态 'init', 'running', 'finished', 'failed'
         self.every_agent_state = {agent_id: "idle" for agent_id in agent_allocation}  # 每个Agent的状态 'idle'
 
-        # 完成情况 TODO:实现阶段完成情况的总结
+        # 完成情况
         self.completion_summary = {}  # Dict[<agent_id>, <completion_summary>] 阶段中每个Agent的完成情况总结
 
     def update_agent_state(self, agent_id: str, state: str):
@@ -63,7 +63,11 @@ class StageState:
         '''
         self.every_agent_state[agent_id] = state
 
-
+    def update_agent_cpmpletion(self, agent_id: str, completion_summary: str):
+        '''
+        更新阶段中某个Agent的完成情况
+        '''
+        self.completion_summary[agent_id] = completion_summary
 
 
 

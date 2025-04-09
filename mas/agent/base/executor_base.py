@@ -154,13 +154,14 @@ class Executor(ABC):
     def extract_persistent_memory(self, response):
         '''
         从文本中解析持续性记忆，该方法供子类使用
+        TODO:是否修改为获取最后一个匹配内容 排除是在<think></think>思考期间的内容，使用re.findall
         '''
         # 使用正则表达式提取 <persistent_memory> ... </persistent_memory> 之间的内容
         match = re.search(r"<persistent_memory>\s*(.*?)\s*</persistent_memory>", response, re.DOTALL)
 
         if match:
-            step_content = match.group(1)  # 获取匹配内容
-            return step_content
+            persistent_memory = match.group(1)  # 获取匹配内容
+            return persistent_memory
         else:
             return None
 
@@ -197,6 +198,7 @@ class Executor(ABC):
         '''
         获取当前stage_id下所有step信息，并将其结构化组装。
         通常本方法应用与reflection，summary技能中
+        这里读取step的信息一般都会以str呈现，使用json.dumps()来处理步骤中execute_result与instruction_content
         '''
         # 获取当前阶段的所有步骤
         agent_step = agent_state["agent_step"]

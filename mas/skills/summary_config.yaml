@@ -1,4 +1,4 @@
-# Date: 2025/04/10
+# Date: 2025/04/9
 # 该文件用于描述技能的使用方法，以及技能包含的提示词。
 
 # 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
@@ -20,6 +20,15 @@ use_prompt:
     **你现在正在执行总结技能，你需要根据Agent已执行的多个step信息，来总结Agent对当前阶段stage目标的完成情况。**
     你需要总结的已执行的历史step信息在**history_step**章节中给出。当前阶段的目标在**history_step**中的第一个planning step的text_context中记录。
     
+    在你执行完summary总结技能后，Agent记录当前stage的所有step都会被释放，
+    只有你的总结信息会被同步到上级状态stage_state与task_state中，为后续工作流程及其他Agent提供信息参考。
+    你可以在总结中记录任何你认为能够帮助完成整体stage与task目标的信息，请确保你的总结清晰且包含必要的关键信息，但又不会显得冗余。
+    最后请将总结信息按照 return_format 中提供的返回格式信息，给出。
     
+    注：再次强调summary技能是对Agent对多个step执行结果的总结，不是对某个单次输入的文本总结或摘要
     "
   return_format: |
+    - 请将你总结结果用<summary>和</summary>标记，不要将其放在代码块中：
+    <summary>
+    你的文字总结信息...
+    </summary>
