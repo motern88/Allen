@@ -221,7 +221,7 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
-    # TODO:组装为的tool_step执行指令生成时的提示词
+    # 组装为tool_step执行指令生成时的提示词
     def get_tool_instruction_generation_step_prompt(self, step_id, agent_state):
         '''
         组装Agent当前执行的工具Step的提示词，该方法供子类使用

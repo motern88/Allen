@@ -7,7 +7,7 @@ Instruction Generation会获取下一个工具step的信息，并具备更新下
 然后基于规则的代码解析这些信息，并更新下一个工具step的指令内容。
 
 NOTE:
-一种可能的特殊情况是，在instruction_generation_step和tool_step之间被插入了一个额外tool_step，
+一种可能的特殊情况是，在instruction_generation_step和tool_step之间被插入了一个额外tool_step,(插入step很常见，任务分配线程有权利这么做)
 这将会导致instruction_generation为错误的tool_step生成指令。
 实际上插入step的操作只会插入在下一个未执行的step前：
     如果 instruction_generation_step 未执行，则插入step会插入在 instruction_generation_step 之前；
