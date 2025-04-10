@@ -25,7 +25,7 @@ class StageState:
             "finished" 已完成
             "failed" 失败（阶段执行异常终止）
 
-        every_agent_state (Dict[<agent_id>, <agent_state>]): 阶段中每个Agent的状态
+        every_agent_state (Dict[<agent_id>, <agent_state>]): 涉及到的每个Agent在这个阶段的状态
             "idle" 空闲
             "working" 工作中
             "finished" 已完成

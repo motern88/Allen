@@ -1,0 +1,38 @@
+# Date: 2025/04/10
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  skill_name: "instruction_generation"
+  description:
+    "
+    该技能用于为下一个step的工具生成具体调用指令。
+    一般情况下，每个工具step的前面都需要有一个instruction_generation的step。
+    instruction_generation会获取下一个step工具的实际调用提示词use_prompt，并根据工具调用提示词中的内容，生成具体的调用指令。
+    工具本身并不会使用Agent的LLM能力，因此instruction_generation是生成工具调用指令的途径，
+    也是实现Agent自主且动态地使用工具进行任意操作的重要实现方式
+    "
+
+# 技能实际调用的提示词
+use_prompt:
+  skill_name: "instruction_generation"
+  skill_prompt:
+    "
+    **你现在正在执行指令生成技能，你需要根据下一个工具step的提示信息，为下一个工具step生成实际调用指令。**
+    你需要生成的下一个工具step的提示信息在**tool_step**章节中给出，里面包含该工具实际调用规则。
+    "
+  return_format: |
+    **返回格式请参考工具调用提示use_prompt中的返回格式**
+    
+    生成的工具指令使用<tool_instruction>和</tool_instruction>标记包裹，不要将其放在代码块中：
+    <tool_instruction>
+    你生成的工具调用指令
+    </tool_instruction>
+
+
+
+
+
+
+
+

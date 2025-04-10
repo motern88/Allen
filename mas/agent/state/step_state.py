@@ -29,9 +29,10 @@ class StepState:
             'failed' 失败（步骤执行异常终止）
 
         text_content (str): 文本内容，
-            如果是技能调用则是填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
-            step中的这个属性是只包含当前步骤目标的提示词，不包含Agent自身属性（如技能与工具权限）的提示词
-        instruction_content (Dict[str, Any]): 指令内容，如果是工具调用则是具体工具命令  TODO：Dict[str, Any]具体格式
+            - 如果是技能调用则是填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
+              step中的这个属性是只包含当前步骤目标的提示词，不包含Agent自身属性（如技能与工具权限）的提示词
+            - 如果是工具调用则可以选填该次工具调用的具体详细的目标。
+        instruction_content (Dict[str, Any]): 指令内容，如果是工具调用则是具体工具命令
         execute_result (Dict[str, Any]): 用来记录LLM输出解析或工具返回的结果，主要作用是向reflection反思模块提供每个步骤的执行信息
     '''
 
@@ -42,7 +43,7 @@ class StepState:
         agent_id: str,
         step_intention: str,
         step_type: str,
-        executor: str,  # TODO：实现一个executor的枚举类用于约束该字段
+        executor: str,
         execution_state: str = "init",  # 'init', 'pending', 'running', 'finished', 'failed'
         text_content: Optional[str] = None,
         instruction_content: Optional[Dict[str, Any]] = None,

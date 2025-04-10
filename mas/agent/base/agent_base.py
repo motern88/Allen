@@ -130,7 +130,7 @@ class AgentBase():
         # 3. 使用sync_state专门同步stage_state与task_state
         self.sync_state.sync_state(executor_output)  # 根据executor_output更新stage,task相应状态
 
-    # TODO:考虑开始一个stage到完成当前stage进入下一个stage的过程，是根据工作记忆来执行还是根据todo_list执行？
+
     def action(self):
         """
         不断从 agent_step.todo_list 获取 step_id 并执行 step_action
@@ -170,6 +170,10 @@ class AgentBase():
     ):
         '''
         用于开始一个任务阶段:一个stage的第一个step必定是planning方法
+
+        TODO:跨stage的自主心动是由上级Agent引导还是由Agent自主决定？
+        TODO:如果由上级任务管理Agent决定，则实现上级Agent控制执行Agent使用start_stage方法
+        TODO:如果由执行Agent自主决定，如何实现？
 
         1. 从stage_state中获取当前阶段的目标
         2. 构造Agent规划当前阶段的提示词

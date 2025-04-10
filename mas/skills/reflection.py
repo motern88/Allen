@@ -106,7 +106,7 @@ class ReflectionSkill(Executor):
                          f"{available_skills_and_tools}\n")
 
 
-        # 3. Planning step提示词
+        # 3. Reflection step提示词
         md_output.append(f"# 当前需要执行的步骤 current_step\n")
         current_step = self.get_current_skill_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
         md_output.append(f"{current_step}\n")

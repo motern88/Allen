@@ -33,7 +33,7 @@ Summary技能对stage信息的获取来源于第一个步骤Planning_step：
     2. llm调用
     3. 解析llm返回的总结信息
     4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
-    5. 生成并返回用于execute_output指令
+    5. 生成并返回execute_output指令
         （更新stage_state.completion_summary的指令，更新stage_state.every_agent_state中自己的状态）
 '''
 import re
@@ -122,7 +122,8 @@ class SummarySkill(Executor):
 
         return "\n".join(md_output)
 
-    def get_execute_output(self,
+    def get_execute_output(
+        self,
         step_id: str,
         agent_state: Dict[str, Any],
         update_agent_situation: str,
@@ -214,7 +215,13 @@ class SummarySkill(Executor):
             # step状态更新为 failed
             agent_state["agent_step"].update_step_status(step_id, "failed")
             # 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
-            execute_output = self.get_execute_output(step_id, agent_state, update_agent_situation="failed", shared_step_situation="failed")
+            execute_output = self.get_execute_output(
+                step_id,
+                agent_state,
+                update_agent_situation="failed",
+                shared_step_situation="failed",
+                agent_completion_summary="(任务完成情况总结失败)",
+            )
             return execute_output
 
         else:  # 解析到总结信息
@@ -234,7 +241,7 @@ class SummarySkill(Executor):
             execute_output = self.get_execute_output(
                 step_id,
                 agent_state,
-                update_agent_situation="working",
+                update_agent_situation="finished",
                 shared_step_situation="finished",
                 agent_completion_summary=summary
             )
@@ -342,11 +349,6 @@ if __name__ == "__main__":
 
     # 打印step信息
     agent_state["agent_step"].print_all_steps()
-
-
-
-
-
 
 
 

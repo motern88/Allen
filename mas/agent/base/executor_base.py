@@ -185,7 +185,7 @@ class Executor(ABC):
 
         skill_prompt = skill_config["use_prompt"].get("skill_prompt", "暂无描述")
         return_format = skill_config["use_prompt"].get("return_format", "暂无描述")
-        md_output.append(f"**当前步骤的简要意图**: {step_state.step_id}\n")
+        md_output.append(f"**当前步骤的简要意图**: {step_state.step_intention}\n")
         md_output.append(f"**需要用技能实现的具体目标**: {step_state.text_content}\n")
 
         md_output.append(f"{skill_prompt}\n")
@@ -221,17 +221,62 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
-
-
-
-
     # TODO:组装为的tool_step执行指令生成时的提示词
     def get_tool_instruction_generation_step_prompt(self, step_id, agent_state):
         '''
         组装Agent当前执行的工具Step的提示词，该方法供子类使用
-        '''
-        pass
+        （这里传入的step_id是前一步指令生成step的id）
 
+        1.获取tool_step
+        2.当前工具步骤的简要意图
+        3.从step.text_content获取的具体目标
+        4.工具规则提示
+        '''
+        md_output = []
+        md_output.append(
+            "**这是你需要生成具体工具指令的提示！你将结合背景设定、你的角色agent_role、持续记忆persistent_memory、来遵从当前工具步骤(本小节'tool_step')的提示来生成具体的调用指令**:\n"
+        )
+
+        # 1.获取instruction_generation的下一个工具step
+        tool_step = self.get_next_tool_step(step_id, agent_state)
+        tool_config = self.load_tool_config(tool_step.executor)
+
+        tool_prompt = tool_config["use_prompt"].get("skill_prompt", "暂无描述")
+        return_format = tool_config["use_prompt"].get("return_format", "暂无描述")
+
+        # 2.当前工具步骤的简要意图
+        md_output.append(f"**当前工具步骤的简要意图**: {tool_step.step_intention}\n")
+
+        # 3.从step.text_content获取的具体目标
+        md_output.append(f"**需要调用工具实现的具体目标**: {tool_step.text_content}\n")
+
+        # 4.工具规则提示
+        md_output.append(f"{tool_prompt}\n")
+        md_output.append(f"**return_format**: {return_format}\n")
+
+        return "\n".join(md_output)
+
+
+    def get_next_tool_step(self, current_step_id, agent_state) -> Optional[StepState]:
+        '''
+        获取当前步骤之后的下一个工具步骤。
+        这个方法查找当前步骤所属阶段（stage_id）的所有工具步骤，并返回下一个工具步骤。
+        '''
+        # 1. 获取当前步骤
+        current_step = agent_state["agent_step"].get_step(current_step_id)[0]
+        # 2. 获取当前步骤所属阶段的所有步骤
+        all_stage_steps = agent_state["agent_step"].get_step(stage_id=current_step.stage_id)
+        # 3. 找到当前步骤在所有步骤中的位置，并从该位置开始寻找下一个工具步骤
+        current_step_found = False
+        for step in all_stage_steps:
+            if current_step_found:
+                # 找到第一个工具步骤并返回
+                if step.type == 'tool':
+                    return step
+            elif step.step_id == current_step_id:
+                # 标记当前步骤已经找到，开始查找下一个工具步骤
+                current_step_found = True
+        return None  # 如果没有找到下一个工具步骤，返回 None
 
 
 

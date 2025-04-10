@@ -21,13 +21,13 @@ vector_db_config:
 
 
 use_guide:
-  tool_name: "milvus"
+  tool_name: "milvus_vector_db"
   description:
     "
     一个使用Milvus的向量数据库工具，提供文档存储和相似性搜索功能。
     "
 use_prompt:
-  tool_name: rag
+  tool_name: "milvus_vector_db"
   tool_prompt: |
     "你正在帮助生成Milvus向量数据库工具的指令。
     该工具可以：
