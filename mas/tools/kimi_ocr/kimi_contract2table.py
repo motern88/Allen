@@ -331,10 +331,10 @@ if __name__ == "__main__":
     print("contract_info: \n", contract_info)
 
     # 将kimi的结果保存在Excel中
-    processor.save_json2excel(
-        contract_info,
-        "C:\\Users\\Administrator\\Desktop\\18-2023110709180201-佛山市万城合一科技有限公司-骆远山.xlsx"
-    )
+    # processor.save_json2excel(
+    #     contract_info,
+    #     "C:\\Users\\Administrator\\Desktop\\18-2023110709180201-佛山市万城合一科技有限公司-骆远山.xlsx"
+    # )
 
     # 清空kimi云端文件空间缓存
     processor.delete_all_files()
