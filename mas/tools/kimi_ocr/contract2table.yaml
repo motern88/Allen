@@ -133,7 +133,7 @@ contracts:
 
       - field_name: "签订日"
         field_description: "指合同落款里手写的日期"
-        expect_format: "期望返回合同落款里手写的日期，如“2025/2/28”"
+        expect_format: "不用在此字段填充任何值,该字段的值由上传时人工填写"
 
       - field_name: "售卖类别"
         field_description: "指合同里的货品名称的属性，可以是以下三种之一：“寄存柜”，“寄存柜物料”，“智慧行政”"
