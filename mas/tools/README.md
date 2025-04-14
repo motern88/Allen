@@ -49,7 +49,60 @@ class XXXTool(Executor):
 技能 executor 大致流程如下：
 
 1. 从step中获取具体调用指令
-
 2. 执行自己定义的工具实现逻辑
-
 3. 返回用于指导状态同步的execute_result（如果有的话）
+
+
+
+
+
+#### 2.1 执行器状态更新
+
+默认执行器必须传递的状态更新有：
+
+1. 更新step状态为 running
+
+   ```python
+   agent_state["agent_step"].update_step_status(step_id, "running")
+   ```
+
+2. 完成具体执行内容后更新step状态
+
+   如果执行成功则更新为 finished
+
+   ```python
+   agent_state["agent_step"].update_step_status(step_id, "finished")
+   ```
+
+   如果执行失败则更新为 failed
+
+   ```python
+   agent_state["agent_step"].update_step_status(step_id, "failed")
+   ```
+
+3. 更新stage中agent自身状态 update_agent_situation
+
+   借用execute_output传递，finished 或 failed
+
+   ```python
+   execute_output["update_stage_agent_state"] = {
+               "task_id": task_id,
+               "stage_id": stage_id,
+               "agent_id": agent_state["agent_id"],
+               "state": update_agent_situation,
+           }
+   ```
+
+4. 添加task中共享消息 shared_step_situation
+
+   借用execute_output传递，finished 或 failed
+
+   ```python
+   execute_output["send_shared_message"] = {
+       "agent_id": agent_state["agent_id"],
+       "role": agent_state["role"],
+       "stage_id": stage_id,
+       "content": f"执行XXX步骤:{shared_step_situation}，"
+   }
+   ```
+

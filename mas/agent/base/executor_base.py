@@ -197,7 +197,7 @@ class Executor(ABC):
     def get_history_steps_prompt(self, step_id, agent_state):
         '''
         获取当前stage_id下所有step信息，并将其结构化组装。
-        通常本方法应用与reflection，summary技能中
+        通常本方法应用于reflection，summary技能中
         这里读取step的信息一般都会以str呈现，使用json.dumps()来处理步骤中execute_result与instruction_content
         '''
         # 获取当前阶段的所有步骤
@@ -224,7 +224,7 @@ class Executor(ABC):
     # 组装为tool_step执行指令生成时的提示词
     def get_tool_instruction_generation_step_prompt(self, step_id, agent_state):
         '''
-        组装Agent当前执行的工具Step的提示词，该方法供子类使用
+        组装Agent指令生成步骤的目标工具Step的提示词，该方法供子类使用
         （这里传入的step_id是前一步指令生成step的id）
 
         1.获取tool_step
@@ -241,7 +241,7 @@ class Executor(ABC):
         tool_step = self.get_next_tool_step(step_id, agent_state)
         tool_config = self.load_tool_config(tool_step.executor)
 
-        tool_prompt = tool_config["use_prompt"].get("skill_prompt", "暂无描述")
+        tool_prompt = tool_config["use_prompt"].get("tool_prompt", "暂无描述")
         return_format = tool_config["use_prompt"].get("return_format", "暂无描述")
 
         # 2.当前工具步骤的简要意图

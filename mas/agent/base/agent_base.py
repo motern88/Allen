@@ -44,7 +44,7 @@ class AgentBase():
         )  # TODO: 传入字段的获取来源
 
         # 初始化线程锁
-        self.agent_state_lock = threading.Lock()
+        self.agent_state_lock = threading.Lock()  # TODO：使用统一AgentState全局锁，还是细分为分区锁？
 
 
     # Agent被实例化时需要初始化自己的 agent_state, agent_state 会被持续维护用于记录Agent的基本信息、状态与记忆。

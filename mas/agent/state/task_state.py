@@ -15,7 +15,7 @@ class TaskState:
         task_intention (str): 任务意图, 较为详细的任务目标说明
 
         task_group (list[str]): 任务群组，包含所有参与这个任务的Agent ID
-        shared_message_pool (List[Dict]): TODO:任务群组共享消息池（可选结构：包含agent_id, role, content等）
+        shared_message_pool (List[Dict]): 任务群组共享消息池（可选结构：包含agent_id, role, content等）
 
         stage_list (List[StageState]): 当前任务下所有阶段的列表（顺序执行不同阶段）
         execution_state (str): 当前任务的执行状态，"init"、"running"、"finished"、"failed"

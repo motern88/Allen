@@ -93,7 +93,7 @@ class PlanningSkill(Executor):
         md_output.append(f"## 你的角色信息 agent_role\n"
                          f"{agent_role_prompt}\n")
         # 工具与技能权限
-        available_skills_and_tools = self.get_skill_and_tool_prompt(agent_state["skills"],agent_state["tools"])  # 包含 # 三级标题的md
+        available_skills_and_tools = self.get_skill_and_tool_prompt(agent_state["skills"],agent_state["tools"])  # 包含###三级标题的md
         md_output.append(f"## 角色可用技能与工具 available_skills_and_tools\n"
                          f"{available_skills_and_tools}\n")
 
