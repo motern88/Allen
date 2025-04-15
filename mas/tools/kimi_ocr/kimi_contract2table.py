@@ -109,7 +109,45 @@ class KimiContract2Table:
       ✓ 包含关键词：运费、运输费、物流费  
   3. 累加金额列值，若无相关记录则返回0.0，并记录状态。
     """
-
+            # 处理“销售(改造)与服务合同”的特定字段
+            elif contract_type == "销售(改造)与服务合同":
+                if "售卖类别" in field['field_name']:
+                    field_prompt += """
+    - 数据提取规则：
+    1. 根据合同中的“货品名称”判断售卖类别：
+     - 如果货品名称中包含“SaaS”、“云服务”、“行政管理平台”等关键词，则售卖类别为“智慧行政”。
+     - 如果货品名称中包含“物料”、“配件”、“耗材”等关键词，则售卖类别为“寄存柜物料”。
+     - 否则，默认售卖类别为“寄存柜”。
+     - 示例：
+        - 合同内容：资产营理柜主形现件L01-01，正确结果：智慧行政
+        - 合同内容：提产管理相吸件L01-02，正确结果：智慧行政
+        - 合同内容：33门室内标准主柜，正确结果：寄存柜
+    2. 确保提取的类别与合同内容一致。
+                    """
+                elif "货品名称" in field['field_name']:
+                    field_prompt += """
+    - 数据提取规则：
+    1. 提取合同中明确指出的商品名称
+    2. 确保名称详细且准确，如“室内主柜5门”，“锁控系统”，“企业储物柜副柜”
+                    """
+                elif "数量" in field['field_name']:
+                    field_prompt += """
+    - 数据提取规则：
+    1. 提取合同中货品名称所对应的明确数量值
+    2. 确保数量值为整数，如“1”，“2”
+                    """
+                elif "单价" in field['field_name']:
+                    field_prompt += """
+    - 数据提取规则：
+    1. 提取合同中货品名称所对应的明确单价
+    2. 确保单价为数值，如“2800”，“2520”
+                    """
+                elif "合同金额" in field['field_name']:
+                    field_prompt += """
+    - 数据提取规则：
+    1. 提取合同中全部货品的总价，计算规则为单价*数量
+    2. 确保金额为数值，如“2800”，“5040”
+                    """
             # 添加示例
             examples = {
                 "柜子总价": """
@@ -134,6 +172,33 @@ class KimiContract2Table:
             }
             if field['field_name'] in examples:
                 field_prompt += f"\n- 示例：{examples[field['field_name']]}"
+
+            elif contract_type == "销售(改造)与服务合同":
+                if "售卖类别" in field['field_name']:
+                    field_prompt += """
+    - 示例：
+        合同内容：办公用品领用柜产品销售合同，包含“智慧行政SaaS平台”和“云服务器的租用”。
+        正确结果：智慧行政"""
+                elif "货品名称" in field['field_name']:
+                    field_prompt += """
+    - 示例：
+        合同内容：小款称重柜（带10.1寸屏）
+        正确结果：小款称重柜"""
+                elif "数量" in field['field_name']:
+                    field_prompt += """
+    - 示例：
+        合同内容：数量为1
+        正确结果：1"""
+                elif "单价" in field['field_name']:
+                    field_prompt += """
+    - 示例：
+        合同内容：单价为28800元
+        正确结果：28800"""
+                elif "合同金额" in field['field_name']:
+                    field_prompt += """
+    - 示例：
+        合同内容：总价（含税）47800元
+        正确结果：47800"""
 
             prompt += field_prompt
 
@@ -260,21 +325,16 @@ if __name__ == "__main__":
     print("KimiContract2Table 初始化完成")
 
     # 需要提取信息的文件路径
-    test_file = r"C:\Users\Administrator\Desktop\7-2023120101750101-沈阳时尚商业有限公司-沈阳时尚地下购物广场-何鑫山.pdf"
+    test_file = r"C:\Users\Administrator\Desktop\18-2023110709180201-佛山市万城合一科技有限公司-骆远山.pdf"
 
-    contract_info = processor.extract_contract_info(test_file, contract_type="投放类合同",preview_len=1500)
+    contract_info = processor.extract_contract_info(test_file, contract_type="销售(改造)与服务合同",preview_len=1500)
     print("contract_info: \n", contract_info)
-    # # 执行复核验证
-    # from double_check import validate_quantity_price_subtotal
-    # config = {"formula_check": True, "backfill_missing": True}  
-    # validated_json = validate_quantity_price_subtotal(contract_info)
-    # print("validated_json:\n", validated_json)
 
     # 将kimi的结果保存在Excel中
-    processor.save_json2excel(
-        contract_info,
-        "C:/Users/Administrator/Desktop/7-2023120101750101-沈阳时尚商业有限公司-沈阳时尚地下购物广场-何鑫山.xlsx"
-    )
+    # processor.save_json2excel(
+    #     contract_info,
+    #     "C:\\Users\\Administrator\\Desktop\\18-2023110709180201-佛山市万城合一科技有限公司-骆远山.xlsx"
+    # )
 
     # 清空kimi云端文件空间缓存
     processor.delete_all_files()
