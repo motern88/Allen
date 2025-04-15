@@ -24,7 +24,7 @@ Summary技能对stage信息的获取来源于第一个步骤Planning_step：
         1.3 summary step:（# 一级标题）
             1.3.1 step.step_intention 当前步骤的简要意图（## 二级标题）
             1.3.2 step.text_content 具体目标（## 二级标题）
-            1.3.3 技能规则提示(reflection_config["use_prompt"])（## 二级标题）
+            1.3.3 技能规则提示(summary_config["use_prompt"])（## 二级标题）
         1.4 历史步骤执行结果（# 一级标题）
         1.5 持续性记忆:（# 一级标题）
             1.5.1 Agent持续性记忆说明提示词（## 二级标题）
@@ -344,8 +344,8 @@ if __name__ == "__main__":
 
     step_id = agent_state["agent_step"].step_list[3].step_id  # 当前为第四个step
 
-    reflection_skill = SummarySkill()
-    reflection_skill.execute(step_id, agent_state)
+    summery_skill = SummarySkill()
+    summery_skill.execute(step_id, agent_state)
 
     # 打印step信息
     agent_state["agent_step"].print_all_steps()

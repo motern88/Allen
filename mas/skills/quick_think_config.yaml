@@ -1,0 +1,28 @@
+# Date: 2025/04/15
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  skill_name: "quick_think"
+  description:
+    "
+    该技能用于快速思考与分析，帮助Agent在面对简单问题时进行快速的思考与分析。
+    quick_think技能不会获取任何历史步骤的执行信息，与之对应的是think技能，think则会获取历史步骤的执行信息。
+    quick_think技能可以让Agent在面对不需要step上下文信息时快速进行文本生成。
+    "
+
+# 技能实际调用的提示词
+use_prompt:
+  skill_name: "quick_think"
+  skill_prompt:
+    "
+    **你现在正在执行快速思考技能，你需要根据当前步骤意图进行快速思考。**
+    当前步骤的意图在**step_intent**章节中给出。
+    你快速思考的结果仅会被记录在当前step的execute_result中。
+    **如果你想要为后续step提供长期指导或参考，你应当使用你的持续性记忆机制persistent_memory。**
+    "
+  return_format: |
+    - 请将你的快速思考结果用<quick_think>和</quick_think>标记，不要将其放在代码块中：
+    <quick_think>
+    快速思考结果...
+    </quick_think>
