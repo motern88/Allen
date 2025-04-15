@@ -1,0 +1,29 @@
+# Date: 2025/04/15
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  skill_name: "think"
+  description:
+    "
+    该技能用于需要获取历史信息的思考与分析，帮助Agent在面对复杂问题时进行包含上下文记忆的思考与分析。
+    think技能会获取历史步骤的执行信息，来帮助思考。
+    (think的思考结果会被记录在自己step的execute_result中，不会主动向其他step传递结果，
+    只能由其他step被动访问，除非通过persistent_memory进行长期记录。)
+    "
+
+# 技能实际调用的提示词
+use_prompt:
+  skill_name: "think"
+  skill_prompt:
+    "
+    **你现在正在执行思考技能，你需要根据当前步骤意图和历史step执行信息进行思考。**
+    已执行的历史step信息在**history_step**章节中给出。
+    你思考的结果仅会被记录在当前step的execute_result中。
+    **如果你想要为后续step提供长期指导或参考，你应当使用你的持续性记忆机制persistent_memory。**
+    "
+  return_format: |
+    - 请将你的思考结果用<_think>和</_think>标记，不要将其放在代码块中：
+    <_think>
+    思考结果...
+    </_think>

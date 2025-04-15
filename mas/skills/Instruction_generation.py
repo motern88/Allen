@@ -240,7 +240,7 @@ class InstructionGenerationSkill(Executor):
             # step状态更新为 finished
             agent_state["agent_step"].update_step_status(step_id, "finished")
 
-            # 6. 构造execute_output，用于更新stage_state.every_agent_state
+            # 5. 构造execute_output，用于更新stage_state.every_agent_state
             execute_output = self.get_execute_output(
                 step_id,
                 agent_state,

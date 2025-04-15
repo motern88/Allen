@@ -48,8 +48,8 @@ class QuickThinkSkill(Executor):
         # 使用正则表达式提取 <quick_think> ... </quick_think> 之间的内容
         match = re.findall(r"<quick_think>\s*(.*?)\s*</quick_think>", text, re.DOTALL)
         if match:
-            summary = match[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
-            return summary
+            quick_think = match[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
+            return quick_think
         else:
             return None
 
@@ -139,7 +139,7 @@ class QuickThinkSkill(Executor):
             "agent_id": agent_state["agent_id"],
             "role": agent_state["role"],
             "stage_id": stage_id,
-            "content": f"执行reflection步骤:{shared_step_situation}，"
+            "content": f"执行quick_think步骤:{shared_step_situation}，"
         }
 
         return execute_output
@@ -167,7 +167,7 @@ class QuickThinkSkill(Executor):
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
         chat_context = LLMContext(context_size=15)  # 创建一个对话上下文, 限制上下文轮数 15
 
-        chat_context.add_message("assistant", "好的，我会作为你提供的Agent角色，执行quick_think操作"
+        chat_context.add_message("assistant", "好的，我会作为你提供的Agent角色，执行quick_think操作。"
                                               "我会遵从当前的步骤意图，进行思考反应。"
                                               "并在<quick_think>和</quick_think>之间输出思考结果，"
                                               "在<persistent_memory>和</persistent_memory>之间输出我要追加的持续性记忆。")
@@ -205,7 +205,7 @@ class QuickThinkSkill(Executor):
             # step状态更新为 finished
             agent_state["agent_step"].update_step_status(step_id, "finished")
 
-            # 6. 构造execute_output，用于更新stage_state.every_agent_state
+            # 5. 构造execute_output，用于更新stage_state.every_agent_state
             execute_output = self.get_execute_output(
                 step_id,
                 agent_state,
