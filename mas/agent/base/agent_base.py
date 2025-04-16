@@ -164,6 +164,31 @@ class AgentBase():
     # ---------------------------------------------------------------------------------------------
     # 下：Agent的任务逻辑
 
+    def get_stage_prompt(self, agent_id, stage_state):
+        '''
+        获取当前阶段内容的提示词
+        '''
+        md_output = []
+
+        task_id = stage_state["task_id"]
+        stage_id = stage_state["stage_id"]
+
+        stage_intention = stage_state["stage_intention"]  # 整体阶段目标 (str)
+        agent_allocation = stage_state["agent_allocation"]  # 阶段中Agent的分配情况 (Dict[<agent_id>, <agent_stage_goal>])
+        agent_goal = stage_state["agent_allocation"][agent_id]  # 阶段中这个Agent自己的目标
+
+        md_output.append("你被分配协助完成当前阶段stage的目标\n")
+        md_output.append(
+            f"当前阶段stage的信息如下：\n,"
+            f"任务ID为：{task_id}\n,"
+            f"阶段ID为：{stage_id}\n,"
+            f"阶段整体目标为：{stage_intention}\n,"
+            f"阶段中所有Agent的分配情况为：{agent_allocation}\n,"
+        )
+        md_output.append(f"**你的所负责的具体目标为**：{agent_goal}\n")
+
+        return "\n".join(md_output)
+
     def start_stage(
         self,
         stage_state: StageState,  # Agent从当前StageState来获取信息明确目标
@@ -175,24 +200,17 @@ class AgentBase():
         TODO:如果由上级任务管理Agent决定，则实现上级Agent控制执行Agent使用start_stage方法
         TODO:如果由执行Agent自主决定，如何实现？
 
-        1. 从stage_state中获取当前阶段的目标
-        2. 构造Agent规划当前阶段的提示词
-        3. 如果当前stage没有任何step，则增加一个规划step
+        1. 构造Agent规划当前阶段的提示词
+        2. 如果当前stage没有任何step，则增加一个规划step
         '''
         agent_id = self.agent_state["agent_id"]
-
-        # 1. 从stage_state中获取当前阶段的目标等属性
         task_id = stage_state["task_id"]
         stage_id = stage_state["stage_id"]
-        stage_intention = stage_state["stage_intention"]  # 整体阶段目标 (str)
-        agent_goal = stage_state["agent_allocation"][agent_id]  # 阶段中这个Agent自己的目标
 
-        # 2. 构造Agent规划当前阶段的提示词
-        agent_stage_prompt = (f"你被分配协助完成当前阶段stage的目标。"
-                              f"当前阶段整体目标为：{stage_intention},"
-                              f"你的所负责的具体目标为：{agent_goal}")
+        # 1. 构造Agent规划当前阶段的提示词
+        agent_stage_prompt = self.get_stage_prompt(agent_id, stage_state)
 
-        # 3. 如果没有任何step,则增加step_0,一个规划模块
+        # 2. 如果没有任何step,则增加step_0,一个规划模块
         if len(self.agent_state["agent_step"].get_step(stage_id=stage_id)) == 0:
             self.add_step(
                 task_id = task_id,

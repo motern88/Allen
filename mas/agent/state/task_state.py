@@ -5,6 +5,7 @@ MAS系统接收到一个具体任务时，会实例化一个TaskState对象用�
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from mas.agent.state.stage_state import StageState
+import queue
 
 class TaskState:
     '''
@@ -16,10 +17,15 @@ class TaskState:
 
         task_group (list[str]): 任务群组，包含所有参与这个任务的Agent ID
         shared_message_pool (List[Dict]): 任务群组共享消息池（可选结构：包含agent_id, role, content等）
+        communication_queue (queue.Queue): 用于存放任务群组的通讯消息队列，Agent之间相互发送的待转发的消息会被存放于此
 
         stage_list (List[StageState]): 当前任务下所有阶段的列表（顺序执行不同阶段）
         execution_state (str): 当前任务的执行状态，"init"、"running"、"finished"、"failed"
         task_summary (str): 任务完成后的总结，由SyncState或调度器最终生成
+
+    说明:
+        共享消息池是各个Agent完成自己step后同步的简略信息，且共享消息池的信息所有Agent可主动访问，但是不会一有新消息就增量通知Agent。Agent可以不感知共享消息池的变化。
+        通讯消息队列是Agent之间相互发送的待转发的消息，里面存放的是Agent主动发起的通讯请求，里面必然包含需要其他Agent及时回复/处理的消息。
     '''
 
     def __init__(
@@ -33,6 +39,7 @@ class TaskState:
         # 任务群组与共享消息池
         self.task_group = task_group  # list[str] 所有参与这个任务的Agent ID
         self.shared_message_pool: List[Dict[str, str]] = []  # 示例结构：[{"agent_id": "A1", "role": "assistant", "stage_id": "stage001" "content": "xxx"}]
+        self.communication_queue = queue.Queue()  # 用于存放任务群组的通讯消息队列，Agent之间相互发送的待转发的消息会被存放于此，待MAS系统的消息处理模块定期扫描task_state的消息处理队列，执行消息传递任务。
         # 任务执行信息
         self.stage_list: List[StageState] = []  # 当前任务下所有阶段的列表（顺序执行不同阶段）
         self.execution_state = "init"  # 当前任务的执行状态，"init"、"running"、"finished"、"failed"

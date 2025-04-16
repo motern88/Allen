@@ -1,0 +1,52 @@
+# Date: 2025/04/15
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  skill_name: "send_message"
+  description:
+    "
+    该技能用于主动发起与其他Agent之间的通信。
+    发起方使用send_message技能向接收方发送消息，接收方会在自己的step列表中追加一个用于回应step。
+    如果是单向消息，则接收方追加process_message；如果需要回复，则接收方追加一个指向发送者的send_message。
+    send_message步骤的初始构建需要包含发送对象(可以是多个对象)，是否需要回复等意图指示。
+    
+    因此在MAS中Agent间通讯的类型有两种实现方式：
+    - 如果是一个单向消息，则通过Send Message和Process Message可以完成；
+    - 如果是长期多轮对话，则通过一系列的Send Message和最后一个Process Message实现。
+    "
+
+# 技能实际调用的提示词
+use_prompt:
+  skill_name: "send_message"
+  skill_prompt:  # 需要注意，提示词不需要LLM来判断send message是否是任务阶段相关的，LLM规划的send message一般默认是任务阶段相关。特殊情况下人类操作端才会生成与任务阶段无关的send message
+    "
+    **你现在正在执行send_message技能，你正在主动发起与其他Agent之间的通信。**
+    1.首先你需要根据步骤信息确认通讯对象（可以是多个对象），以及自行判断本次通讯是否需要回复：
+      - 如果需要回复：
+        消息类型将被填充为 need_reply，每个接收方的step中会追加一个指向你Agent ID的send_message步骤，用于向你回复信息。
+        如果你希望建立一个长期的多轮对话，你可以在消息内容中提示对方Agent在构造回应消息体时也将消息类型设为需要回复。
+      - 如果不需要回复：
+        消息类型将被填充为 notify，每个接收方的step中会追加一个process_message步骤，用于处理消息。
+    2.然后，你需要根据历史步骤信息完善精确你要发送的消息内容，已执行的历史step信息在**history_step**章节中给出。
+    3.最后，你将按照 return_format 的返回格式信息，将本次建立通讯的消息内容按照 return_format 指导的形式给出。
+    通过 return_format 中的方式建立通讯消息体。
+    "
+  return_format: |
+    - 输出格式用字典表示，字段中包含四个字段
+      sender_id (str): 发送者的Agent ID，也就是你的Agent ID
+      receiver (List[str]): 接收者的Agent ID列表，表示你要发送消息的对象
+      message (str): 发送的实际消息内容
+      stage_relative (str): 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为"no_relative"的字符串
+      need_reply (bool): 表示是否需要回复，如果需要回复则为True，否则为False
+    
+    - **请将你的消息构造结果用<send_message>和</send_message>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例：
+    <send_message>
+    {
+      "sender_id": "<sender_agent_id>",  # 你的Agent ID
+      "receiver": [ "<agent_id>", "<agent_id>", ... ],
+      "message": "<message_content>",
+      "stage_relative": "<stage_id或None>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
+      "need_reply": <bool>,  # 需要回复则为True，否则为False
+    }
+    </send_message>

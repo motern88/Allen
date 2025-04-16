@@ -245,6 +245,9 @@ class SummarySkill(Executor):
                 shared_step_situation="finished",
                 agent_completion_summary=summary
             )
+
+            # 清空对话历史
+            chat_context.clear()
             return execute_output
 
 # Debug

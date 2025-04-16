@@ -129,6 +129,7 @@ class Executor(ABC):
             "**你是一个智能Agent，具有自己的角色和特点。这个章节agent_role是关于你的身份设定，请牢记它，你接下来任何事情都是以这个身份进行的:**\n"
         )
         md_output.append(
+            f"**Agent ID(你的ID)**: {agent_state['agent_id']}\n"
             f"**Name(你的名字)**: {agent_state['name']}\n"
             f"**Role(你的角色)**: {agent_state['role']}\n"
             f"**Profile(你的简介)**: {agent_state['profile']}"

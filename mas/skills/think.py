@@ -221,6 +221,9 @@ class ThinkSkill(Executor):
                 update_agent_situation="finished",
                 shared_step_situation="finished",
             )
+
+            # 清空对话历史
+            chat_context.clear()
             return execute_output
 
 # Debug

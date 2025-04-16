@@ -251,9 +251,6 @@ class ReflectionSkill(Executor):
                 )
                 reflection_step = self.extract_planned_step(response)
 
-            # 清空对话历史
-            chat_context.clear()
-
             # 4. 记录reflection反思结果到execute_result，并更新AgentStep中的步骤列表
             step = agent_state["agent_step"].get_step(step_id)[0]
             execute_result = {"reflection_step": reflection_step}  # 构造符合execute_result格式的执行结果
@@ -270,6 +267,9 @@ class ReflectionSkill(Executor):
 
             # 6. 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
             execute_output = self.get_execute_output(step_id, agent_state, update_agent_situation="working", shared_step_situation="finished")
+
+            # 清空对话历史
+            chat_context.clear()
             return execute_output
 
 # Debug

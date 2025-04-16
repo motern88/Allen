@@ -36,7 +36,7 @@ class SyncState:
         '''
         return self.all_tasks.get(task_id, None)
 
-    # TODO:实现解析executor_output并更新task/stage状态
+    # 实现解析executor_output并更新task/stage状态
     def sync_state(self, executor_output: Dict[str, any]):
         '''
         解析执行器返回的输出结果 executor_output ，更新任务状态与阶段状态。
@@ -83,6 +83,16 @@ class SyncState:
             stage_state.update_agent_cpmpletion(info["agent_id"], info["completion_summary"])
             print(f"[SyncState] 已更新 stage{info["stage_id"]}"
                   f"中 agent{info["agent_id"]} 的完成情况")
+
+        # 如果字典的key是"send_message",则添加消息到任务通讯队列
+        if "send_message" in executor_output:
+            info = executor_output["send_message"]
+            # 获取任务状态
+            task_state = self.all_tasks.get(info["task_id"])
+            # 将消息添加到任务的通讯队列中
+            task_state.communication_queue.put(info)
+            print(f"[SyncState] 已更新任务{info["task_id"]}的通讯队列，"
+                  f"添加了来自 agent{info["sender"]} 的消息")
 
 
         # TODO: 如果字典的key是"add_task",则添加新任务,(未确定实现方式)

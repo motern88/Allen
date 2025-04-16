@@ -16,7 +16,7 @@ class StageState:
         stage_id (str): 阶段ID，用于标识一个阶段的唯一ID
 
         stage_intention (str): 阶段的意图, 由创建Agent填写(仅作参考并不需要匹配特定格式)。例如：'Extract contract information and archive it...'
-        agent_allocation (Dict[<agent_id>, <stage_goal>]):
+        agent_allocation (Dict[<agent_id>, <agent_stage_goal>]):
             阶段中Agent的分配情况，key为Agent ID，value为Agent在这个阶段职责的详细说明
 
         execution_state (str): 阶段的执行状态
