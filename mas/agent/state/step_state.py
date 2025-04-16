@@ -28,11 +28,13 @@ class StepState:
             'finished' 已完成
             'failed' 失败（步骤执行异常终止）
 
-        text_content (str): 文本内容，
+        text_content (str): 文本内容，对step_intention详细而具体的描述，一般由前面步骤的LLM生成
             - 如果是技能调用则是填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
               step中的这个属性是只包含当前步骤目标的提示词，不包含Agent自身属性（如技能与工具权限）的提示词
             - 如果是工具调用则可以选填该次工具调用的具体详细的目标。
         instruction_content (Dict[str, Any]): 指令内容，如果是工具调用则是具体工具命令
+            - instruction_content一般只在工具调用时使用，在绝大部分step初始化中都不需要填入
+              在工具调用前一步的instruction_generation会负责生成具体的工具调用命令。
         execute_result (Dict[str, Any]): 用来记录LLM输出解析或工具返回的结果，主要作用是向reflection反思模块提供每个步骤的执行信息
     '''
 
