@@ -36,6 +36,17 @@ class SyncState:
         '''
         return self.all_tasks.get(task_id, None)
 
+    def get_stage_state(self, task_id: str, stage_id: str) -> Optional[StageState]:
+        '''
+        获取指定任务阶段的状态
+        '''
+        task_state = self.get_task_state(task_id)
+        if task_state:
+            for stage in task_state.stage_list:
+                if stage.stage_id == stage_id:
+                    return stage
+        return None
+
     # 实现解析executor_output并更新task/stage状态
     def sync_state(self, executor_output: Dict[str, any]):
         '''

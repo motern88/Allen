@@ -10,8 +10,8 @@ Send Message 首先需要构建发送对象列表。[<agent_id>, <agent_id>, ...
 {
     "sender_id": "<sender_agent_id>",
     "receiver": ["<agent_id>", "<agent_id>", ...],
-    "message": "<message_content>",
-    "stage_relative": "<stage_id或None>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
+    "message": "<message_content>",  # 消息文本
+    "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
     "need_reply": <bool>,  # 需要回复则为True，否则为False
 }
 </send_message>
@@ -208,7 +208,7 @@ class SendMessageSkill(Executor):
             # "sender_id": "<sender_agent_id>",
             # "receiver": ["<agent_id>", "<agent_id>", ...],
             # "message": "<message_content>",
-            # "stage_relative": "<stage_id或None>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
+            # "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
             # "need_reply": <bool>,  # 需要回复则为True，否则为False
 
         return execute_output

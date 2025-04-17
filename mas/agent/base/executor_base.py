@@ -186,8 +186,8 @@ class Executor(ABC):
 
         skill_prompt = skill_config["use_prompt"].get("skill_prompt", "暂无描述")
         return_format = skill_config["use_prompt"].get("return_format", "暂无描述")
-        md_output.append(f"**当前步骤的简要意图**: {step_state.step_intention}\n")
-        md_output.append(f"**需要用技能实现的具体目标**: {step_state.text_content}\n")
+        md_output.append(f"**当前步骤的简要意图 step_intention**: {step_state.step_intention}\n")
+        md_output.append(f"**当前步骤的文本描述 text_content**: {step_state.text_content}\n")
 
         md_output.append(f"{skill_prompt}\n")
         md_output.append(f"**return_format**: {return_format}\n")

@@ -12,6 +12,9 @@ from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import threading
 import queue
 import time
+import re
+import json
+
 
 
 class AgentBase():
@@ -19,8 +22,20 @@ class AgentBase():
     基础Agent类，定义各基础模块的流转逻辑
 
     整体分为两个部分，执行线程和任务分发线程
-    执行线程action方法只负责执行每一个step，有新的step就执行新的step。
-    任务线程用于管理任务进度，（当一个任务阶段的所有step都执行完毕后，再执行下一个任务阶段）。
+    - 执行
+        action方法只负责不断地执行执行每一个step，有新的step就执行新的step。
+        action方法执行step时不会区分是否与当前stage相关，只要在agent_step.todo_list中就会执行。
+        执行线程保证了Agent生命的自主性与持续性。
+    - 任务管理
+        任务管理用于管理任务进度，保证Agent的可控性。所有的任务管理都通过消息传递，Agent会使用receive_message接收。
+        receive_message方法：
+            Agent接收和处理来自其他Agent的不可预知的消息，提供了Agent之间主动相互干预的能力。
+            该方法最终会根据是否需要回复消息走入两个不同的分支，process message分支和send message分支
+
+    process_message方法:
+        根据解析出的指令的不同进入不同方法
+        start_stage方法:
+            当一个任务阶段的所有step都执行完毕后，帮助Agent建立下一个任务阶段的第一个step: planning_step）。
 
     '''
     def __init__(
@@ -164,6 +179,149 @@ class AgentBase():
     # ---------------------------------------------------------------------------------------------
     # 下：Agent的任务逻辑
 
+    def receive_message(self, message):
+        '''
+        接收来自其他Agent的消息（该消息由MAS中的message_dispatcher转发），
+        根据消息内容添加不同的step：
+        - 如果需要回复则添加send_message step
+        - 如果不需要回复则考虑执行消息中的指令或添加process_message step
+
+        message格式：
+        {
+            "task_id": task_id,
+            "sender_id": "<sender_agent_id>",
+            "receiver": ["<agent_id>", "<agent_id>", ...],
+            "message": "<message_content>",  # 消息文本
+            "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
+            "need_reply": <bool>,  # 需要回复则为True，否则为False
+        }
+        '''
+        # 1. 判断消息是否需要回复
+        if message["need_reply"]:
+            # 进入到回复消息的分支，为AgentStep添加send_message step用于回复。
+            self.add_step(
+                task_id = message["task_id"],
+                stage_id = message["stage_relative"],  # 可能是no_relative 与阶段无关
+                step_intention = f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
+                step_type = "skill",
+                executor = "send_message",
+                text_content = message["message"]
+            )
+        else:
+            # 进入到消息处理的分支，处理不需要回复的消息
+            self.process_message(message)
+
+
+    # TODO：完善其他管理指令
+    def process_message(self, message):
+        '''
+        对于不需要回复的消息，进入消息处理分支
+
+        message格式：
+        {
+            "task_id": task_id,
+            "sender_id": "<sender_agent_id>",
+            "receiver": ["<agent_id>", "<agent_id>", ...],
+            "message": "<message_content>",  # 消息文本
+            "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
+            "need_reply": <bool>,  # 需要回复则为True，否则为False
+        }
+
+        1. 对于需要LLM理解并消化的消息，添加process_message step
+        2. 对于start_stage指令，执行start_stage
+
+        '''
+        # 解析文本中的指令和非指令文本
+        instruction, text = self.extract_instruction(message["message"])
+
+        # 1. 对于需要LLM理解并消化的消息，添加process_message step
+        if text:
+            # 为AgentStep添加process_message step用于回复。
+            self.add_step(
+                task_id=message["task_id"],
+                stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
+                step_intention=f"处理来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**。"
+                               f"你需要理解并消化该消息的内容，必要的时候需要将重要信息记录在你的persistent_memory中",
+                step_type="skill",
+                executor="process_message",
+                text_content=message["message"]
+            )
+
+        # 2. 如果instruction字典包含start_stage的key,则执行start_stage
+        if instruction and "start_stage" in instruction:
+            # 指令内容 {"start_stage": {"stage_id": <stage_id> }}  # TODO：完成生成该指令的技能
+            task_id = message["task_id"]
+            stage_id = instruction["start_stage"]["stage_id"]
+            self.start_stage(task_id=task_id, stage_id=stage_id)
+
+
+
+
+    def start_stage(
+        self,
+        task_id: str,
+        stage_id: str,
+    ):
+        '''
+        用于开始一个任务阶段:一个stage的第一个step必定是planning方法
+
+        1. 构造Agent规划当前阶段的提示词
+        2. 如果当前stage没有任何step，则增加一个规划step
+        '''
+        stage_state = self.sync_state.get_stage_state(task_id=task_id, stage_id=stage_id)
+        # Agent从当前StageState来获取信息明确目标
+        agent_id = self.agent_state["agent_id"]
+        task_id = stage_state["task_id"]
+        stage_id = stage_state["stage_id"]
+
+        # 1. 构造Agent规划当前阶段的提示词
+        agent_stage_prompt = self.get_stage_prompt(agent_id, stage_state)
+
+        # 2. 如果没有任何step,则增加step_0,一个规划模块
+        if len(self.agent_state["agent_step"].get_step(stage_id=stage_id)) == 0:
+            self.add_step(
+                task_id=task_id,
+                stage_id=stage_id,
+                step_intention=f"规划Agent执行当前阶段需要哪些具体step",
+                step_type="skill",
+                executor="planning",
+                text_content=agent_stage_prompt
+            )
+
+    # 上：Agent的任务逻辑
+    # ---------------------------------------------------------------------------------------------
+    # 下：Agent的工具方法
+
+    def extract_instruction(self, text: str):
+        '''
+        从文本中提取指令字典和剩余文本
+        (当前仅支持消息中包含一条指令)
+
+        返回:
+            - instruction_dict: JSON指令字典（如果解析失败则为 None）
+            - rest_text: 去除该<instruction>后的剩余文本
+        '''
+        # 使用正则表达式提取<send_message>和</send_message>之间的内容
+        matches = list(re.finditer(r"<instruction>\s*(.*?)\s*</instruction>", text, re.DOTALL))
+
+        if matches:
+            last_match = matches[-1]
+            instruction_text = last_match.group(1)
+            start, end = last_match.span()
+
+            try:
+                instruction_dict = json.loads(instruction_text)
+            except json.JSONDecodeError:
+                print("JSON解析错误:", instruction_text)
+                instruction_dict = None
+
+            # 去掉最后一个 <instruction> ... </instruction> 的文本
+            rest_text = text[:start] + text[end:]
+            return instruction_dict, rest_text.strip()
+        else:
+            return None, text.strip()
+
+
     def get_stage_prompt(self, agent_id, stage_state):
         '''
         获取当前阶段内容的提示词
@@ -180,52 +338,14 @@ class AgentBase():
         md_output.append("你被分配协助完成当前阶段stage的目标\n")
         md_output.append(
             f"当前阶段stage的信息如下：\n,"
-            f"任务ID为：{task_id}\n,"
-            f"阶段ID为：{stage_id}\n,"
-            f"阶段整体目标为：{stage_intention}\n,"
-            f"阶段中所有Agent的分配情况为：{agent_allocation}\n,"
+            f"- 任务ID为：{task_id}\n,"
+            f"- 阶段ID为：{stage_id}\n,"
+            f"- 阶段整体目标stage_intention为：{stage_intention}\n,"
+            f"- 阶段中所有Agent的分配情况agent_allocation为：{agent_allocation}\n,"
         )
         md_output.append(f"**你的所负责的具体目标为**：{agent_goal}\n")
 
         return "\n".join(md_output)
-
-    def start_stage(
-        self,
-        stage_state: StageState,  # Agent从当前StageState来获取信息明确目标
-    ):
-        '''
-        用于开始一个任务阶段:一个stage的第一个step必定是planning方法
-
-        TODO:跨stage的自主心动是由上级Agent引导还是由Agent自主决定？
-        TODO:如果由上级任务管理Agent决定，则实现上级Agent控制执行Agent使用start_stage方法
-        TODO:如果由执行Agent自主决定，如何实现？
-
-        1. 构造Agent规划当前阶段的提示词
-        2. 如果当前stage没有任何step，则增加一个规划step
-        '''
-        agent_id = self.agent_state["agent_id"]
-        task_id = stage_state["task_id"]
-        stage_id = stage_state["stage_id"]
-
-        # 1. 构造Agent规划当前阶段的提示词
-        agent_stage_prompt = self.get_stage_prompt(agent_id, stage_state)
-
-        # 2. 如果没有任何step,则增加step_0,一个规划模块
-        if len(self.agent_state["agent_step"].get_step(stage_id=stage_id)) == 0:
-            self.add_step(
-                task_id = task_id,
-                stage_id = stage_id,
-                step_intention = f"规划Agent执行当前阶段需要哪些具体step",
-                step_type = "skill",
-                executor = "planning",
-                text_content = agent_stage_prompt
-            )
-
-
-    # 上：Agent的任务逻辑
-    # ---------------------------------------------------------------------------------------------
-    # 下：Agent的工具方法
-
 
     def add_step(
         self,
