@@ -4,7 +4,7 @@
 # Configuration for the Milvus Vector Database tool
 vector_db_config:
   connection:
-    host: "localhost"
+    host: "43.142.97.170"
     port: "19530"
     alias: "default"
     timeout: 10
@@ -20,7 +20,7 @@ vector_db_config:
     max_length: 65535
 
 
-use_guide:  # TODO：和业务相关的具体工具，而非整个工具类型
+use_guide:
   tool_name: "milvus_vector_db"
   description:
     "
@@ -58,7 +58,7 @@ use_prompt:
     要求：
     1. operation 必须是以下之一：store（保存文档）、search（查找相似文档）
     2. content 必须提供，且不超过 65535 个字符
-    3. collection 必须是有效的字母数字名称
+    3. collection_name 必须是有效的字母数字组合字符串
     4. top_k 是可选的，如果提供，则必须介于 1 和 100 之间
 
     示例：
@@ -67,7 +67,7 @@ use_prompt:
     {
     "operation": "store",
     "content": "这是一个用于存储在向量数据库中的示例文档。",
-    "collection": "docs2025"
+    "collection_name": "docs2025"
     }
     </MILVUS>
 
@@ -75,8 +75,8 @@ use_prompt:
     <MILVUS>
     {
     "operation": "search",
-    "content": "哪些文档与此查询相似？",
-    "collection": "docs2025",
+    "content": "示例文档在向量数据库中",
+    "collection_name": "docs2025",
     "top_k": 3
     }
     </MILVUS>

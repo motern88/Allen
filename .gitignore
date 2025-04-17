@@ -1,3 +1,5 @@
+__pycache__/  
+*.pyc
 data/
 example/
 mas/agent/base/__pycache__/executor_base.cpython-310.pyc

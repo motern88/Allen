@@ -164,7 +164,7 @@ class Executor(ABC):
             persistent_memory = match.group(1)  # 获取匹配内容
             return persistent_memory
         else:
-            return None
+            return ""
 
     # 组装Agent当前执行的skill_step的提示词
     def get_current_skill_step_prompt(self, step_id, agent_state):

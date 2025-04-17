@@ -206,10 +206,14 @@ class InstructionGenerationSkill(Executor):
             instruction_generation_prompt,
             context=chat_context
         )
+        print(f"LLM完整响应:\n{response}")  # 添加响应输出  
 
         # 3. 解析 LLM 返回的指令内容，并追加到下一个工具step的指令内容中
         tool_instruction = self.extract_tool_instruction(response)
         next_tool_step = self.get_next_tool_step(step_id, agent_state)  # 获取下一个工具step
+
+        # 添加调试信息  
+        print(f"提取的指令内容: {tool_instruction}")  
 
         # 如果无法解析到指令信息，或无法获取到下一个工具step
         if not tool_instruction or not next_tool_step:
