@@ -44,7 +44,7 @@ class ProcessMessageSkill(Executor)
 
     def execute(self, step_id: str, agent_state: Dict[str, Any]):
         '''
-        
+
         '''
 
 

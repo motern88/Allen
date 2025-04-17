@@ -20,7 +20,7 @@ vector_db_config:
     max_length: 65535
 
 
-use_guide:
+use_guide:  # TODO：和业务相关的具体工具，而非整个工具类型
   tool_name: "milvus_vector_db"
   description:
     "
