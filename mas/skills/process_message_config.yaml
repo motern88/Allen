@@ -1,0 +1,27 @@
+# Date: 2025/04/18
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  skill_name: "process_message"
+  description:
+    "
+    该技能主要用读取其他Agent发送的不需要回复的消息。
+    **该技能不应主动添加！！** 一般由其他Agent向你发送消息后系统帮你自动添加该步骤用于确保读取消息。
+    在该技能中，Agent会调用LLM总结并消化来自其他Agent的文本消息，并且将消化结果添加在持续性记忆中。
+    
+    在MAS中Agent间通讯的类型有两种实现方式：
+      - 一个单向消息：发起者执行Send Message技能，接收者被添加Process Message步骤以读取信息；
+      - 长期多轮对话：发起者执行Send Message技能，接收者被添加Send Message步骤以回复该消息。
+    "
+
+# 技能实际调用的提示词
+use_prompt:
+  skill_name: "process_message"
+  skill_prompt:
+    "
+    **你现在正在执行process_message技能，你正在接收来自其他Agent的消息。**
+    
+    "
+
+  return_format: |

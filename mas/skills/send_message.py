@@ -192,7 +192,7 @@ class SendMessageSkill(Executor):
             "agent_id": agent_state["agent_id"],
             "role": agent_state["role"],
             "stage_id": stage_id,
-            "content": f"执行Planning步骤:{shared_step_situation}，"
+            "content": f"执行Send Message步骤:{shared_step_situation}，"
         }
 
         # 3. 添加待处理消息到task_state.communication_queue
@@ -217,7 +217,7 @@ class SendMessageSkill(Executor):
         '''
         Send Message技能的具体执行方法:
 
-        1. 组装 LLM Planning 提示词
+        1. 组装 LLM Send Message 提示词
         2. LLM调用
         3. 解析llm返回的消息体
         4. 解析persistent_memory并追加到Agent持续性记忆中

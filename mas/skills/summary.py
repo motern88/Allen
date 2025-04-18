@@ -159,7 +159,7 @@ class SummarySkill(Executor):
             "agent_id": agent_state["agent_id"],
             "role": agent_state["role"],
             "stage_id": stage_id,
-            "content": f"执行summary步骤:{shared_step_situation}，"
+            "content": f"执行Summary步骤:{shared_step_situation}，"
         }
 
         # 3. 更新此Agent的阶段完成情况到stage_state.completion_summary

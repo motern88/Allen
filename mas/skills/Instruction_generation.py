@@ -168,7 +168,7 @@ class InstructionGenerationSkill(Executor):
             "agent_id": agent_state["agent_id"],
             "role": agent_state["role"],
             "stage_id": stage_id,
-            "content": f"执行instruction_generation步骤:{shared_step_situation}，"
+            "content": f"执行Instruction Generation步骤:{shared_step_situation}，"
         }
 
         return execute_output

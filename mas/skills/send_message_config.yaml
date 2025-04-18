@@ -19,8 +19,7 @@ use_guide:
 # 技能实际调用的提示词
 use_prompt:
   skill_name: "send_message"
-  skill_prompt:  # 需要注意，提示词不需要LLM来判断send message是否是任务阶段相关的，LLM规划的send message一般默认是任务阶段相关。特殊情况下人类操作端才会生成与任务阶段无关的send message
-    "
+  skill_prompt: | # 需要注意，提示词不需要LLM来判断send message是否是任务阶段相关的，LLM规划的send message一般默认是任务阶段相关。特殊情况下人类操作端才会生成与任务阶段无关的send message
     **你现在正在执行send_message技能，你正在主动发起与其他Agent之间的通信。**
     1.首先你需要根据步骤信息确认通讯对象（可以是多个对象），以及自行判断本次通讯是否需要回复：
       - 如果需要回复：
@@ -29,9 +28,16 @@ use_prompt:
       - 如果不需要回复：
         消息类型将被填充为 notify，每个接收方的step中会追加一个process_message步骤，用于处理消息。
     2.然后，你需要根据历史步骤信息完善精确你要发送的消息内容，已执行的历史step信息在**history_step**章节中给出。
-    3.最后，你将按照 return_format 的返回格式信息，将本次建立通讯的消息内容按照 return_format 指导的形式给出。
+    3.你的消息发送内容需要包含：
+      - 简短的自我介绍
+        用于称述你的Agent角色身份和职责（如果和本次通讯有因果关系的话，简要阐述你过去做了什么事情）
+      - 发送消息的意图
+        说明你为什么要发送这条消息，或者你希望对方Agent做什么事情
+      - 其他详细附加内容
+        对本次消息意图的详细补充，或具体的消息内容。
+    4.最后，你将按照 return_format 的返回格式信息，将本次建立通讯的消息内容按照 return_format 指导的形式给出。
     通过 return_format 中的方式建立通讯消息体。
-    "
+
   return_format: |
     - 输出格式用字典表示，字段中包含四个字段
       sender_id (str): 发送者的Agent ID，也就是你的Agent ID
