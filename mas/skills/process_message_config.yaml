@@ -21,7 +21,13 @@ use_prompt:
   skill_prompt:
     "
     **你现在正在执行process_message技能，你正在接收来自其他Agent的消息。**
-    
+    你需要对接收到的来自其他Agent的消息进行消化与整理。
+    参考已执行的历史step信息(见 history_step 章节) ，准确理解并消化当前step中记录的有关接收到的消息内容(接收到的消息内容见当前step的text_content)。
+    将整理后的消息内容以 return_format 的格式输出，并且将你认为其中重要的部分添加到你的持续性记忆中。
     "
 
   return_format: |
+    - **请将你处理的消息结果用<process_message>和</process_message>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例：
+      <process_message>
+      你对接收到消息的理解与消化
+      </process_message>

@@ -239,7 +239,65 @@ if __name__ == "__main__":
     from mas.agent.configs.llm_config import LLMConfig
 
     print("测试Process Message技能的调用")
+    agent_state = {
+        "agent_id": "0001",
+        "name": "小灰",
+        "role": "合同审查",
+        "profile": "审查合同是否有误",
+        "working_state": "Unassigned tasks",
+        "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),
+        "working_memory": {},
+        "persistent_memory": "",
+        "agent_step": AgentStep("0001"),
+        "skills": ["planning", "reflection", "summary",
+                   "instruction_generation", "quick_think", "think",
+                   "send_message", "process_message"],
+        "tools": [],
+    }
+    # 构造虚假的历史步骤
+    step1 = StepState(
+        task_id="task_001",
+        stage_id="stage_001",
+        agent_id="0001",
+        step_intention="提取合同的信息",
+        step_type="tool",
+        executor="contract_extract",
+        text_content="根据工具提取合同的重要信息，查明合同金额是否有误，是否涉嫌诈骗",
+        execute_result={
+            "contract_extract": "<测试文本（假设返回一些合同信息）>"
+        },
+    )
+    step2 = StepState(
+        task_id="task_001",
+        stage_id="stage_001",
+        agent_id="0001",
+        step_intention="审查合同",
+        step_type="skill",
+        executor="think",
+        text_content="审查合同金额是否有误，是否涉嫌诈骗",
+        execute_result={
+            "think": "合同审查无误，不存在诈骗嫌疑",
+        },
+    )
+    step3 = StepState(
+        task_id="task_001",
+        stage_id="stage_001",
+        agent_id="0001",
+        step_intention="接收并处理来自其他Agent的消息",
+        step_type="skill",
+        executor="process_message",
+        text_content="你好，我是合同提取专员，我向你发送消息是想提醒你，合同金额有误，其中合同款本应是3000RMB却被写成了3000美金，请知悉",
+        execute_result={},
+    )
 
+    agent_state["agent_step"].add_step(step1)
+    agent_state["agent_step"].add_step(step2)
+    agent_state["agent_step"].add_step(step3)
 
+    step_id = agent_state["agent_step"].step_list[2].step_id  # 当前为第三个step
 
+    process_message_skill = ProcessMessageSkill()
+    process_message_skill.execute(step_id, agent_state)
 
+    # 打印step信息
+    agent_state["agent_step"].print_all_steps()
