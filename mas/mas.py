@@ -5,7 +5,7 @@ Multi-Agent System
     首先在MultiAgentSystem类中创建一个与Agent实例平级的sync_state，
     以确保sync_state是全局唯一一个状态同步器，同时保证sync_state中的task_state是所有Agent共享的。
 
-- Agent
+- Agent智能体
     MAS类是唯一的 agent 生命周期管理者，所有agent映射由它统一提供。
 
 - 消息分发器
@@ -35,7 +35,6 @@ class MultiAgentSystem:
         self.agents_list = []  # 存储所有Agent的列表
         self.message_dispatcher = MessageDispatcher()  # 实例化消息分发器
 
-
     def add_agent(self, agent_config):
         '''
         添加新的Agent到系统中。
@@ -48,7 +47,6 @@ class MultiAgentSystem:
         self.agents_list.append(
             AgentBase(agent_id=unique_id, config=agent_config, sync_state=self.sync_state)
         )
-
 
     def get_agent_dict(self):
         '''
