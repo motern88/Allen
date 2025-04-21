@@ -23,7 +23,7 @@ class StepState:
         executor (str): 执行该步骤的对象，如果是 type 是 'tool' 则填工具名称，如果是 'skill' 则填技能名称
         execution_state (str): 步骤的执行状态：
             'init' 初始化（步骤已创建）
-            'pending' 等待内容填充中（依赖数据未就绪），一般情况下只出现在工具指令填充，技能使用不需要等待前一步step去填充
+            'pending' 等待内容填充中（依赖数据未就绪），一般情况下只出现在工具指令填充，技能使用不需要等待前一步step去填充 TODO:工具step是否需要这个状态
             'running' 执行中
             'finished' 已完成
             'failed' 失败（步骤执行异常终止）

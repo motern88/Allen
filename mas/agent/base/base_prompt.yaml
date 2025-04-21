@@ -63,10 +63,14 @@ system_prompt: |
     task_state中会维护一份共享消息池，用于记录任务的全局信息，包括任务管理Agent对任务流程的更新与追加操作，任务群组成员对任务不同阶段Stage的完成情况更新等。
     共享消息池中的信息所有Agent都可以访问，然而共享消息池中的信息并不会主动发送给每个Agent，Agent并不被动接收共享消息池，Agent只会在需要的时候主动查看。
     （同一时刻，Task Group中仅有一个Stage活跃，因此不需要在 `stage state` 中维护任务阶段的共享消息池，`stage state` 只记录阶段目标和完成情况）
-
+  
   - Agent间通信：
-    Agent间通信需要由一方主动发起（在发起方的某一个step中执行的是 `send message` 工具，接收方Agent的`step`列表中会被追加一个回应step，用于在回应step中回复这条message）
-    
+    Agent间通信需要由一方主动发起。发起方会通过执行 `send message` 技能，向接收方发送一条message。
+    - 如果这条message是需要回复的，则接收方Agent的`step`列表中会被追加一个 `send message` step，用于向发起方发送回复消息。
+    - 如果这条消息是不需要回复的，则接收方Agent的`step`列表中会被追加一个 `process message` step，用于确保处理该消息内容。
+    因此，如果是一个单向消息，则通过Send Message和Process Message可以完成；
+    如果是长期多轮对话，则通过一系列的Send Message和最后一个Process Message实现。
+  
   ## 单Agent内部工作流
   单Agent内部工作流程是Agent在执行一个阶段的目标时，如何规划并执行多个Step以完成该目标。
   单Agent内部工作流是多Agent系统(MAS)的重要组成部分, 它是Agent**自主决定自身工作逻辑与自主决定使用什么工具与技能**的重要实现方式之一。

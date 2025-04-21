@@ -1,0 +1,33 @@
+# Date: 2025/04/21
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  skill_name: "task_manager"
+  description:
+    "
+    该技能用于管理者Agent管理任务进程，操作任务状态与阶段状态。
+    该技能使用时会获取任务信息与阶段信息，结合自身历史步骤信息，生成用于管理任务进程的指令，包括：
+    
+    创建任务 add_task;
+    为任务创建阶段 add_stage;
+    结束任务 finish_task;
+    结束阶段 finish_stage; 
+    取消任务 cancel_task;
+    取消阶段 cancel_stage。
+    "
+
+# 技能实际调用的提示词
+use_prompt:
+  skill_name: "task_manager"
+  skill_prompt: |
+    **你现在正在执行task_manager技能，你正在履行管理者的职能，对任务进程进行操作。**
+    首先你需要牢记管理任务的基本要领：
+    1. 任何任务，先思考如何清晰明了的切成几块分配给不同Agent。
+    2. 任何任务，先思考怎么跟踪这几个Agent这几块事情的进度，监控进度的关键事件是什么。
+    3. 任何任务，先思考怎么向任务发起者（人类操作者或上级Agent）汇报，怎么横向沟通理解。
+    4. 任何任务，先弄清楚必要资源和条件是什么，宁可低估Agent的能力，不能高估Agent的能力。
+    
+    
+
+  return_format: |
