@@ -76,7 +76,7 @@ class SendMessageSkill(Executor):
     def __init__(self):
         super().__init__()  # 调用父类的构造方法
 
-    def extract_send_message(self, text: str) -> [Dict[str, Any]]:
+    def extract_send_message(self, text: str) -> Optional[Dict[str, Any]]:
         '''
         从文本中提取消息构造体
         '''
