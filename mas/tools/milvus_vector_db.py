@@ -28,7 +28,7 @@ Milvus 向量数据库工具
 '''
 
 from typing import Dict, Any, Optional
-from pymilvus import connections, Collection, utility
+from pymilvus import connections, Collection, utility, CollectionSchema, FieldSchema, DataType
 from sentence_transformers import SentenceTransformer
 from mas.agent.base.executor_base import Executor
 import yaml
@@ -80,19 +80,14 @@ class MilvusTool(Executor):
             coll_config = self.config["vector_db_config"]["collection"]
              # 定义字段 
             fields = [
-                {"name": "id", "dtype": "INT64", "is_primary": True},
-                {"name": "text", "dtype": "VARCHAR", "max_length": coll_config["max_length"]},
-                {"name": "embedding", "dtype": "FLOAT_VECTOR", "dim": coll_config["vector_dim"]}
-            ]
+                FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),  
+                FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=coll_config["max_length"]),
+                FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=coll_config["vector_dim"])
+                ]
             # 定义集合 schema 
-            schema = Collection(
-                name=collection_name,
+            schema = CollectionSchema(
                 fields=fields,
-                index_params={
-                    "index_type": coll_config["index_type"],
-                    "metric_type": coll_config["metric_type"],
-                    "params": {"nlist": coll_config["nlist"]}
-                }
+                description="docs embedding collection"
             )
             # 创建集合  
             collection = Collection(name=collection_name, schema=schema)  
@@ -102,18 +97,16 @@ class MilvusTool(Executor):
                 "metric_type": coll_config["metric_type"],
                 "params": {"nlist": coll_config["nlist"]}
             })
-            # 缓存集合对象 
-            self.collection_cache[collection_name] = schema
 
             # 加载集合到内存  
             collection.load()  
+            # 缓存集合对象 
+            self.collection_cache[collection_name] = schema
             return collection
             
         collection = Collection(name=collection_name)
-        self.collection_cache[collection_name] = collection
-
-        # 确保集合已加载  
         collection.load()  
+        self.collection_cache[collection_name] = collection
 
         return collection
     
@@ -182,7 +175,6 @@ class MilvusTool(Executor):
             
             # Insert data
             collection.insert([
-                [utility.gen_unique_id()],  # id
                 [text],  # text
                 [embedding.tolist()]  # embedding
             ])
@@ -231,6 +223,9 @@ class MilvusTool(Executor):
             pass
 
 if __name__ == "__main__":
+    '''
+    测试milvus_vector_db需在Allen根目录下执行 python -m mas.tools.milvus_vector_db
+    '''
     from mas.agent.base.agent_base import AgentStep, StepState
     from mas.agent.configs.llm_config import LLMConfig
     from mas.skills.Instruction_generation import InstructionGenerationSkill
@@ -318,14 +313,14 @@ if __name__ == "__main__":
         print("存储结果:", store_result)
 
         # 获取生成的搜索操作指令 
-        search_instruction = agent_state["agent_step"].step_list[2].instruction_content
-        search_step_id = agent_state["agent_step"].step_list[2].step_id
-        print(f"生成的搜索指令: {search_instruction}，搜索步骤ID: {search_step_id}")
+        # search_instruction = agent_state["agent_step"].step_list[2].instruction_content
+        # search_step_id = agent_state["agent_step"].step_list[2].step_id
+        # print(f"生成的搜索指令: {search_instruction}，搜索步骤ID: {search_step_id}")
 
-        # 测试搜索功能  
-        print("\n=== 开始执行存储操作 ===")   
-        search_result = milvus_tool.execute(search_step_id, agent_state)  
-        print("搜索结果:", search_result)  
+        # # 测试搜索功能  
+        # print("\n=== 开始执行搜索操作 ===")   
+        # search_result = milvus_tool.execute(search_step_id, agent_state)  
+        # print("搜索结果:", search_result)  
 
     else:
         print("指令生成失败，请检查指令生成步骤的执行状态", gen_result)

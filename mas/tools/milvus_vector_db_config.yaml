@@ -58,7 +58,11 @@ use_prompt:
     要求：
     1. operation 必须是以下之一：store（保存文档）、search（查找相似文档）
     2. content 必须提供，且不超过 65535 个字符
-    3. collection_name 必须是有效的字母数字组合字符串
+    3. collection_name 必须是有效的字母数字组合字符串，如 "docs2025"
+       - collection_name 只能包含字母、数字和下划线
+       - collection_name 必须以字母开头
+       - collection_name 的长度必须在 1 到 255 个字符之间
+       - collection_name 不能包含空格或特殊字符
     4. top_k 是可选的，如果提供，则必须介于 1 和 100 之间
 
     示例：
