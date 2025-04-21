@@ -35,7 +35,7 @@ class AgentBase():
     process_message方法:
         根据解析出的指令的不同进入不同方法
         start_stage方法:
-            当一个任务阶段的所有step都执行完毕后，帮助Agent建立下一个任务阶段的第一个step: planning_step）。
+            当一个任务阶段的所有step都执行完毕后，帮助Agent建立下一个任务阶段的第一个step: planning_step。
 
     '''
     def __init__(
