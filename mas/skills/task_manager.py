@@ -1,7 +1,7 @@
 '''
 技能名称: Task Manager
 期望作用: Agent对任务的管理与调度。（一种特殊权限的技能，一般只有管理者Agent拥有）
-    Task Manager会获取任务信息与阶段信息，结合自身历史步骤信息，生成用于管理任务进程的指令。
+    Task Manager会参考自身历史步骤信息（前面步骤获取任务信息与阶段信息），生成用于管理任务进程的指令。
 
 任务管理者Agent会通过该技能生成相应操作的指令，指令会再MAS系统中操作对应组件完成实际行动，
 例如通过SyncState操作task_state与stage_state,通过send_message形式通知相应Agent
@@ -38,11 +38,10 @@
             1.3.1 step.step_intention 当前步骤的简要意图（## 二级标题）
             1.3.2 step.text_content 具体目标（## 二级标题）
             1.3.3 技能规则提示(task_manager_config["use_prompt"])（## 二级标题）
-        1.4 Agent所管理的任务及附属阶段的信息（# 一级标题）
-        1.5 历史步骤执行结果（# 一级标题）
-        1.6 持续性记忆:（# 一级标题）
-            1.6.1 Agent持续性记忆说明提示词（## 二级标题）
-            1.6.2 Agent持续性记忆内容提示词（## 二级标题）
+        1.4 历史步骤执行结果（# 一级标题）
+        1.5 持续性记忆:（# 一级标题）
+            1.5.1 Agent持续性记忆说明提示词（## 二级标题）
+            1.5.2 Agent持续性记忆内容提示词（## 二级标题）
 
     2. llm调用
     3. 解析llm返回的指令构造
@@ -96,11 +95,10 @@ class TaskManagerSkill(Executor):
             3.1 step.step_intention 当前步骤的简要意图（## 二级标题）
             3.2 step.text_content 具体目标（## 二级标题）
             3.3 技能规则提示(task_manager_config["use_prompt"])（## 二级标题）
-        4 Agent所管理的任务及附属阶段的信息（# 一级标题）  # TODO:是否要单独做成一个技能
-        5 历史步骤执行结果（# 一级标题）
-        6 持续性记忆:（# 一级标题）
-            6.1 Agent持续性记忆说明提示词（## 二级标题）
-            6.2 Agent持续性记忆内容提示词（## 二级标题）
+        4 历史步骤执行结果（# 一级标题）
+        5 持续性记忆:（# 一级标题）
+            5.1 Agent持续性记忆说明提示词（## 二级标题）
+            5.2 Agent持续性记忆内容提示词（## 二级标题）
         '''
         md_output = []
 
@@ -126,17 +124,12 @@ class TaskManagerSkill(Executor):
         current_step = self.get_current_skill_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
         md_output.append(f"{current_step}\n")
 
-        # 4. Agent所管理的任务及附属阶段的信息 TODO
-        md_output.append(f"# 你所涉及的任务信息\n")
-        task_info = self.get_task_info_prompt(agent_state["agent_id"])  # TODO:包含几级标题？
-        md_output.append(f"{task_info}\n")
-
-        # 5. 历史步骤执行结果
+        # 4. 历史步骤执行结果
         md_output.append(f"# 历史已执行步骤 history_step\n")
         history_steps = self.get_history_steps_prompt(step_id, agent_state)  # 不包含标题的md格式文本
         md_output.append(f"{history_steps}\n")
 
-        # 6. 持续性记忆提示词
+        # 5. 持续性记忆提示词
         md_output.append("# 持续性记忆 persistent_memory\n")
         # 获取persistent_memory的使用说明
         base_persistent_memory_prompt = self.get_base_prompt(key="persistent_memory_prompt")  # 不包含标题的md格式文本
@@ -149,7 +142,59 @@ class TaskManagerSkill(Executor):
 
         return "\n".join(md_output)
 
+    def get_execute_output(
+        self,
+        step_id: str,
+        agent_state: Dict[str, Any],
+        update_agent_situation: str,
+        shared_step_situation: str,
+    ):
+        '''
+        构造Task Manager技能的execute_output。这部分使用代码固定构造，不由LLM输出构造。
+        1. update_agent_situation:
+            通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态
+        2. shared_step_situation:
+            添加步骤信息到task共享消息池
+        3.
+        '''
+        execute_output = {}
 
+        # 1. 通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态
+        # 获取当前步骤的task_id与stage_id
+        step_state = agent_state["agent_step"].get_step(step_id)[0]
+        task_id = step_state.task_id
+        stage_id = step_state.stage_id
+        # 构造execute_output
+        execute_output["update_stage_agent_state"] = {
+            "task_id": task_id,
+            "stage_id": stage_id,
+            "agent_id": agent_state["agent_id"],
+            "state": update_agent_situation,
+        }
+
+        # 2. 添加步骤信息到task共享消息池
+        execute_output["send_shared_message"] = {
+            "agent_id": agent_state["agent_id"],
+            "role": agent_state["role"],
+            "stage_id": stage_id,
+            "content": f"执行Send Message步骤:{shared_step_situation}，"
+        }
+
+        # TODO
+
+
+        return execute_output
+
+    def execute(self, step_id: str, agent_state: Dict[str, Any]):
+        '''
+        Task Manager技能的具体执行方法:
+
+        1. 组装 LLM Task Manager 提示词
+        2. LLM调用
+        3. 解析llm返回的消息体
+        4. 解析persistent_memory并追加到Agent持续性记忆中
+        5. 生成并返回execute_output指令
+        '''
 
 
 
