@@ -279,7 +279,16 @@ class Executor(ABC):
                 current_step_found = True
         return None  # 如果没有找到下一个工具步骤，返回 None
 
+    def get_task_info_prompt(self, agent_id):
+        '''
+        获取当前agent所管理的任务及附属阶段的信息
+        该方法供子类使用
+        '''
+        # TODO：如何获取到task_state
+        task_state =
 
+
+        return "\n".join(md_output)
 
     # 为planning、reflection等技能实现通用add_step的方法
     def add_step(

@@ -14,6 +14,7 @@ class TaskState:
     属性:
         task_id (str): 任务ID，用于标识一个任务的唯一ID
         task_intention (str): 任务意图, 较为详细的任务目标说明
+        task_manager (str): 任务管理者Agent ID，负责管理这个任务的Agent ID
 
         task_group (list[str]): 任务群组，包含所有参与这个任务的Agent ID
         shared_message_pool (List[Dict]): 任务群组共享消息池（可选结构：包含agent_id, role, content等）
@@ -31,11 +32,13 @@ class TaskState:
     def __init__(
         self,
         task_intention: str,
-        task_group: List[str],
+        task_manager: str,
+        task_group: None,
     ):
         # 任务基本信息
         self.task_id = str(uuid.uuid4())
         self.task_intention = task_intention
+        self.task_manager = task_manager
         # 任务群组与共享消息池
         self.task_group = task_group  # list[str] 所有参与这个任务的Agent ID
         self.shared_message_pool: List[Dict[str, str]] = []  # 示例结构：[{"agent_id": "A1", "role": "assistant", "stage_id": "stage001" "content": "xxx"}]
