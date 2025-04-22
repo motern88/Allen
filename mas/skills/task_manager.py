@@ -7,21 +7,21 @@
 例如通过SyncState操作task_state与stage_state,通过send_message形式通知相应Agent
 
 说明:
-1. 发起一个Task:  TODO：待实现
+1. 发起一个Task:
     创建任务 add_task。
     该操作会创建一个 task_state,包含 task_intention 任务意图
 
-2. 为任务分配Agent与阶段目标:  TODO：待实现
+2. 为任务分配Agent与阶段目标:
     为任务创建阶段 add_stage。
     该操作会为 task_state 创建一个或多个 stage_state,
     包含 stage_intention 阶段意图与 agent_allocation 阶段中Agent的分配情况。
 
-3. 任务判定已完成，交付任务:  TODO：待实现
+3. 任务判定已完成，交付任务:
     结束任务 finish_task。
     该操作会将 task_state 的状态更新为 finished 或 failed
     并自动进入任务结束流程（包括任务总结，任务汇报，任务日志记录入库等）。
 
-4. 任务阶段判定已结束，进入下一个任务阶段:  TODO：待实现
+4. 任务阶段判定已结束，进入下一个任务阶段:
     结束阶段 finish_stage。
     该操作会将 stage_state 的状态更新为 finished 或 failed
     阶段完成则进入下一个阶段，如果失败则反馈给任务管理者。
@@ -148,6 +148,7 @@ class TaskManagerSkill(Executor):
         agent_state: Dict[str, Any],
         update_agent_situation: str,
         shared_step_situation: str,
+        task_instruction: Optional[Dict[str, Any]] = None,
     ):
         '''
         构造Task Manager技能的execute_output。这部分使用代码固定构造，不由LLM输出构造。
@@ -155,7 +156,8 @@ class TaskManagerSkill(Executor):
             通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态
         2. shared_step_situation:
             添加步骤信息到task共享消息池
-        3.
+        3. task_instruction:
+            包含多种不同操作行为，由sync_state完成任务指令的解析与具体执行
         '''
         execute_output = {}
 
@@ -177,11 +179,14 @@ class TaskManagerSkill(Executor):
             "agent_id": agent_state["agent_id"],
             "role": agent_state["role"],
             "stage_id": stage_id,
-            "content": f"执行Send Message步骤:{shared_step_situation}，"
+            "content": f"执行Task Manager步骤:{shared_step_situation}，"
         }
 
-        # TODO
-
+        # 3. 由sync_state完成任务指令的解析与具体执行
+        if task_instruction:
+            task_instruction["agent_id"] = agent_state["agent_id"]  # 在指令中添加自身agent_id
+            execute_output["task_instruction"] = task_instruction
+            # 此时task_instruction中包含"agent_id","action"和其他具体操作指令涉及的字段
 
         return execute_output
 
@@ -196,14 +201,71 @@ class TaskManagerSkill(Executor):
         5. 生成并返回execute_output指令
         '''
 
+        # step状态更新为 running
+        agent_state["agent_step"].update_step_status(step_id, "running")
 
+        # 1. 组装 LLM Task Manager 提示词 (基础提示词与技能提示词)
+        task_manager_step_prompt = self.get_task_manager_prompt(step_id, agent_state)
+        print(task_manager_step_prompt)
+        # 2. LLM调用
+        llm_config = agent_state["llm_config"]
+        llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
+        chat_context = LLMContext(context_size=15)  # 创建一个对话上下文, 限制上下文轮数 15
 
+        chat_context.add_message("assistant", "好的，我会作为你提供的Agent角色，执行task_manager操作"
+                                              "我会根据 history_step 和当前step指示，精确我要发送的消息内容，"
+                                              "我会严格遵从你的skill_prompt技能指示，并在<task_instruction>和</task_instruction>之间输出规划结果，"
+                                              "在<persistent_memory>和</persistent_memory>之间输出我要追加的持续性记忆(如果我认为不需要追加我会空着)。")
+        response = llm_client.call(
+            task_manager_step_prompt,
+            context=chat_context
+        )
 
+        # 3. 解析llm返回的消息体
+        task_instruction = self.extract_task_instruction(response)
 
+        # 如果无法解析到任务指令，说明LLM没有返回规定格式任务指令
+        if not task_instruction:
+            # step状态更新为 failed
+            agent_state["agent_step"].update_step_status(step_id, "failed")
+            # 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
+            execute_output = self.get_execute_output(step_id, agent_state, update_agent_situation="failed",
+                                                     shared_step_situation="failed")
+            return execute_output
 
+        else: # 如果解析到任务指令
+            # 记录task manager结果到execute_result
+            step = agent_state["agent_step"].get_step(step_id)[0]
+            execute_result = {"task_instruction": task_instruction}  # 构造符合execute_result格式的执行结果
+            step.update_execute_result(execute_result)
 
+            # 4. 解析persistent_memory并追加到Agent持续性记忆中
+            new_persistent_memory = self.extract_persistent_memory(response)
+            agent_state["persistent_memory"] += "\n" + new_persistent_memory
 
+            # 5. 构造execute_output，
+            # 用于更新task_state.communication_queue和stage_state.every_agent_state
+            # 传递任务指令
+            execute_output = self.get_execute_output(
+                step_id,
+                agent_state,
+                update_agent_situation="finished",
+                shared_step_situation="finished",
+                task_instruction=task_instruction
+            )
 
+            # 清空对话历史
+            chat_context.clear()
+            return execute_output
+
+# Debug
+if __name__ == "__main__":
+    '''
+    测试task_manager需在Allen根目录下执行 python -m mas.skills.task_manager
+    '''
+    from mas.agent.configs.llm_config import LLMConfig
+
+    print("测试Task Manager技能的调用")
 
 
 
