@@ -129,12 +129,55 @@ class MilvusTool(Executor):
             if not isinstance(top_k, int) or top_k < 1 or top_k > 100:
                 raise ValueError("top_k 必须是1~100之间的整数")
             
+    def get_execute_output(  
+        self,  
+        step_id: str,  
+        agent_state: Dict[str, Any],  
+        execute_result: Dict[str, Any],  
+        update_agent_situation: str,  
+        shared_step_situation: str,  
+    ) -> Dict[str, Any]:  
+        """  
+        构造MilvusTool的execute_output  
+        1. update_agent_situation: 更新stage_state.every_agent_state中自己的状态  
+        2. shared_step_situation: 添加步骤信息到task共享消息池  
+        """  
+        execute_output = {}  
+
+        # 获取当前步骤的task_id与stage_id  
+        step_state = agent_state["agent_step"].get_step(step_id)[0]  
+        task_id = step_state.task_id  
+        stage_id = step_state.stage_id  
+        
+        # 构造execute_output  
+        execute_output["update_stage_agent_state"] = {  
+            "task_id": task_id,  
+            "stage_id": stage_id,  
+            "agent_id": agent_state["agent_id"],  
+            "state": update_agent_situation,  
+        }  
+
+        # 添加步骤信息到task共享消息池  
+        operation = execute_result.get("operation", "unknown")  
+        status = execute_result.get("status", "unknown")  
+        execute_output["send_shared_message"] = {  
+            "agent_id": agent_state["agent_id"],  
+            "role": agent_state["role"],  
+            "stage_id": stage_id,  
+            "content": f"执行Milvus{operation}操作:{shared_step_situation}，状态:{status}"  
+        }  
+
+        return execute_output  
+    
     def execute(self, step_id: str, agent_state: Dict[str, Any]) -> Dict[str, Any]:
         """根据指令执行MILVUS向量数据库操作"""
         try:
+            # 更新步骤状态为运行中  
+            agent_state["agent_step"].update_step_status(step_id, "running")  
+
             # 从step中获取指令
-            step_state = agent_state["agent_step"].get_step(step_id)[0]
-            instruction = step_state.instruction_content
+            step = agent_state["agent_step"].get_step(step_id)[0]
+            instruction = step.instruction_content
             
             if not instruction:
                 raise ValueError("步骤中未找到指令内容")
@@ -155,17 +198,47 @@ class MilvusTool(Executor):
             top_k = params.get("top_k", 5)
             
             if operation == "store":
-                return self._store_document(content, collection_name)
+                operation_result = self._store_document(content, collection_name)  
             elif operation == "search":
-                return self._search_similar(content, collection_name, top_k)
-            elif operation == "retrieve":
-                return self._retrieve_context(content, collection_name, top_k)
+                operation_result = self._search_similar(content, collection_name, top_k)
             else:
                 raise ValueError(f"未知的操作: {operation}")
-                
+            
+            # 添加操作类型到结果中  
+            operation_result["operation"] = operation  
+            
+            # 更新步骤执行结果  
+            step.update_execute_result(operation_result)  
+            
+            # 更新步骤状态为完成  
+            agent_state["agent_step"].update_step_status(step_id, "finished")  
+
+            # 构造并返回execute_ouptut
+            execute_output = self.get_execute_output(
+                step_id,  
+                agent_state,  
+                operation_result,  
+                update_agent_situation="finished",  
+                shared_step_situation=f"{operation}操作已完成"  
+            )
+            return execute_output
         except Exception as e:
-            print(f"执行Milvus操作时出错: {str(e)}")
-            return {"status": "error", "message": str(e)}
+            error_msg = str(e)
+            print(f"执行Milvus操作时出错: {error_msg}")
+            # 构造错误结果  
+            error_result = {"status": "error", "message": error_msg}  
+
+            # 1. 通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态
+            step = agent_state["agent_step"].get_step(step_id)[0]
+
+            # 构造execute_output
+            execute_output = self.get_execute_output(  
+                step_id,  
+                agent_state,  
+                error_result,  
+                update_agent_situation="failed",  
+                shared_step_situation="操作失败"  
+            )  
         
     def _store_document(self, text: str, collection_name: str) -> Dict[str, Any]:
         """文本向量存储进 Milvus"""
