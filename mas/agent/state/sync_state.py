@@ -12,6 +12,9 @@ from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from mas.agent.state.task_state import TaskState
 from mas.agent.state.stage_state import StageState
 
+from develop开发中.MetaGPT.tests.metagpt.provider.test_base_llm import test_async_base_llm
+
+
 class SyncState:
     '''
     SyncState类用于管理任务状态和阶段状态的同步。
@@ -46,6 +49,14 @@ class SyncState:
                 if stage.stage_id == stage_id:
                     return stage
         return None
+
+    # TODO：开启任务中的一个阶段
+    def start_stage(self, task_id: str, stage_id: str):
+        '''
+        由SyncState负责开启任务中的一个阶段，使用message中包含相应指令来触发相应Agent去执行
+        '''
+
+
 
     # 实现解析executor_output并更新task/stage状态
     def sync_state(self, executor_output: Dict[str, any]):
@@ -110,20 +121,77 @@ class SyncState:
         if "task_instruction" in executor_output:
             task_instruction = executor_output["task_instruction"]
 
-            # TODO: 创建任务 add_task
+            # 创建任务 add_task
             if task_instruction["action"] == "add_task":
-                pass
+                '''
+                {
+                    "agent_id": "<agent_id>",  # 发起者Agent id
+                    "action": "add_task",
+                    "task_intention": "<task_intention>",
+                }
+                '''
+                # 实例化一个TaskState
+                task_state = TaskState(
+                    task_intention=task_instruction["task_intention"],
+                    task_manager=task_instruction["agent_id"],
+                    task_group=None,
+                )
+                # 添加到任务字典中
+                self.add_task(task_state)
+                print(f"[SyncState] 已添加任务{task_state.task_id}，"
+                      f"任务管理者{task_state.task_manager}")
 
-            # TODO: 为任务创建阶段 add_stage
+            # 为任务创建阶段 add_stage
             if task_instruction["action"] == "add_stage":
-                pass
+                '''
+                {
+                    "agent_id": "<agent_id>",  # 发起者Agent id
+                    "action": "add_stage",
+                    "task_id": "<task_id>",  # 任务ID
+                    "stages": [
+                        {
+                          "stage_intention": "<stage_intention>",  # 阶段意图, 较为详细的阶段目标说明
+                          "agent_allocation": Dict[<agent_id>, <agent_stage_goal>],  # 阶段中Agent的分配情况，key为Agent ID，value为Agent在这个阶段职责的详细说明
+                        },
+                        ...
+                    ] 
+                }
+                '''
+                # 获取任务id的task_state
+                task_state = self.all_tasks.get(task_instruction["task_id"])
+                # 遍历阶段列表
+                for stage_info in task_instruction["stages"]:
+                    # 实例化一个StageState
+                    stage_state = StageState(
+                        task_id=task_instruction["task_id"],
+                        stage_intention=stage_info["stage_intention"],
+                        agent_allocation=stage_info["agent_allocation"],
+                        execution_state="init",
+                    )
+                    # 添加阶段到任务状态中
+                    task_state.add_stage(stage_state)
+                    print(f"[SyncState] 已添加阶段{stage_state.stage_id}，"
+                          f"到任务{task_instruction["task_id"]}中")
 
             # TODO: 结束任务 finish_task
             if task_instruction["action"] == "finish_task":
+                '''
+                '''
                 pass
 
             # TODO: 结束阶段 finish_stage
             if task_instruction["action"] == "finish_stage":
+                '''
+                {
+                    "agent_id": "<agent_id>",  # 发起者Agent id
+                    "action": "finish_stage",
+                    "task_id": "<task_id>",  # 任务ID
+                    "stage_id": "<stage_id>",  # 阶段ID
+                }
+                进入阶段结束流程，如果有下一个阶段，则sync_state需要负责开启下一个阶段
+                '''
+
+
                 pass
 
 
