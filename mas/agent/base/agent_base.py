@@ -232,7 +232,8 @@ class AgentBase():
 
         1. 对于需要LLM理解并消化的消息，添加process_message step
         2. 对于start_stage指令，执行start_stage
-        3. 对于update_working_memory指令，更新Agent的工作记忆
+        3. 对于finish_stage指令，执行finish_stage
+        4. 对于update_working_memory指令，更新Agent的工作记忆
 
         '''
         # 解析文本中的指令和非指令文本
@@ -258,7 +259,19 @@ class AgentBase():
             stage_id = instruction["start_stage"]["stage_id"]
             self.start_stage(task_id=task_id, stage_id=stage_id)
 
-        # 3. 如果instruction字典包含update_working_memory的key,则更新Agent的工作记忆
+        # 3. 如果instruction字典包含finish_stage的key,则执行清除该stage的所有step并且清除相应working_memory
+        if instruction and "finish_stage" in instruction:
+            # 指令内容 {"finish_stage": {"stage_id": <stage_id> }}  # 由sync_state生成
+            task_id = message["task_id"]
+            stage_id = instruction["finish_stage"]["stage_id"]
+            # 清除该stage的所有step
+            self.agent_state["agent_step"].remove_step(stage_id=stage_id)
+            # 清除相应的工作记忆
+            if task_id in self.agent_state["working_memory"]:
+                if stage_id in self.agent_state["working_memory"][task_id]:
+                    del self.agent_state["working_memory"][task_id][stage_id]
+
+        # 4. 如果instruction字典包含update_working_memory的key,则更新Agent的工作记忆
         if instruction and "update_working_memory" in instruction:
             # 指令内容 {"update_working_memory": {"task_id": <task_id>, "stage_id": <stage_id>或None}}
             task_id = instruction["update_working_memory"]["task_id"]
@@ -391,10 +404,8 @@ class AgentBase():
         # 2. 添加一个该Step到agent_step中
         self.agent_state["agent_step"].add_step(step_state)
 
-        # 3. 返回添加的step_id, 记录在工作记忆中  # TODO:实现工作记忆
+        # 3. 返回添加的step_id, 记录在工作记忆中
         self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
-
-    # TODO: 清除Agent某一个stage的所有step (记得同步工作记忆)
 
 
 
