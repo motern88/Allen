@@ -13,9 +13,9 @@ MAS中一次简单的LLM调用/文本生成。
             1.2.1 Agent角色背景提示词（## 二级标题）
             1.2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
         1.3 quick_think step:（# 一级标题）
-            1.3.1 step.step_intention 当前步骤的简要意图（## 二级标题）
-            1.3.2 step.text_content 具体目标（## 二级标题）
-            1.3.3 技能规则提示(quick_think_config["use_prompt"])（## 二级标题）
+            1.3.1 step.step_intention 当前步骤的简要意图
+            1.3.2 step.text_content 具体目标
+            1.3.3 技能规则提示(quick_think_config["use_prompt"])
         1.4 持续性记忆:（# 一级标题）
             1.4.1 Agent持续性记忆说明提示词（## 二级标题）
             1.4.2 Agent持续性记忆内容提示词（## 二级标题）
@@ -61,9 +61,9 @@ class QuickThinkSkill(Executor):
             2.1 Agent角色背景提示词（## 二级标题）
             2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
         3 quick_think step:（# 一级标题）
-            3.1 step.step_intention 当前步骤的简要意图（## 二级标题）
-            3.2 step.text_content 具体目标（## 二级标题）
-            3.3 技能规则提示(quick_think_config["use_prompt"])（## 二级标题）
+            3.1 step.step_intention 当前步骤的简要意图
+            3.2 step.text_content 具体目标
+            3.3 技能规则提示(quick_think_config["use_prompt"])
         4. 持续性记忆:（# 一级标题）
             4.1 Agent持续性记忆说明提示词（## 二级标题）
             4.2 Agent持续性记忆内容提示词（## 二级标题）

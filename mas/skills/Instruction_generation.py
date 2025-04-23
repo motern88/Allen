@@ -25,9 +25,9 @@ NOTE:
             1.2.1 Agent角色背景提示词（## 二级标题）
             1.2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
         1.3 instruction_generation step:（# 一级标题）
-            1.3.1 指令生成step.step_intention 当前步骤的简要意图（## 二级标题）
-            1.3.2 指令生成step.text_content 具体目标（## 二级标题）
-            1.3.3 技能规则提示(instruction_generation_config["use_prompt"])（## 二级标题）
+            1.3.1 指令生成step.step_intention 当前步骤的简要意图
+            1.3.2 指令生成step.text_content 具体目标
+            1.3.3 技能规则提示(instruction_generation_config["use_prompt"])
         1.4 tool step:（# 一级标题）
             1.4.1 工具step.step_intention 当前步骤的简要意图（## 二级标题）
             1.4.2 工具step.text_content 具体目标（## 二级标题）
@@ -78,13 +78,13 @@ class InstructionGenerationSkill(Executor):
             2.1 Agent角色背景提示词（## 二级标题）
             2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
         3 instruction_generation step:（# 一级标题）
-            3.1 指令生成step.step_intention 当前步骤的简要意图（## 二级标题）
-            3.2 指令生成step.text_content 具体目标（## 二级标题）
-            3.3 技能规则提示(instruction_generation_config["use_prompt"])（## 二级标题）
+            3.1 指令生成step.step_intention 当前步骤的简要意图
+            3.2 指令生成step.text_content 具体目标
+            3.3 技能规则提示(instruction_generation_config["use_prompt"])
         4 tool step:（# 一级标题）
-            4.1 工具step.step_intention 当前步骤的简要意图（## 二级标题）
-            4.2 工具step.text_content 具体目标（## 二级标题）
-            4.3 技能规则提示(tool_config["use_prompt"])（## 二级标题）
+            4.1 工具step.step_intention 当前步骤的简要意图
+            4.2 工具step.text_content 具体目标
+            4.3 技能规则提示(tool_config["use_prompt"])
         5 持续性记忆:（# 一级标题）
             5.1 Agent持续性记忆说明提示词（## 二级标题）
             5.2 Agent持续性记忆内容提示词（## 二级标题）

@@ -13,9 +13,9 @@ MAS中常规的基于历史步骤信息的LLM调用/文本生成。
             1.2.1 Agent角色背景提示词（## 二级标题）
             1.2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
         1.3 think step:（# 一级标题）
-            1.3.1 step.step_intention 当前步骤的简要意图（## 二级标题）
-            1.3.2 step.text_content 具体目标（## 二级标题）
-            1.3.3 技能规则提示(think_config["use_prompt"])（## 二级标题）
+            1.3.1 step.step_intention 当前步骤的简要意图
+            1.3.2 step.text_content 具体目标
+            1.3.3 技能规则提示(think_config["use_prompt"])
         1.4 历史步骤执行结果（# 一级标题）
         1.5 持续性记忆:（# 一级标题）
             1.5.1 Agent持续性记忆说明提示词（## 二级标题）
@@ -62,9 +62,9 @@ class ThinkSkill(Executor):
             2.1 Agent角色背景提示词（## 二级标题）
             2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
         3 think step:（# 一级标题）
-            3.1 step.step_intention 当前步骤的简要意图（## 二级标题）
-            3.2 step.text_content 具体目标（## 二级标题）
-            3.3 技能规则提示(think_config["use_prompt"])（## 二级标题）
+            3.1 step.step_intention 当前步骤的简要意图
+            3.2 step.text_content 具体目标
+            3.3 技能规则提示(think_config["use_prompt"])
         4 历史步骤执行结果（# 一级标题）
         5 持续性记忆:（# 一级标题）
             5.1 Agent持续性记忆说明提示词（## 二级标题）

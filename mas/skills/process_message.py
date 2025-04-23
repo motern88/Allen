@@ -7,22 +7,25 @@
 在AgentBase类中的process_message方法主要用于处理message中的指令部分，依照指令进行实际操作。
 在技能库中的ProcessMessageSkill主要用于让LLM理解并消化消息的文本内容。
 
+NOTE: Message内容可能包含md标题，为了防止与其他提示的md标题形成标题冲突，因此得调整提示词顺序。见具体实现。
+
 提示词顺序（系统 → 角色 → (目标 → 规则) → 记忆）
 
 具体实现:
-    1. 组装提示词:
+    1. 组装预提示词:
         1.1 MAS系统提示词（# 一级标题）
         1.2 Agent角色:（# 一级标题）
             1.2.1 Agent角色背景提示词（## 二级标题）
             1.2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
-        1.3 process_message step:（# 一级标题）
-            1.3.1 step.step_intention 当前步骤的简要意图（## 二级标题）
-            1.3.2 step.text_content 接收到的消息内容（## 二级标题）
-            1.3.3 技能规则提示(process_message_config["use_prompt"])（## 二级标题）
-        1.4 历史步骤执行结果（# 一级标题）
-        1.5 持续性记忆:（# 一级标题）
-            1.5.1 Agent持续性记忆说明提示词（## 二级标题）
-            1.5.2 Agent持续性记忆内容提示词（## 二级标题）
+        1.3 历史步骤执行结果（# 一级标题）
+        1.4 持续性记忆:（# 一级标题）
+            1.4.1 Agent持续性记忆说明提示词（## 二级标题）
+            1.4.2 Agent持续性记忆内容提示词（## 二级标题）
+    2. 组装消息处理步骤提示词:
+        2.1 process_message step:
+            2.1.1 step.step_intention 当前步骤的简要意图
+            2.1.2 step.text_content 接收到的消息内容
+            2.1.3 技能规则提示(process_message_config["use_prompt"])
 
     2. llm调用
     3. 解析llm返回的消息读后感
@@ -66,21 +69,17 @@ class ProcessMessageSkill(Executor):
             return None
 
 
-    def get_process_message_prompt(self, step_id: str, agent_state: Dict[str, Any]):
+    def get_pre_process_message_prompt(self, step_id: str, agent_state: Dict[str, Any]):
         '''
-        组装提示词
+        组装预提示词
         1 MAS系统提示词（# 一级标题）
         2 Agent角色提示词:（# 一级标题）
             2.1 Agent角色背景提示词（## 二级标题）
             2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
-        3 process_message step:（# 一级标题）
-            3.1 step.step_intention 当前步骤的简要意图（## 二级标题）
-            3.2 step.text_content 具体目标（## 二级标题）
-            3.3 技能规则提示(process_message_config["use_prompt"])（## 二级标题）
-        4 历史步骤执行结果（# 一级标题）
-        5 持续性记忆:（# 一级标题）
-            5.1 Agent持续性记忆说明提示词（## 二级标题）
-            5.2 Agent持续性记忆内容提示词（## 二级标题）
+        3 历史步骤执行结果（# 一级标题）
+        4 持续性记忆:（# 一级标题）
+            4.1 Agent持续性记忆说明提示词（## 二级标题）
+            4.2 Agent持续性记忆内容提示词（## 二级标题）
         '''
         md_output = []
 
@@ -101,17 +100,12 @@ class ProcessMessageSkill(Executor):
         md_output.append(f"## 角色可用技能与工具 available_skills_and_tools\n"
                          f"{available_skills_and_tools}\n")
 
-        # 3. Process Message step提示词
-        md_output.append(f"# 当前需要执行的步骤 current_step\n")
-        current_step = self.get_current_skill_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
-        md_output.append(f"{current_step}\n")
-
-        # 4. 历史步骤执行结果
+        # 3. 历史步骤执行结果
         md_output.append(f"# 历史已执行步骤 history_step\n")
         history_steps = self.get_history_steps_prompt(step_id, agent_state)  # 不包含标题的md格式文本
         md_output.append(f"{history_steps}\n")
 
-        # 5. 持续性记忆提示词
+        # 4. 持续性记忆提示词
         md_output.append("# 持续性记忆 persistent_memory\n")
         # 获取persistent_memory的使用说明
         base_persistent_memory_prompt = self.get_base_prompt(key="persistent_memory_prompt")  # 不包含标题的md格式文本
@@ -121,6 +115,23 @@ class ProcessMessageSkill(Executor):
         persistent_memory = self.get_persistent_memory_prompt(agent_state)  # 不包含标题的md格式文本
         md_output.append(f"## 你已有的持续性记忆内容：\n"
                          f"{persistent_memory}\n")
+
+        return "\n".join(md_output)
+
+    def get_process_message_prompt(self, step_id: str, agent_state: Dict[str, Any]):
+        '''
+        组装消息处理步骤提示词
+        1 process_message step:
+            1.1 step.step_intention 当前步骤的简要意图
+            1.2 step.text_content 具体目标
+            1.3 技能规则提示(process_message_config["use_prompt"])
+        '''
+        md_output = []
+
+        # Process Message step提示词
+        md_output.append(f"当前需要执行的步骤 current_step:\n")
+        current_step = self.get_current_skill_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
+        md_output.append(f"{current_step}\n")
 
         return "\n".join(md_output)
 
@@ -167,20 +178,26 @@ class ProcessMessageSkill(Executor):
         '''
         Process Message技能的具体执行方法:
 
-        1. 组装 LLM Process Message 提示词
-        2. LLM调用
-        3. 解析llm返回的消息体
-        4. 解析persistent_memory并追加到Agent持续性记忆中
-        5. 生成并返回execute_output指令
+        1. 组装 LLM 系统预提示词 (这里将当前步骤的提示和其他提示分开，以防止消息中包含md标题冲突)
+        2. 组装 Process Message 步骤提示词
+        3. LLM调用
+        4. 解析llm返回的消息体
+        5. 解析persistent_memory并追加到Agent持续性记忆中
+        6. 生成并返回execute_output指令
         '''
 
         # step状态更新为 running
         agent_state["agent_step"].update_step_status(step_id, "running")
 
-        # 1. 组装 LLM Send Message 提示词 (基础提示词与技能提示词)
+        # 1. 组装 LLM 系统预提示词 (这里将当前步骤的提示和其他提示分开，以防止消息中包含md标题冲突)
+        pre_process_message_step_prompt = self.get_pre_process_message_prompt(step_id, agent_state)
+        print(pre_process_message_step_prompt)
+
+        # 2. 组装 Process Message 步骤提示词
         process_message_step_prompt = self.get_process_message_prompt(step_id, agent_state)
         print(process_message_step_prompt)
-        # 2. LLM调用
+
+        # 3. LLM调用 (这里将当前步骤的提示和其他提示分开，以防止消息中包含md标题冲突)
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
         chat_context = LLMContext(context_size=15)  # 创建一个对话上下文, 限制上下文轮数 15
@@ -189,12 +206,15 @@ class ProcessMessageSkill(Executor):
                                               "我会参考 history_step ，准确理解并消化当前step中记录的有关接收到的消息内容，"
                                               "我会严格遵从skill_prompt的技能指示，在<process_message>和</process_message>之间输出我理解并消化的结论，"
                                               "我会将我理解的消息内容精简在<persistent_memory>和</persistent_memory>之间输出，以此追加在我的持续性记忆中。")
+        # 输入系统预提示词
+        chat_context.add_message("user", pre_process_message_step_prompt)
+        # 输入当前步骤提示词
         response = llm_client.call(
             process_message_step_prompt,
             context=chat_context
         )
 
-        # 3. 解析llm返回的对消息的理解信息
+        # 4. 解析llm返回的对消息的理解信息
         process_message = self.extract_process_message(response)
 
         # 如果无法解析到消息体，说明LLM没有返回理解的信息
@@ -212,14 +232,14 @@ class ProcessMessageSkill(Executor):
             execute_result = {"process_message": process_message}  # 构造符合execute_result格式的执行结果
             step.update_execute_result(execute_result)
 
-            # 4. 解析persistent_memory并追加到Agent持续性记忆中
+            # 5. 解析persistent_memory并追加到Agent持续性记忆中
             new_persistent_memory = self.extract_persistent_memory(response)
             agent_state["persistent_memory"] += "\n" + new_persistent_memory
 
             # step状态更新为 finished
             agent_state["agent_step"].update_step_status(step_id, "finished")
 
-            # 5. 构造execute_output，用于更新stage_state.every_agent_state
+            # 6. 构造execute_output，用于更新stage_state.every_agent_state
             execute_output = self.get_execute_output(
                 step_id,
                 agent_state,
