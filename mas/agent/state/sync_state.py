@@ -12,8 +12,8 @@ from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from mas.agent.state.task_state import TaskState
 from mas.agent.state.stage_state import StageState
 
-from develop开发中.MetaGPT.tests.metagpt.provider.test_base_llm import test_async_base_llm
-
+from mas.agent.base.message import Message
+import json
 
 class SyncState:
     '''
@@ -50,13 +50,32 @@ class SyncState:
                     return stage
         return None
 
-    # TODO：开启任务中的一个阶段
-    def start_stage(self, task_id: str, stage_id: str):
+    # 开启任务中的一个阶段
+    def start_stage(self, task_id: str, stage_id: str, sender_id: str):
         '''
         由SyncState负责开启任务中的一个阶段，使用message中包含相应指令来触发相应Agent去执行
         '''
+        # 构造start_stage指令
+        instruction = {"start_stage": {"stage_id": stage_id}}
 
-
+        # 将指令消息发送给stage涉及到的每一个Agent
+        task_state = self.all_tasks.get(task_id)
+        stage_state = self.get_stage_state(task_id, stage_id)
+        if stage_state:
+            for agent_id in stage_state.agent_allocation.keys():
+                # 构造包含start_stage指令的消息
+                message:Message = {
+                    "task_id": task_id,
+                    "sender_id": sender_id,
+                    "receiver": [agent_id],
+                    "message": "<instruction>" + json.dumps(instruction) + "</instruction>",
+                    "stage_relative": stage_id,
+                    "need_reply": False,
+                    "waiting": None,
+                    "return_waiting_id": None
+                }
+                # 将消息添加到任务的通讯队列中
+                task_state.communication_queue.put(message)
 
     # 实现解析executor_output并更新task/stage状态
     def sync_state(self, executor_output: Dict[str, any]):
@@ -129,8 +148,10 @@ class SyncState:
                     "action": "add_task",
                     "task_intention": "<task_intention>",
                 }
+                1.创建task_state
+                2.同步工作记忆到任务管理者
                 '''
-                # 实例化一个TaskState
+                # 1. 实例化一个TaskState
                 task_state = TaskState(
                     task_intention=task_instruction["task_intention"],
                     task_manager=task_instruction["agent_id"],
@@ -138,6 +159,21 @@ class SyncState:
                 )
                 # 添加到任务字典中
                 self.add_task(task_state)
+                # 2. 同步工作记忆到任务管理者
+                instruction = {"update_working_memory":{"task_id": task_state.task_id, "stage_id": None}}
+                message: Message = {
+                    "task_id": task_state.task_id,
+                    "sender_id": task_instruction["agent_id"],
+                    "receiver": [task_instruction["agent_id"]],
+                    "message": "<instruction>" + json.dumps(instruction) + "</instruction>",
+                    "stage_relative": "no_relative",
+                    "need_reply": False,
+                    "waiting": None,
+                    "return_waiting_id": None
+                }
+                # 将消息添加到任务的通讯队列中
+                task_state.communication_queue.put(message)
+
                 print(f"[SyncState] 已添加任务{task_state.task_id}，"
                       f"任务管理者{task_state.task_manager}")
 
@@ -156,12 +192,14 @@ class SyncState:
                         ...
                     ] 
                 }
+                1.创建stage_state
+                2.同步工作记忆到参与者
                 '''
                 # 获取任务id的task_state
                 task_state = self.all_tasks.get(task_instruction["task_id"])
                 # 遍历阶段列表
                 for stage_info in task_instruction["stages"]:
-                    # 实例化一个StageState
+                    # 1. 实例化一个StageState
                     stage_state = StageState(
                         task_id=task_instruction["task_id"],
                         stage_intention=stage_info["stage_intention"],
@@ -170,6 +208,22 @@ class SyncState:
                     )
                     # 添加阶段到任务状态中
                     task_state.add_stage(stage_state)
+
+                    # 2. 同步工作记忆到任务参与者
+                    instruction = {"update_working_memory": {"task_id": task_state.task_id, "stage_id": stage_state.stage_id}}
+                    message: Message = {
+                        "task_id": task_state.task_id,
+                        "sender_id": task_instruction["agent_id"],
+                        "receiver": [agent_id for agent_id in stage_info["agent_allocation"].keys()],
+                        "message": "<instruction>" + json.dumps(instruction) + "</instruction>",
+                        "stage_relative": "no_relative",
+                        "need_reply": False,
+                        "waiting": None,
+                        "return_waiting_id": None
+                    }
+                    # 将消息添加到任务的通讯队列中
+                    task_state.communication_queue.put(message)
+
                     print(f"[SyncState] 已添加阶段{stage_state.stage_id}，"
                           f"到任务{task_instruction["task_id"]}中")
 
@@ -179,7 +233,7 @@ class SyncState:
                 '''
                 pass
 
-            # TODO: 结束阶段 finish_stage
+            # 结束阶段 finish_stage
             if task_instruction["action"] == "finish_stage":
                 '''
                 {
@@ -190,8 +244,19 @@ class SyncState:
                 }
                 进入阶段结束流程，如果有下一个阶段，则sync_state需要负责开启下一个阶段
                 '''
-
-
-                pass
+                # 结束当前阶段
+                stage_state = self.get_stage_state(task_instruction["task_id"], task_instruction["stage_id"])
+                if stage_state.execution_state is not "failed":
+                    stage_state.execution_state = "finished"
+                    print(f"[SyncState] 任务{task_instruction["task_id"]}的阶段{task_instruction["stage_id"]}已结束")
+                # 如果还有下一个阶段，则开启下一个阶段
+                task_state = self.all_tasks.get(task_instruction["task_id"])
+                next_stage = task_state.get_current_or_next_stage()
+                if next_stage:
+                    next_stage.execution_state = "running"
+                    self.start_stage(task_instruction["task_id"], next_stage.stage_id, task_instruction["agent_id"])
+                    print(f"[SyncState] 任务{task_instruction["task_id"]}的阶段{next_stage.stage_id}已开启")
+                else:
+                    print(f"[SyncState] 任务{task_instruction["task_id"]}的所有阶段已结束")
 
 

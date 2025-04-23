@@ -13,8 +13,21 @@ Send Message 首先需要构建发送对象列表。[<agent_id>, <agent_id>, ...
     "message": "<message_content>",  # 消息文本
     "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
     "need_reply": <bool>,  # 需要回复则为True，否则为False
+    "waiting": <bool>  # 需要等待则为True，否则为False TODO：未实现，send_message_config提示词暂未包含这个机制的说明
 }
 </send_message>
+消息构造体经过executor处理和sync_state处理，最终在task_state的消息处理队列中的格式应当为：
+{
+    task_id: str  # 任务ID,
+    sender_id: str
+    receiver: List[str]  # 用列表包裹的接收者agent_id
+    message: str  # 消息文本
+    stage_relative: str  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
+    need_reply: bool  # 需要回复则为True，否则为False
+    waiting: Optional[List[str]]  # 如果发送者需要等待回复，则为所有发送对象填写唯一等待ID。不等待则为 None
+    return_waiting_id: Optional[str]  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
+}
+
 
 说明：
 1.消息如何被发送：
@@ -37,6 +50,9 @@ Send Message 首先需要构建发送对象列表。[<agent_id>, <agent_id>, ...
 
     一般情况下，由Agent自主规划的Send Message的消息传递均是与任务阶段相关的，因此在发送消息时需要指定stage_id。
 
+4.消息等待机制与Agent步骤锁
+    如果发送者需要等待回复，则为所有发送对象填写唯一等待标识ID。不等待则为 None。
+    如果等待，则发起者将在回收全部等待标识前不会进行任何步骤执行。
 
 提示词顺序（系统 → 角色 → (目标 → 规则) → 记忆）
 
@@ -68,6 +84,7 @@ from mas.agent.base.executor_base import Executor
 from mas.agent.base.llm_base import LLMContext, LLMClient
 from mas.agent.state.step_state import StepState, AgentStep
 
+from mas.agent.base.message import Message
 
 
 # 注册规划技能到类型 "skill", 名称 "send_message"

@@ -94,9 +94,12 @@ class AgentBase():
         # 从配置文件中获取 LLM 配置
         agent_state["llm_config"] = llm_config
 
-        # TODO:Agent工作记忆
+        # Agent工作记忆
         # Agent工作记忆 {<task_id>: {<stage_id>: [<step_id>,...],...},...} 记录Agent还未完成的属于自己的任务
         # Agent工作记忆以任务视角，包含多个task，每个task多个stage，每个stage多个step
+        #
+        # 工作记忆step的增加通过AgentBase.add_step或executor_base.add_step
+        # 工作记忆stage和task的增加通过sync_state生成增加指令，由AgentBase.receive_message的process_message分支增加
         # 注意：工作记忆不要放到提示词里面，提示词里面放持续性记忆
         agent_state["working_memory"] = working_memory if working_memory else {}
 
@@ -229,6 +232,7 @@ class AgentBase():
 
         1. 对于需要LLM理解并消化的消息，添加process_message step
         2. 对于start_stage指令，执行start_stage
+        3. 对于update_working_memory指令，更新Agent的工作记忆
 
         '''
         # 解析文本中的指令和非指令文本
@@ -249,11 +253,17 @@ class AgentBase():
 
         # 2. 如果instruction字典包含start_stage的key,则执行start_stage
         if instruction and "start_stage" in instruction:
-            # 指令内容 {"start_stage": {"stage_id": <stage_id> }}  # TODO：完成生成该指令的技能
+            # 指令内容 {"start_stage": {"stage_id": <stage_id> }}  # 由sync_state生成
             task_id = message["task_id"]
             stage_id = instruction["start_stage"]["stage_id"]
             self.start_stage(task_id=task_id, stage_id=stage_id)
 
+        # 3. 如果instruction字典包含update_working_memory的key,则更新Agent的工作记忆
+        if instruction and "update_working_memory" in instruction:
+            # 指令内容 {"update_working_memory": {"task_id": <task_id>, "stage_id": <stage_id>或None}}
+            task_id = instruction["update_working_memory"]["task_id"]
+            stage_id = instruction["update_working_memory"]["stage_id"]
+            self.agent_state["working_memory"][task_id] = stage_id
 
 
 
