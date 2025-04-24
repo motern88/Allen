@@ -1,7 +1,7 @@
 '''
 这里实现一个Router类:
 Router类根据step_state.type和step_state.executor两个字符串。
-访问Executor的注册表_registry，获取对于执行器类。
+访问Executor的注册表_registry，获取对应执行器类。
 并返回实例化后的执行器类。
 '''
 
