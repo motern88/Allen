@@ -239,7 +239,7 @@ if __name__ == "__main__":
         "name": "小灰",
         "role": "合同提取专员",
         "profile": "负责合同提取，将合同内容按字段提取录入系统",
-        "working_state": "Unassigned tasks",
+        "working_state": "idle",
         "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),
         "working_memory": {},
         "persistent_memory": "",

@@ -19,7 +19,7 @@
 3. 任务判定已完成，交付任务:
     结束任务 finish_task。
     该操作会将 task_state 的状态更新为 finished 或 failed
-    并自动进入任务结束流程（包括任务总结，任务汇报，任务日志记录入库等）。
+    并通知task_group中所有Agent。
 
 4. 任务阶段判定已结束，进入下一个任务阶段:
     结束阶段 finish_stage。
@@ -258,6 +258,7 @@ class TaskManagerSkill(Executor):
             chat_context.clear()
             return execute_output
 
+
 # Debug
 if __name__ == "__main__":
     '''
@@ -266,11 +267,43 @@ if __name__ == "__main__":
     from mas.agent.configs.llm_config import LLMConfig
 
     print("测试Task Manager技能的调用")
+    agent_state = {
+        "agent_id": "0001",
+        "name": "灰风",
+        "role": "管理员",
+        "profile": "一般负责直接和人类操作员对接，理解人类意图并创建相应的任务，组织相应Agent参与任务，协调各个Agent的协同执行。",
+        "working_state": "idle",
+        "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),
+        "working_memory": {},
+        "persistent_memory": "",
+        "agent_step": AgentStep("0001"),
+        "skills": ["planning", "reflection", "summary",
+                   "instruction_generation", "quick_think", "think",
+                   "send_message", "process_message", "task_manager"],
+        "tools": [],
+    }
 
+    # 构造虚假的历史步骤
+    step1 = StepState(
+        task_id="0001",
+        stage_id="0001",
+        agent_id="0001",
+        step_intention="创建任务",
+        step_type="skill",
+        executor="task_manager",
+        text_content="你需要创建一个用于合同处理的任务",
+        execute_result={},
+    )
 
+    agent_state["agent_step"].add_step(step1)
 
+    step_id = agent_state["agent_step"].step_list[0].step_id  # 当前为第一个step
 
+    task_manager_skill = TaskManagerSkill()
+    task_manager_skill.execute(step_id, agent_state)
 
+    # 打印step信息
+    agent_state["agent_step"].print_all_steps()
 
 
 

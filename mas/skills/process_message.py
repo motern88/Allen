@@ -264,7 +264,7 @@ if __name__ == "__main__":
         "name": "小灰",
         "role": "合同审查",
         "profile": "审查合同是否有误",
-        "working_state": "Unassigned tasks",
+        "working_state": "idle",
         "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),
         "working_memory": {},
         "persistent_memory": "",

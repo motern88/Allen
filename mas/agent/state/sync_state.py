@@ -103,6 +103,31 @@ class SyncState:
             # 将消息添加到任务的通讯队列中
             task_state.communication_queue.put(message)
 
+    # 结束任务(对Agent发送指令)
+    def finish_task(self, task_id: str, sender_id: str):
+        '''
+        由SyncState负责结束任务，使用message中包含相应指令来触发相应Agent去执行
+        主要作用是清除Agent的工作记忆与相关agent_step
+        '''
+        # 构造finish_task指令
+        instruction = {"finish_task": {"task_id": task_id}}
+
+        # 将指令消息发送给stage涉及到的每一个Agent
+        task_state = self.all_tasks.get(task_id)
+        if task_state:
+            # 构造包含finish_task指令的消息
+            message: Message = {
+                "task_id": task_id,
+                "sender_id": sender_id,
+                "receiver": [agent_id for agent_id in task_state.task_group],
+                "message": "<instruction>" + json.dumps(instruction) + "</instruction>",
+                "stage_relative": "no_relative",
+                "need_reply": False,
+                "waiting": None,
+                "return_waiting_id": None
+            }
+            # 将消息添加到任务的通讯队列中
+            task_state.communication_queue.put(message)
 
 
 
@@ -256,7 +281,7 @@ class SyncState:
                     print(f"[SyncState] 已添加阶段{stage_state.stage_id}，"
                           f"到任务{task_instruction["task_id"]}中")
 
-            # TODO: 结束任务 finish_task
+            # 结束任务 finish_task
             if task_instruction["action"] == "finish_task":
                 '''
                 {
@@ -270,8 +295,8 @@ class SyncState:
                 if task_state.execution_state is not "failed":
                     task_state.execution_state = "finished"
                 # 向Agent发送任务结束的指令
-                self.finish_task(task_instruction["task_id"], task_instruction["agent_id"]) # TODO
-
+                self.finish_task(task_instruction["task_id"], task_instruction["agent_id"])
+                print(f"[SyncState] 任务{task_instruction["task_id"]}已结束")
 
             # 结束阶段 finish_stage
             if task_instruction["action"] == "finish_stage":

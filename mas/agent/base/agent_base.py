@@ -88,8 +88,8 @@ class AgentBase():
         agent_state["role"] = role  # Agent的角色
         agent_state["profile"] = profile  # Agent的角色简介
 
-        # Unassigned 未分配任务, idle 空闲, working 工作中, awaiting 等待执行反馈中,
-        agent_state["working_state"] = "Unassigned tasks"  # Agent的当前工作状态
+        # idle 空闲, working 工作中, waiting 等待执行反馈中,  TODO：waiting状态与步骤锁关联
+        agent_state["working_state"] = "idle"  # Agent的当前工作状态
 
         # 从配置文件中获取 LLM 配置
         agent_state["llm_config"] = llm_config
@@ -130,10 +130,17 @@ class AgentBase():
     ):
         '''
         执行单个step_state的具体Action
+
+        Agent和Step状态更新说明:
+            step_action开始时更新Agent状态为 working，结束时更新Agent状态为 idle
+            step执行状态的更新在step_action中开始时，结束状态的更新于executor.execute中结束时。
+
         1. 根据Step的executor执行具体的Action，由路由器分发执行器
         2. 执行器执行
         3. 更新Step的执行状态
         '''
+        # 更新Agent状态为工作中 working
+        self.agent_state["working_state"] = "working"
         # 更新step状态为执行中 running
         self.agent_state["agent_step"].update_step_status(step_id, "running")
 
@@ -148,6 +155,8 @@ class AgentBase():
         # 3. 使用sync_state专门同步stage_state与task_state
         self.sync_state.sync_state(executor_output)  # 根据executor_output更新stage,task相应状态
 
+        # 4. 更新Agent状态为空闲 idle
+        self.agent_state["working_state"] = "idle"
 
     def action(self):
         """
@@ -232,8 +241,9 @@ class AgentBase():
 
         1. 对于需要LLM理解并消化的消息，添加process_message step
         2. 对于start_stage指令，执行start_stage
-        3. 对于finish_stage指令，执行finish_stage
-        4. 对于update_working_memory指令，更新Agent的工作记忆
+        3. 对于finish_stage指令，清除该stage的所有step，和相应工作记忆
+        4. 对于finish_task指令，清除该task所有step，和相应工作记忆
+        5. 对于update_working_memory指令，更新Agent的工作记忆
 
         '''
         # 解析文本中的指令和非指令文本
@@ -271,7 +281,17 @@ class AgentBase():
                 if stage_id in self.agent_state["working_memory"][task_id]:
                     del self.agent_state["working_memory"][task_id][stage_id]
 
-        # 4. 如果instruction字典包含update_working_memory的key,则更新Agent的工作记忆
+        # 4. 如果instruction字典包含finish_task的key,则执行清除该task的所有step并且清除相应working_memory
+        if instruction and "finish_task" in instruction:
+            # 指令内容 {"finish_task": {"task_id": <task_id> }}  # 由sync_state生成
+            task_id = instruction["finish_task"]["task_id"]
+            # 清除该task的所有step
+            self.agent_state["agent_step"].remove_step(task_id=task_id)
+            # 清除相应的工作记忆
+            if task_id in self.agent_state["working_memory"]:
+                del self.agent_state["working_memory"][task_id]
+
+        # 5. 如果instruction字典包含update_working_memory的key,则更新Agent的工作记忆
         if instruction and "update_working_memory" in instruction:
             # 指令内容 {"update_working_memory": {"task_id": <task_id>, "stage_id": <stage_id>或None}}
             task_id = instruction["update_working_memory"]["task_id"]
@@ -291,6 +311,7 @@ class AgentBase():
         1. 构造Agent规划当前阶段的提示词
         2. 如果当前stage没有任何step，则增加一个规划step
         '''
+
         stage_state = self.sync_state.get_stage_state(task_id=task_id, stage_id=stage_id)
         # Agent从当前StageState来获取信息明确目标
         agent_id = self.agent_state["agent_id"]

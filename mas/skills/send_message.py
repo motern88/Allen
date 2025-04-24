@@ -312,7 +312,7 @@ if __name__ == "__main__":
         "name": "小灰",
         "role": "心理咨询专员",
         "profile": "心理咨询师，擅长倾听与分析。主要帮助同事（其他Agent）疏导心理压力",
-        "working_state": "Unassigned tasks",
+        "working_state": "idle",
         "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),
         "working_memory": {},
         "persistent_memory": "",
