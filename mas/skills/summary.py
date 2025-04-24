@@ -134,6 +134,7 @@ class SummarySkill(Executor):
         构造Summary技能的execute_output。这部分使用代码固定构造，不由LLM输出构造。
         1. update_agent_situation:
             通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态
+            (一般情况下，只有Summary技能完成时，该字段传入finished，其他步骤完成时，该字段都传入working)
         2. shared_step_situation:
             添加步骤信息到task共享消息池
         3. agent_completion_summary:

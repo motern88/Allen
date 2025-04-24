@@ -4,7 +4,7 @@
     Task Manager会参考自身历史步骤信息（前面步骤获取任务信息与阶段信息），生成用于管理任务进程的指令。
 
 任务管理者Agent会通过该技能生成相应操作的指令，指令会再MAS系统中操作对应组件完成实际行动，
-例如通过SyncState操作task_state与stage_state,通过send_message形式通知相应Agent
+例如通过SyncState操作task_state与stage_state,通过send_message形式通知相应Agent.
 
 说明:
 1. 发起一个Task:
@@ -154,6 +154,7 @@ class TaskManagerSkill(Executor):
         构造Task Manager技能的execute_output。这部分使用代码固定构造，不由LLM输出构造。
         1. update_agent_situation:
             通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态
+            (一般情况下，只有Summary技能完成时，该字段传入finished，其他步骤完成时，该字段都传入working)
         2. shared_step_situation:
             添加步骤信息到task共享消息池
         3. task_instruction:
@@ -249,7 +250,7 @@ class TaskManagerSkill(Executor):
             execute_output = self.get_execute_output(
                 step_id,
                 agent_state,
-                update_agent_situation="finished",
+                update_agent_situation="working",
                 shared_step_situation="finished",
                 task_instruction=task_instruction
             )
