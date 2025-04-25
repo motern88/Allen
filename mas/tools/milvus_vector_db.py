@@ -35,6 +35,7 @@ import yaml
 import time
 import json
 import os
+import re
 
 @Executor.register(executor_type="tool", executor_name="milvus_vector_db")
 class MilvusTool(Executor):
@@ -47,7 +48,7 @@ class MilvusTool(Executor):
 
 
     def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from rag_config.yaml"""
+        """Load configuration from milvus_vector_db_config.yaml"""
         config_path = os.path.join(os.path.dirname(__file__), "milvus_vector_db_config.yaml")
         with open(config_path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
@@ -57,6 +58,9 @@ class MilvusTool(Executor):
         conn_config = self.config["vector_db_config"]["connection"]
         max_retries = conn_config["max_retries"]
         
+        # 如果已连接则直接返回
+        if connections.has_connection(conn_config["alias"]):
+            return
         for attempt in range(max_retries):
             try:
                 connections.connect(
@@ -101,7 +105,7 @@ class MilvusTool(Executor):
             # 加载集合到内存  
             collection.load()  
             # 缓存集合对象 
-            self.collection_cache[collection_name] = schema
+            self.collection_cache[collection_name] = collection
             return collection
             
         collection = Collection(name=collection_name)
@@ -121,8 +125,8 @@ class MilvusTool(Executor):
             
         collection_name = params.get("collection_name", "").strip()  
         print(f"检验的 collection_name 值: '{collection_name}'")  
-        if not params.get("collection_name", "").isalnum():
-            raise ValueError("collection名称必须是字母数字组合")
+        if not re.match(r"^\w+$", params.get("collection_name", "")):
+            raise ValueError("collection名称必须是字母数字、下划线组合")
             
         if "top_k" in params:
             top_k = params["top_k"]
@@ -218,7 +222,7 @@ class MilvusTool(Executor):
                 step_id,  
                 agent_state,  
                 operation_result,  
-                update_agent_situation="finished",  
+                update_agent_situation="working",  
                 shared_step_situation=f"{operation}操作已完成"  
             )
             return execute_output
@@ -247,12 +251,11 @@ class MilvusTool(Executor):
             embedding = self.encoder.encode(text)
             
             # Insert data
-            collection.insert([
-                [text],  # text
-                [embedding.tolist()]  # embedding
-            ])
+            collection.insert({
+                "text": [text],
+                "embedding": [embedding.tolist()]
+            })
             
-            collection.flush()  # Ensure data is persisted
             return {
                 "status": "success", 
                 "message": "文档向量存储成功",
@@ -280,7 +283,7 @@ class MilvusTool(Executor):
             
             return {
                 "status": "success",
-                "results": [hit.entity.get("text") for hit in results[0]],
+                "results": [hit.get("text") for hit in results[0]],
                 "scores": [hit.distance for hit in results[0]]
             }
             
@@ -291,7 +294,14 @@ class MilvusTool(Executor):
     def __del__(self):
         """Cleanup connections on object destruction"""
         try:
-            connections.disconnect("default")
+            alias = None
+            try:
+                with open(os.path.join(os.path.dirname(__file__), "milvus_vector_db_config.yaml"), 'r', encoding='utf-8') as f:
+                    cfg = yaml.safe_load(f)
+                    alias = cfg["vector_db_config"]["connection"].get("alias", "default")
+            except Exception:
+                alias = "default"
+            connections.disconnect(alias)
         except:
             pass
 
