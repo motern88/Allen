@@ -335,7 +335,8 @@ class SendMessageSkill(Executor):
             if message["waiting"]:
                 # 为每个receiver生成唯一等待标识ID
                 waiting_id_list = [str(uuid.uuid4()) for _ in message["receiver"]]
-                # 将唯一等待ID添加到agent_state["step_lock"]中
+                # 将全部唯一等待标识ID添加到agent_state["step_lock"]中，
+                # 在Agent回收全部标识ID（收到包含标识ID的信息）前，步骤锁一直生效，暂停后续step的执行。
                 agent_state["step_lock"].extend(waiting_id_list)
 
                 # 将消息中的["waiting"]字段替换为生成的唯一等待ID
