@@ -36,6 +36,12 @@ class AgentBase():
         根据解析出的指令的不同进入不同方法
         start_stage方法:
             当一个任务阶段的所有step都执行完毕后，帮助Agent建立下一个任务阶段的第一个step: planning_step。
+        finish_stage方法:
+            当一个任务阶段的所有step都执行完毕后，执行清除该stage的所有step并且清除相应working_memory。
+        finish_task方法:
+            当一个任务的所有阶段都执行完毕后，执行清除该task的所有step并且清除相应working_memory。
+        update_working_memory方法:
+            Agent被分配到新的任务/阶段中时，更新Agent的工作记忆。
 
     '''
     def __init__(
@@ -88,7 +94,7 @@ class AgentBase():
         agent_state["role"] = role  # Agent的角色
         agent_state["profile"] = profile  # Agent的角色简介
 
-        # idle 空闲, working 工作中, waiting 等待执行反馈中,  TODO：waiting状态与步骤锁关联
+        # idle 空闲, working 工作中, waiting 等待执行反馈中,
         agent_state["working_state"] = "idle"  # Agent的当前工作状态
 
         # 从配置文件中获取 LLM 配置
@@ -111,6 +117,9 @@ class AgentBase():
         # （一般情况下步骤中只包含当前任务当前阶段的步骤，在下一个阶段时，
         # 上一个阶段的step_state会被同步到stage_state中，不会在列表中留存）
         agent_state["agent_step"] = AgentStep(agent_id)
+
+        # 步骤锁，由多个唯一ID组成的列表。只有当列表为空，所有的通信唯一等待ID都被回收时，才能取消步骤锁
+        agent_state["step_lock"] = []  # 步骤锁，在通信机制中，如果需要等待消息回复则用过步骤锁暂停step的执行
 
         # Agent可用的技能与工具库
         agent_state["tools"] = tools if tools else []
@@ -161,14 +170,20 @@ class AgentBase():
     def action(self):
         """
         不断从 agent_step.todo_list 获取 step_id 并执行 step_action
-        agent_step.todo_list 是一个queue.Queue()共享队列，用于存放待执行的 step_id
-        对 todo_list.get() 到的每个step执行step_action()
+        agent_step.todo_list 是一个deque()支持双向插入的队列，用于存放待执行的 step_id
+        对 todo_list.popleft() 到的每个step执行step_action()
         """
         agent_step = self.agent_state["agent_step"]
 
         while True:
+            if len(self.agent_state["step_lock"]) > 0:
+                # 如果有步骤锁，则等待
+                self.agent_state["working_state"] = "waiting"
+                time.sleep(1)
+                continue
+
             # 1. 从agent_state.todo_list获取step_id
-            step_id = agent_step.todo_list.get()
+            step_id = agent_step.todo_list.popleft()
             if step_id is None:
                 time.sleep(1)  # 队列为空时等待，避免 CPU 空转
                 continue
@@ -184,9 +199,6 @@ class AgentBase():
             print("打印所有step_state:")
             agent_step.print_all_steps()  # 打印所有step_state
 
-            # 5. 通知队列任务完成
-            agent_step.todo_list.task_done()
-
     # 上：Agent的执行逻辑
     # ---------------------------------------------------------------------------------------------
     # 下：Agent的任务逻辑
@@ -196,6 +208,7 @@ class AgentBase():
         接收来自其他Agent的消息（该消息由MAS中的message_dispatcher转发），
         根据消息内容添加不同的step：
         - 如果需要回复则添加send_message step
+            - 如果对方在等待该消息的回复，则解析出对应的唯一等待ID，添加在消息内容中
         - 如果不需要回复则考虑执行消息中的指令或添加process_message step
 
         message格式：
@@ -206,23 +219,47 @@ class AgentBase():
             "message": "<message_content>",  # 消息文本
             "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
             "need_reply": <bool>,  # 需要回复则为True，否则为False
+            "waiting": <list>,  # 如果发送者需要等待回复，则为所有发送对象填写唯一等待ID。不等待则为 None
+            "return_waiting_id": <str>,  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
         }
         '''
         # 1. 判断消息是否需要回复
         if message["need_reply"]:
-            # 进入到回复消息的分支，为AgentStep添加send_message step用于回复。
-            self.add_step(
-                task_id = message["task_id"],
-                stage_id = message["stage_relative"],  # 可能是no_relative 与阶段无关
-                step_intention = f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
-                step_type = "skill",
-                executor = "send_message",
-                text_content = message["message"]
-            )
+
+            # 2. 判断对方是否等待该消息的回复
+            if message["waiting"] is not None:
+                # 解析出自己对应的唯一等待ID
+                return_waiting_id = message["waiting"][message["receiver"].index(self.agent_state["agent_id"])]
+
+                # 进入到回复消息的分支，为AgentStep插队添加send_message step用于回复。
+                self.add_next_step(
+                    task_id=message["task_id"],
+                    stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
+                    step_intention=f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
+                    step_type="skill",
+                    executor="send_message",
+                    text_content=message["message"] + f"\n\n<return_waiting_id>{return_waiting_id}</return_waiting_id>"  # 将消息内容和回应等待ID一起填充
+                )
+
+            else:
+                # 进入到回复消息的分支，为AgentStep添加send_message step用于回复。
+                self.add_step(
+                    task_id = message["task_id"],
+                    stage_id = message["stage_relative"],  # 可能是no_relative 与阶段无关
+                    step_intention = f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
+                    step_type = "skill",
+                    executor = "send_message",
+                    text_content = message["message"]
+                )
+
         else:
             # 进入到消息处理的分支，处理不需要回复的消息
             self.process_message(message)
 
+        # 3. 尝试获取消息中的return_waiting_id，回收步骤锁
+        if message["return_waiting_id"] is not None:
+            # 回收步骤锁
+            self.agent_state["step_lock"].remove(message["return_waiting_id"])
 
     # TODO：完善其他管理指令
     def process_message(self, message):
@@ -237,6 +274,8 @@ class AgentBase():
             "message": "<message_content>",  # 消息文本
             "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
             "need_reply": <bool>,  # 需要回复则为True，否则为False
+            "waiting": <list>,  # 如果发送者需要等待回复，则为所有发送对象填写唯一等待ID。不等待则为 None
+            "return_waiting_id": <str>,  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
         }
 
         1. 对于需要LLM理解并消化的消息，添加process_message step
@@ -251,16 +290,30 @@ class AgentBase():
 
         # 1. 对于需要LLM理解并消化的消息，添加process_message step
         if text:
-            # 为AgentStep添加process_message step用于回复。
-            self.add_step(
-                task_id=message["task_id"],
-                stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
-                step_intention=f"处理来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**。"
-                               f"你需要理解并消化该消息的内容，必要的时候需要将重要信息记录在你的persistent_memory中",
-                step_type="skill",
-                executor="process_message",
-                text_content=message["message"]
-            )
+            if message["return_waiting_id"] is not None:
+                # 说明自己用步骤锁在等待该消息的回复，则插队添加处理该消息的步骤
+                self.add_next_step(
+                    task_id=message["task_id"],
+                    stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
+                    step_intention=f"处理来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**。"
+                                   f"你需要理解并消化该消息的内容，必要的时候需要将重要信息记录在你的persistent_memory中",
+                    step_type="skill",
+                    executor="process_message",
+                    text_content=message["message"]
+                )
+            else:
+                # 为AgentStep添加process_message step用于处理消息。
+                self.add_step(
+                    task_id=message["task_id"],
+                    stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
+                    step_intention=f"处理来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**。"
+                                   f"你需要理解并消化该消息的内容，必要的时候需要将重要信息记录在你的persistent_memory中",
+                    step_type="skill",
+                    executor="process_message",
+                    text_content=message["message"]
+                )
+
+
 
         # 2. 如果instruction字典包含start_stage的key,则执行start_stage
         if instruction and "start_stage" in instruction:
@@ -429,7 +482,42 @@ class AgentBase():
         self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
 
 
+    def add_next_step(
+        self,
+        task_id: str,
+        stage_id: str,
+        step_intention: str,  # Step的目的
+        step_type: str,  # Step的类型 'skill', 'tool'
+        executor: str,  # Step的执行模块
+        text_content: Optional[str] = None,  # Step的文本内容
+        instruction_content: Optional[Dict[str, Any]] = None,  # Step的指令内容
+    ):
+        '''
+        为agent_step的列表中插队添加一个Step,将该Step直接添加到下一个要处理的step位置上
+        '''
+        # 1. 构造一个完整的StepState
+        step_state = StepState(
+            task_id=task_id,
+            stage_id=stage_id,
+            agent_id=self.agent_state["agent_id"],
+            step_intention=step_intention,
+            step_type=step_type,
+            executor=executor,
+            execution_state="init",  # 'init', 'pending', 'running', 'finished', 'failed'
+            text_content=text_content,  # Optional[str]
+            instruction_content=instruction_content,  # Optional[Dict[str, Any]]
+            execute_result=None,  # Optional[Dict[str, Any]]
+        )
 
+        if step_type == "tool" and instruction_content is None:
+            # 如果是工具调用且没有具体指令，则状态为待填充 pending
+            step_state.update_execution_state = "pending"
+
+        # 2. 添加一个该Step到agent_step中,插队到下一个step之前
+        self.agent_state["agent_step"].add_next_step(step_state)
+
+        # 3. 返回添加的step_id, 记录在工作记忆中
+        self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
 
 
 

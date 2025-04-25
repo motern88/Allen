@@ -6,7 +6,7 @@ Agent被分配执行或协作执行一个阶段时，Agent会为自己规划数�
 '''
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
-import queue
+from collections import deque
 
 class StepState:
     '''
@@ -97,11 +97,11 @@ class AgentStep:
     '''
     def __init__(self, agent_id: str):
         self.agent_id = agent_id
-        self.todo_list = queue.Queue()  # 只存放待执行的 step_id，执行者从队列里取出任务进行处理，一旦执行完就不会再回到 todo_list
+        self.todo_list = deque()  # 只存放待执行的 step_id，执行者从队列里取出任务进行处理，一旦执行完就不会再回到 todo_list
         self.step_list: List[StepState] = []  # 持续记录所有 StepState，即使执行完毕也不会被删除，方便后续查询、状态更新和管理。
 
     # 添加step
-    def add_step(self, step: StepState) -> int:
+    def add_step(self, step: StepState):
         """
         添加新的 step 到队列
         如果 step 未被执行过，则自动添加到待执行队列todo_list
@@ -109,8 +109,19 @@ class AgentStep:
         self.step_list.append(step)
         # 如果step未被执行过，则添加到待执行队列
         if step.execution_state not in ["finished", "failed"]:
-            self.todo_list.put(step.step_id)
+            self.todo_list.append(step.step_id)
             print(f"step {step.step_id} 已添加到todo_list")
+
+    def add_next_step(self, step: StepState):
+        """
+        将step插入到todo_list队列的最前面，优先执行
+        也会同步添加到step_list中
+        """
+        self.step_list.append(step)
+        if step.execution_state not in ["finished", "failed"]:
+            self.todo_list.appendleft(step.step_id)  # 插入队首
+            print(f"step {step.step_id} 已插入todo_list队首（插队）")
+        return step.step_id
 
     # 移除step
     def remove_step(

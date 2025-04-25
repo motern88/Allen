@@ -8,26 +8,30 @@ Send Message 首先需要构建发送对象列表。[<agent_id>, <agent_id>, ...
 需要根据发送的实际内容，LLM需要返回的信息:
 <send_message>
 {
-    "sender_id": "<sender_agent_id>",
     "receiver": ["<agent_id>", "<agent_id>", ...],
     "message": "<message_content>",  # 消息文本
     "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
     "need_reply": <bool>,  # 需要回复则为True，否则为False
-    "waiting": <bool>  # 需要等待则为True，否则为False TODO：未实现，send_message_config提示词暂未包含这个机制的说明
+    "waiting": <bool>  # 需要等待则为True，否则为False
 }
 </send_message>
+
 消息构造体经过executor处理和sync_state处理，最终在task_state的消息处理队列中的格式应当为：
 {
     task_id: str  # 任务ID,
-    sender_id: str
+    sender_id: str  # 发送者ID
     receiver: List[str]  # 用列表包裹的接收者agent_id
     message: str  # 消息文本
+
     stage_relative: str  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
     need_reply: bool  # 需要回复则为True，否则为False
-    waiting: Optional[List[str]]  # 如果发送者需要等待回复，则为所有发送对象填写唯一等待ID。不等待则为 None
-    return_waiting_id: Optional[str]  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
-}
 
+    waiting: Optional[List[str]]  # 如果发送者需要等待回复，则为所有发送对象填写唯一等待ID。不等待则为 None
+        # LLM如果认为需要等待，则由代码为每个接收对象生成唯一等待ID
+    return_waiting_id: Optional[str]  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
+        # 来自上一个发送者消息的唯一等待ID，如果本send_message是为了回复上一个消息，且上一个消息带有唯一等待ID，则需要返回对应的这个唯一等待ID
+        # 一般该return_waiting_id会在agent_base接收到对方正在等待回复的消息时，被包裹在<return_waiting_id>和</return_waiting_id>之间放在回复step.text_content中
+}
 
 说明：
 1.消息如何被发送：
@@ -74,7 +78,8 @@ Send Message 首先需要构建发送对象列表。[<agent_id>, <agent_id>, ...
     2. llm调用
     3. 解析llm返回的消息体构造
     4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
-    5. 返回用于指导状态同步的execute_output
+    5. 如果发送消息需要等待回复，则触发步骤锁机制
+    6. 返回用于指导状态同步的execute_output
 '''
 import re
 import json
@@ -85,7 +90,7 @@ from mas.agent.base.llm_base import LLMContext, LLMClient
 from mas.agent.state.step_state import StepState, AgentStep
 
 from mas.agent.base.message import Message
-
+import uuid
 
 # 注册规划技能到类型 "skill", 名称 "send_message"
 @Executor.register(executor_type="skill", executor_name="send_message")
@@ -113,6 +118,17 @@ class SendMessageSkill(Executor):
             print("没有找到<send_message>标签")
             return None
 
+    def extract_return_waiting_id(self,text):
+        '''
+        从文本中提取return_waiting_id
+        '''
+        matches = re.findall(r"<return_waiting_id>\s*(.*?)\s*</return_waiting_id>", text, re.DOTALL)
+        if matches:
+            return_waiting_id = matches[-1]  # 获取最后一个匹配内容 排除其他干扰内容
+            return return_waiting_id
+        else:
+            print("没有找到<return_waiting_id>标签")
+            return None
 
     def get_send_message_prompt(self, step_id: str, agent_state: Dict[str, Any]):
         '''
@@ -188,7 +204,8 @@ class SendMessageSkill(Executor):
         2. shared_step_situation:
             添加步骤信息到task共享消息池
         3. send_message:
-            添加待处理消息到task_state.communication_queue
+            将LLM生成的初步消息体转换为 MAS 中通用消息格式 Message，
+            并添加待处理消息到task_state.communication_queue
         '''
         execute_output = {}
 
@@ -215,19 +232,45 @@ class SendMessageSkill(Executor):
 
         # 3. 添加待处理消息到task_state.communication_queue
         if send_message:
+            '''
+            将LLM输出的消息体，转换为MAS内通用消息体Message
+            LLM从输出中解析的消息构造体：
+                "receiver": ["<agent_id>", "<agent_id>", ...],
+                "message": "<message_content>",  # 消息文本
+                "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
+                "need_reply": <bool>,  # 需要回复则为True，否则为False
+                "waiting": List or None  # 如果需要等待，则外部已经将该字段生成每个接收对象的唯一等待ID列表
+                "return_waiting_id": <str>  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
+            
+            最终Massage构造体包含：
+                task_id (str): 任务ID
+                sender_id (str): 发送者ID
+                receiver (List[str]): 接收者ID列表
+                message (str): 消息内容
+                stage_relative (str): 是否与任务阶段相关，"<stage_id或no_relative>"
+                need_reply (bool): 是否需要回复
+                waiting (Optional[List[str]]): 等待回复的唯一ID列表，不等待则为 None
+                return_waiting_id (Optional[str]): 返回的唯一等待标识ID，不等待则为 None
+            
+            '''
             # 获取当前步骤的task_id与stage_id
             task_id = step_state.task_id
-            # 为消息体添加task_id
-            send_message["task_id"] = task_id
-            # 构造execute_output
-            execute_output["send_message"] = send_message
-            # 此时send_message构造体包含：
-            # "task_id": task_id,
-            # "sender_id": "<sender_agent_id>",
-            # "receiver": ["<agent_id>", "<agent_id>", ...],
-            # "message": "<message_content>",
-            # "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
-            # "need_reply": <bool>,  # 需要回复则为True，否则为False
+
+            # 如果对方在等待该回复，则解析并构造return_waiting_id
+            # 从当前step的text_content中提取return_waiting_id
+            return_waiting_id = self.extract_return_waiting_id(step_state.text_content)  # 如果存在<return_waiting_id>包裹的回复唯一等待ID则返回，否则返回None
+
+            # 构造execute_output，中标准格式的消息
+            execute_output["send_message"]:Message = {
+                "task_id": task_id,
+                "sender_id": agent_state["agent_id"],
+                "receiver": send_message["receiver"],
+                "message": send_message["message"],
+                "stage_relative": send_message["stage_relative"],
+                "need_reply": send_message["need_reply"],
+                "waiting": send_message["waiting"],
+                "return_waiting_id": return_waiting_id,
+            }
 
         return execute_output
 
@@ -287,7 +330,22 @@ class SendMessageSkill(Executor):
             # step状态更新为 finished
             agent_state["agent_step"].update_step_status(step_id, "finished")
 
-            # 5. 构造execute_output，用于更新task_state.communication_queue和stage_state.every_agent_state
+            # 5. 如果发送消息需要等待回复，则触发步骤锁机制
+            # 向agent_state["step_lock"]中添加生成的唯一等待ID
+            if message["waiting"]:
+                # 为每个receiver生成唯一等待标识ID
+                waiting_id_list = [str(uuid.uuid4()) for _ in message["receiver"]]
+                # 将唯一等待ID添加到agent_state["step_lock"]中
+                agent_state["step_lock"].extend(waiting_id_list)
+
+                # 将消息中的["waiting"]字段替换为生成的唯一等待ID
+                message["waiting"] = waiting_id_list
+            else:
+                # 如果不需要等待，则将waiting字段设置为None
+                message["waiting"] = None
+                # 此时message["waiting"]字段值已经从 bool -> optional[list[str]]
+
+            # 6. 构造execute_output，用于更新task_state.communication_queue和stage_state.every_agent_state
             execute_output = self.get_execute_output(
                 step_id,
                 agent_state,
