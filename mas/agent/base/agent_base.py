@@ -469,17 +469,17 @@ class AgentBase():
             text_content = text_content,  # Optional[str]
             instruction_content = instruction_content,  # Optional[Dict[str, Any]]
             execute_result = None,  # Optional[Dict[str, Any]]
-        )
+            )
 
         if step_type == "tool" and instruction_content is None:
-            # 如果是工具调用且没有具体指令，则状态为待填充 pending
-            step_state.update_execution_state = "pending"
+                # 如果是工具调用且没有具体指令，则状态为待填充 pending
+            step_state.update_execution_state("pending")
 
-        # 2. 添加一个该Step到agent_step中
-        self.agent_state["agent_step"].add_step(step_state)
+                # 2. 添加一个该Step到agent_step中
+            self.agent_state["agent_step"].add_step(step_state)
 
-        # 3. 返回添加的step_id, 记录在工作记忆中
-        self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
+                # 3. 返回添加的step_id, 记录在工作记忆中
+            self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
 
 
     def add_next_step(
@@ -495,29 +495,29 @@ class AgentBase():
         '''
         为agent_step的列表中插队添加一个Step,将该Step直接添加到下一个要处理的step位置上
         '''
-        # 1. 构造一个完整的StepState
+            # 1. 构造一个完整的StepState
         step_state = StepState(
-            task_id=task_id,
-            stage_id=stage_id,
-            agent_id=self.agent_state["agent_id"],
-            step_intention=step_intention,
-            step_type=step_type,
-            executor=executor,
-            execution_state="init",  # 'init', 'pending', 'running', 'finished', 'failed'
-            text_content=text_content,  # Optional[str]
-            instruction_content=instruction_content,  # Optional[Dict[str, Any]]
-            execute_result=None,  # Optional[Dict[str, Any]]
-        )
+                task_id=task_id,
+                stage_id=stage_id,
+                agent_id=self.agent_state["agent_id"],
+                step_intention=step_intention,
+                step_type=step_type,
+                executor=executor,
+                execution_state="init",  # 'init', 'pending', 'running', 'finished', 'failed'
+                text_content=text_content,  # Optional[str]
+                instruction_content=instruction_content,  # Optional[Dict[str, Any]]
+                execute_result=None,  # Optional[Dict[str, Any]]
+            )
 
         if step_type == "tool" and instruction_content is None:
-            # 如果是工具调用且没有具体指令，则状态为待填充 pending
-            step_state.update_execution_state = "pending"
+                # 如果是工具调用且没有具体指令，则状态为待填充 pending
+            step_state.update_execution_state("pending")
 
-        # 2. 添加一个该Step到agent_step中,插队到下一个step之前
-        self.agent_state["agent_step"].add_next_step(step_state)
+            # 2. 添加一个该Step到agent_step中,插队到下一个step之前
+            self.agent_state["agent_step"].add_next_step(step_state)
 
-        # 3. 返回添加的step_id, 记录在工作记忆中
-        self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
+            # 3. 返回添加的step_id, 记录在工作记忆中
+            self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
 
 
 
