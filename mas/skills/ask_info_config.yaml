@@ -1,0 +1,65 @@
+# Date: 2025/04/21
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+
+use_guide:
+  skill_name: "ask_info"
+  description:
+    "
+    该技能使Agent能够查看自身以外的信息，通过该技能，Agent可以查看：
+    1. 任务相关信息：自身管理的任务、参与的任务、指定任务、指定阶段
+    2. Agent相关信息：系统中所有Agent、团队中所有Agent、任务群组中的Agent、指定Agent的详情  
+
+    具体可执行的操作包括：
+    1. 查看自身所管理的task_state及其附属stage_state的信息  
+    2. 查看自身所参与的task_state及参与的stage_state的信息  
+    3. 查看指定task_state的信息  
+    4. 查看指定stage_stage的信息  
+    5. 查看MAS中所有Agent的profile  
+    6. 查看Team中所有Agent的profile  
+    7. 查看指定task_id的task_group中所有Agent的profile  
+    8. 查看指定stage下协作的所有Agent的profile  
+    9. 查看指定agent_id或多个agent_id的详细agent_state信息  
+    "
+
+# 技能实际调用的提示词  
+use_prompt:  
+  skill_name: "ask_info"  
+  skill_prompt: |
+    **你现在正在执行ask_info技能，你可以获取系统中的各种信息，包括任务状态、阶段状态和其他Agent的信息。**
+
+    通过该技能，你可以获取以下类型的信息：
+
+    1. 任务相关信息：
+       - 获取你管理的任务及其附属阶段的信息
+       - 获取你参与的任务及参与的阶段的信息
+       - 获取指定任务的详细信息
+       - 获取指定阶段的详细信息
+
+    2. Agent相关信息：
+       - 获取多智能体系统中所有Agent的基本信息
+       - 获取团队中所有Agent的基本信息
+       - 获取指定任务群组中所有Agent的信息
+       - 获取指定阶段下协作的所有Agent的信息
+       - 获取指定Agent的详细状态信息
+
+    获取信息时，你需要明确你想要获取的信息类型及相关参数。例如，如果你想获取特定任务的信息，你需要提供任务ID；如果你想获取特定Agent的信息，你需要提供Agent ID。
+
+    请根据你当前的需求决定获取什么信息，并对获取到的信息进行分析，思考这些信息如何帮助你完成当前目标或提高你的决策质量。
+    示例：
+    - <ask_info type="task_info" task_id="task_001" />
+    - <ask_info type="agents_state" agent_ids="0001,0002" />
+    - <ask_info type="team_agents_profile" />
+
+  return_format: |
+     请在<ask_info>标签内返回你对获取的信息的分析结果，格式如下： 
+
+     <ask_info>
+     {
+      "query_type": "task_info",
+      "query_args": {"task_id": "task_001"},
+      "info": {...},      # 实际返回的信息内容
+      "analysis": "简要分析与结论"
+     }
+     </ask_info>
