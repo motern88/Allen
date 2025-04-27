@@ -282,7 +282,8 @@ class SendMessageSkill(Executor):
         2. LLM调用
         3. 解析llm返回的消息体
         4. 解析persistent_memory并追加到Agent持续性记忆中
-        5. 生成并返回execute_output指令
+        5. 判定是否添加通信等待机制的步骤锁
+        6. 生成并返回execute_output指令
             （向task_state.communication_queue追加消息,更新stage_state.every_agent_state中自己的状态）
         '''
 

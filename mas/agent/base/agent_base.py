@@ -10,11 +10,10 @@ from mas.agent.base.router import Router
 
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import threading
-import queue
 import time
 import re
 import json
-
+import uuid
 
 
 class AgentBase():
@@ -46,12 +45,15 @@ class AgentBase():
     '''
     def __init__(
         self,
-        agent_id: str,  # Agent ID 由更高层级的Agent管理器生成，不由配置文件中读取
         config,  # Agent配置文件
         sync_state: SyncState,  # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给Agent)，由外部实例化后传给所有Agent
     ):
+        self.agent_id =  str(uuid.uuid4())# 生成唯一ID
         self.router = Router()  # 在action中用于分发具体executor的路由器，用于同步stage_state与task_state
+
         self.sync_state = sync_state  # 状态同步器
+        self.sync_state.register_agent(self)  # 向状态同步器注册自身，以便sync_state可以访问到自身的属性
+
         # 初始化Agent状态
         self.agent_state = self.init_agent_state(
             agent_id,
@@ -72,7 +74,7 @@ class AgentBase():
     # 不同的Agent唯一的区别就是 agent_state 的区别
     def init_agent_state(
         self,
-        agent_id: str,  # Agent ID 由更高层级的Agent管理器生成，不由配置文件中读取
+        agent_id: str,  # agent_id
         name: str,  # Agent 名称
         role: str,  # Agent 角色
         profile: str,  # Agent 角色简介
@@ -472,13 +474,13 @@ class AgentBase():
             )
 
         if step_type == "tool" and instruction_content is None:
-                # 如果是工具调用且没有具体指令，则状态为待填充 pending
+            # 如果是工具调用且没有具体指令，则状态为待填充 pending
             step_state.update_execution_state("pending")
 
-                # 2. 添加一个该Step到agent_step中
+            # 2. 添加一个该Step到agent_step中
             self.agent_state["agent_step"].add_step(step_state)
 
-                # 3. 返回添加的step_id, 记录在工作记忆中
+            # 3. 返回添加的step_id, 记录在工作记忆中
             self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
 
 
@@ -495,7 +497,7 @@ class AgentBase():
         '''
         为agent_step的列表中插队添加一个Step,将该Step直接添加到下一个要处理的step位置上
         '''
-            # 1. 构造一个完整的StepState
+        # 1. 构造一个完整的StepState
         step_state = StepState(
                 task_id=task_id,
                 stage_id=stage_id,
@@ -510,7 +512,7 @@ class AgentBase():
             )
 
         if step_type == "tool" and instruction_content is None:
-                # 如果是工具调用且没有具体指令，则状态为待填充 pending
+            # 如果是工具调用且没有具体指令，则状态为待填充 pending
             step_state.update_execution_state("pending")
 
             # 2. 添加一个该Step到agent_step中,插队到下一个step之前

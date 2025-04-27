@@ -17,7 +17,6 @@ Multi-Agent System
 from mas.agent.state.sync_state import SyncState
 from mas.agent.base.agent_base import AgentBase
 from mas.message_dispatcher import MessageDispatcher
-import uuid
 import time
 
 
@@ -39,13 +38,11 @@ class MultiAgentSystem:
         '''
         添加新的Agent到系统中。
 
-        agent_id 是自动生成的唯一的UUID，用于标识每个Agent。
         agent_config 是一个包含 Agent 配置的字典，包含 name、role、profile 等信息。
         所有Agent共享同一个状态同步器 SyncState。
         '''
-        unique_id = str(uuid.uuid4())
         self.agents_list.append(
-            AgentBase(agent_id=unique_id, config=agent_config, sync_state=self.sync_state)
+            AgentBase(config=agent_config, sync_state=self.sync_state)
         )
 
     def get_agent_dict(self):

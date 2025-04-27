@@ -6,6 +6,7 @@ executor执行返回的executor_output用于指导sync_state工作
 
 具体实现：
     SyncState作为task_state与stage_state的管理类
+    Agent在实例化时需要向SyncState注册，以方便SyncState可以获取到Agent的私有属性，例如agent_id、agent_state等
 '''
 
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
@@ -14,6 +15,7 @@ from mas.agent.state.stage_state import StageState
 
 from mas.agent.base.message import Message
 import json
+import weakref
 
 class SyncState:
     '''
@@ -26,6 +28,33 @@ class SyncState:
     '''
     def __init__(self):
         self.all_tasks: Dict[str, TaskState] = {}  # 存储系统中所有任务状态，键为 task_id，值为对应的 TaskState 实例
+        # 保存所有注册的 Agent（用弱引用，防止 Agent 被强引用导致不能销毁）
+        self._agents = []
+
+    def register_agent(self, agent):
+        '''
+        该方法和初始化时的self._agents是为了在SyncState中也能获取到所有注册的Agent的agent_state信息
+        '''
+        self._agents.append(weakref.ref(agent))  # 只保存弱引用
+
+    def get_all_agents(self):
+        '''
+        返回所有活着的 Agent 实例
+        '''
+        return [ref() for ref in self._agents if ref() is not None]
+
+    def get_private_attr(self, attr_name: str):
+        """
+        获取所有Agent的指定私有属性
+        :param attr_name: 属性名，比如 'agent_state' 等
+        :return: 返回一个列表，包含所有 Agent 的对应属性值
+        """
+        result = []
+        for agent in self.get_all_agents():
+            value = getattr(agent, attr_name, None)  # 获取私有属性
+            result.append((agent, value))
+        return result
+
 
     def add_task(self, task_state: TaskState):
         '''
@@ -327,5 +356,201 @@ class SyncState:
                     print(f"[SyncState] 任务{task_instruction["task_id"]}的阶段{next_stage.stage_id}已开启")
                 else:
                     print(f"[SyncState] 任务{task_instruction["task_id"]}的所有阶段已结束")
+
+        # 如果字典的key是"ask_info",则解析并执行具体信息查询操作
+        if "ask_info" in executor_output:
+            ask_info = executor_output["ask_info"]
+            return_ask_info_md = []  # 初始化用于生成markdown格式文本的列表
+
+            # 查询Agent管理的任务及其附属阶段信息（不包括任务共享消息池信息）
+            if ask_info["type"] == "managed_task_and_stage_info":
+                '''
+                {
+                    "type":"<不同查询选项>", 
+                    "waiting_id":"<唯一等待标识ID>",
+                    "sender_id":"<查询者的agent_id>"
+                    "sender_task_id":"<查询者的task_id>"
+                }
+                '''
+                # 遍历所有task_state
+                for task_id, task_state in self.all_tasks.items():
+                    # 如果自己是该task的管理者
+                    if task_state.task_manager == ask_info["sender_id"]:
+                        # 添加任务信息（除共享消息池的信息）
+                        return_ask_info_md.append(f"# 任务信息 task info\n")
+                        return_ask_info_md.append(f"任务ID：{task_state.task_id}\n\n"
+                                                  f"任务意图：{task_state.task_intention}\n\n"
+                                                  f"任务群组：{task_state.task_group}\n\n"
+                                                  f"任务当前执行状态：{task_state.execution_state}\n\n"
+                                                  f"任务完成后总结：{task_state.task_summary}\n")
+                        # 遍历阶段信息
+                        for stage_state in task_state.stage_list:
+                            # 添加阶段信息
+                            return_ask_info_md.append(f"## 阶段信息 stage info\n")
+                            return_ask_info_md.append(f"阶段ID：{stage_state.stage_id}\n\n"
+                                                      f"阶段意图：{stage_state.stage_intention}\n\n"
+                                                      f"阶段分配情况：{stage_state.agent_allocation}\n\n"
+                                                      f"阶段执行状态：{stage_state.execution_state}\n\n"
+                                                      f"阶段涉及的Agent状态：{stage_state.every_agent_state}\n\n"
+                                                      f"阶段完成情况：{stage_state.completion_summary}\n\n")
+
+            # 查询Agent参与的任务及参与的阶段的信息（不包括任务共享消息池信息）
+            if ask_info["type"] == "assigned_task_and_stage_info":
+                '''
+                {
+                    "type":"<不同查询选项>", 
+                    "waiting_id":"<唯一等待标识ID>",
+                    "sender_id":"<查询者的agent_id>"
+                    "sender_task_id":"<查询者的task_id>"
+                }
+                '''
+                # 遍历所有task_state
+                for task_id, task_state in self.all_tasks.items():
+                    # 如果自己是该task的参与者
+                    if ask_info["sender_id"] in task_state.task_group:
+                        # 添加任务信息（除共享消息池的信息）
+                        return_ask_info_md.append(f"# 任务信息 task info\n")
+                        return_ask_info_md.append(f"任务ID：{task_state.task_id}\n\n"
+                                                  f"任务意图：{task_state.task_intention}\n\n"
+                                                  f"任务群组：{task_state.task_group}\n\n"
+                                                  f"任务当前执行状态：{task_state.execution_state}\n\n"
+                                                  f"任务完成后总结：{task_state.task_summary}\n")
+                        # 遍历阶段信息
+                        for stage_state in task_state.stage_list:
+                            # 如果自己是该阶段的参与者
+                            if ask_info["sender_id"] in stage_state.agent_allocation.keys():
+                                # 添加阶段信息
+                                return_ask_info_md.append(f"## 阶段信息 stage info\n")
+                                return_ask_info_md.append(f"阶段ID：{stage_state.stage_id}\n\n"
+                                                          f"阶段意图：{stage_state.stage_intention}\n\n"
+                                                          f"阶段分配情况：{stage_state.agent_allocation}\n\n"
+                                                          f"阶段执行状态：{stage_state.execution_state}\n\n"
+                                                          f"阶段涉及的Agent状态：{stage_state.every_agent_state}\n\n"
+                                                          f"阶段完成情况：{stage_state.completion_summary}\n\n")
+
+            # 获取指定任务的详细信息（不包括附属阶段信息）
+            if ask_info["type"] == "task_info":
+                '''
+                {
+                    "type":"<不同查询选项>", 
+                    "waiting_id":"<唯一等待标识ID>",
+                    "sender_id":"<查询者的agent_id>"
+                    "sender_task_id":"<查询者的task_id>"
+                    "task_id": "<task_id>"  # 要查询的任务ID
+                }
+                '''
+                # 获取指定task_state
+                task_state = self.all_tasks.get(ask_info["task_id"], None)
+                if task_state:
+                    # 添加任务详细信息
+                    return_ask_info_md.append(f"# 任务信息 task info\n")
+                    return_ask_info_md.append(f"任务ID：{task_state.task_id}\n\n"
+                                              f"任务意图：{task_state.task_intention}\n\n"
+                                              f"任务群组：{task_state.task_group}\n\n"
+                                              f"任务当前执行状态：{task_state.execution_state}\n\n"
+                                              f"任务完成后总结：{task_state.task_summary}\n")
+                    return_ask_info_md.append(f"## 共享消息池信息 shared_message_pool info (用'---'分隔)\n")
+                    # 遍历共享消息池
+                    for dict in task_state.shared_message_pool:
+                        return_ask_info_md.append(f"---"
+                                                  f"Agent ID：{dict["agent_id"]}\n"
+                                                  f"角色：{dict["role"]}\n"
+                                                  f"阶段ID：{dict["stage_id"]}\n"
+                                                  f"内容：{dict["content"]}\n\n")
+
+            # TODO 获取指定阶段的详细信息
+            if ask_info["type"] == "stage_info":
+                '''
+                {
+                    "type":"<不同查询选项>", 
+                    "waiting_id":"<唯一等待标识ID>",
+                    "sender_id":"<查询者的agent_id>"
+                    "sender_task_id":"<查询者的task_id>"
+                    "task_id": "<task_id>",  # 要查询的任务ID
+                    "stage_id": "<stage_id>"  # 要查询的阶段ID
+                }
+                '''
+
+            # TODO 获取多智能体系统MAS中所有Agent的基本信息
+            if ask_info["type"] == "all_agents":
+                '''
+                {
+                    "type":"<不同查询选项>", 
+                    "waiting_id":"<唯一等待标识ID>",
+                    "sender_id":"<查询者的agent_id>"
+                    "sender_task_id":"<查询者的task_id>"
+                }
+                '''
+
+            # TODO 获取团队Team中所有Agent的基本信息
+            if ask_info["type"] == "team_agents":
+                '''
+                {
+                    "type":"<不同查询选项>", 
+                    "waiting_id":"<唯一等待标识ID>",
+                    "sender_id":"<查询者的agent_id>"
+                    "sender_task_id":"<查询者的task_id>"
+                    "team_id": "<team_id>"  # 要查询的团队ID
+                }
+                '''
+
+            # TODO 获取指定任务群组中所有Agent的信息
+            if ask_info["type"] == "task_agents":
+                '''
+                {
+                    "type":"<不同查询选项>", 
+                    "waiting_id":"<唯一等待标识ID>",
+                    "sender_id":"<查询者的agent_id>"
+                    "sender_task_id":"<查询者的task_id>"
+                    "task_id": "<task_id>"  # 要查询的任务ID
+                }
+                '''
+
+            # TODO 获取指定阶段下协作的所有Agent的信息
+            if ask_info["type"] == "stage_agents":
+                '''
+                {
+                    "type":"<不同查询选项>", 
+                    "waiting_id":"<唯一等待标识ID>",
+                    "sender_id":"<查询者的agent_id>"
+                    "sender_task_id":"<查询者的task_id>"
+                    "task_id": "<task_id>",  # 要查询的任务ID
+                    "stage_id": "<stage_id>"  # 要查询的阶段ID
+                }
+                '''
+
+            # TODO 获取指定Agent的详细状态信息
+            if ask_info["type"] == "agent":
+                '''
+                {
+                    "type":"<不同查询选项>", 
+                    "waiting_id":"<唯一等待标识ID>",
+                    "sender_id":"<查询者的agent_id>"
+                    "sender_task_id":"<查询者的task_id>"
+                    "agent_id": [<agent_id>,<agent_id>,...]  # 包含Agent ID的列表 List[str]
+                }
+                '''
+
+
+
+
+
+
+            # 构造返回消息，消息内容为md格式的查询结果
+            message: Message = {
+                "task_id": ask_info["sender_task_id"],  # 发送者所处的任务
+                "sender_id": ask_info["sender_id"],  # 发送者
+                "receiver": [ask_info["sender_id"]],  # 接收者
+                "message": "\n".join(return_ask_info_md),  # 返回md格式的查询结果
+                "stage_relative": "no_relative",
+                "need_reply": False,
+                "waiting": None,
+                "return_waiting_id": ask_info["waiting_id"]  # 返回唯一等待标识ID
+            }
+            # 获取任务id的task_state
+            task_state = self.all_tasks.get(ask_info["sender_task_id"])
+            # 将返回消息添加到任务的通讯队列中
+            task_state.communication_queue.put(message)
+            print(f"[SyncState] Agent{ask_info["sender_id"]}的查询结果已返回")
 
 
