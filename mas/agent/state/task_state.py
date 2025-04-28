@@ -13,6 +13,7 @@ class TaskState:
 
     属性:
         task_id (str): 任务ID，用于标识一个任务的唯一ID
+        task_name (str): 一个间接任务的名称，向人类使用者提供基本的信息区分
         task_intention (str): 任务意图, 较为详细的任务目标说明
         task_manager (str): 任务管理者Agent ID，负责管理这个任务的Agent ID
 
@@ -31,12 +32,14 @@ class TaskState:
 
     def __init__(
         self,
+        task_name: str,
         task_intention: str,
         task_manager: str,
         task_group: None,
     ):
         # 任务基本信息
         self.task_id = str(uuid.uuid4())
+        self.task_name = task_name
         self.task_intention = task_intention
         self.task_manager = task_manager
         # 任务群组与共享消息池

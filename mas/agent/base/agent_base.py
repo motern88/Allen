@@ -45,7 +45,7 @@ class AgentBase():
     '''
     def __init__(
         self,
-        config,  # Agent配置文件
+        config,  # Agent配置文件,接收已经从yaml解析后的字典
         sync_state: SyncState,  # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给Agent)，由外部实例化后传给所有Agent
     ):
         self.agent_id =  str(uuid.uuid4())# 生成唯一ID
@@ -56,15 +56,15 @@ class AgentBase():
 
         # 初始化Agent状态
         self.agent_state = self.init_agent_state(
-            agent_id,
-            name,
-            role,
-            profile,
-            working_memory,
-            tools,
-            skills,
-            llm_config,
-        )  # TODO: 传入字段的获取来源
+            agent_id = self.agent_id,
+            name = config.get("name",""),
+            role = config.get("role",""),
+            profile = config.get("profile",""),
+            working_memory = config.get("working_memory",{}),  # 以任务视角的工作记忆
+            tools = config.get("tools",[]),  # Agent可用的工具
+            skills = config.get("skills",[]),  # Agent可用的技能
+            llm_config = config.get("llm_config",{}),  # LLM配置
+        )
 
         # 初始化线程锁
         self.agent_state_lock = threading.Lock()  # TODO：使用统一AgentState全局锁，还是细分为分区锁？
