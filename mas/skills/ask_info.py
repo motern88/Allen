@@ -14,7 +14,7 @@
     4. 查看指定stage_stage的信息
 
     5. 查看MAS中所有Agent的profile
-    6. 查看Team中所有Agent的profile
+    6. 查看Team中所有Agent的profile  TODO：Team未实现
     7. 查看指定task_id的task_group中所有Agent的profile
     8. 查看指定stage下协作的所有Agent的profile
     9. 查看指定agent_id或多个agent_id的详细agent_state信息
@@ -291,9 +291,9 @@ if __name__ == "__main__":
     # 创建一个模拟的代理状态  
     agent_state = {  
         "agent_id": "0001",  
-        "name": "小红",  
-        "role": "项目协调",  
-        "profile": "负责项目协调和团队协作",  
+        "name": "灰风/小灰",
+        "role": "任务管理者",
+        "profile": "我是一名任务管理者，负责协调和管理任务的执行。",
         "working_state": "Assigned tasks",  
         "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),  
         "working_memory": {},  
@@ -301,9 +301,32 @@ if __name__ == "__main__":
         "agent_step": AgentStep("0001"),  
         "skills": ["planning", "reflection", "summary",  
                    "instruction_generation", "quick_think", "think",  
-                   "send_message", "process_message", "agent_viewer"],  
+                   "send_message", "process_message", "task_manager",
+                   "ask_info"],
         "tools": [],  
-    }  
+    }
+
+    # 构造虚假的历史步骤
+    step1 = StepState(
+        task_id="0001",
+        stage_id="0001",
+        agent_id="0001",
+        step_intention="查看阶段状态",
+        step_type="skill",
+        executor="ask_info",
+        text_content="task_id: 0001, stage_id: 0001",
+        execute_result={},
+    )
+
+    agent_state["agent_step"].add_step(step1)
+
+    step_id = agent_state["agent_step"].step_list[0].step_id  # 当前为第一个step
+
+    ask_info_skill = AskInfoSkill()  # 实例化Ask Info技能
+    ask_info_skill.execute(step_id, agent_state)
+
+    # 打印step信息
+    agent_state["agent_step"].print_all_steps()
 
 
 

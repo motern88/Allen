@@ -360,7 +360,7 @@ class SyncState:
         # 如果字典的key是"ask_info",则解析并执行具体信息查询操作
         if "ask_info" in executor_output:
             ask_info = executor_output["ask_info"]
-            return_ask_info_md = []  # 初始化用于生成markdown格式文本的列表
+            return_ask_info_md = []  # 初始化用于生成markdown格式文本的列表， 限制md文本从三级标题开始！
 
             # 查询Agent管理的任务及其附属阶段信息（不包括任务共享消息池信息）
             if ask_info["type"] == "managed_task_and_stage_info":
@@ -377,8 +377,8 @@ class SyncState:
                     # 如果自己是该task的管理者
                     if task_state.task_manager == ask_info["sender_id"]:
                         # 添加任务信息（除共享消息池的信息）
-                        return_ask_info_md.append(f"# 任务信息 task info\n")
-                        return_ask_info_md.append(f"任务ID：{task_state.task_id}\n\n"
+                        return_ask_info_md.append(f"### 任务信息 task info\n")
+                        return_ask_info_md.append(f"任务ID：{task_state.task_id}\n"
                                                   f"任务意图：{task_state.task_intention}\n\n"
                                                   f"任务群组：{task_state.task_group}\n\n"
                                                   f"任务当前执行状态：{task_state.execution_state}\n\n"
@@ -386,8 +386,8 @@ class SyncState:
                         # 遍历阶段信息
                         for stage_state in task_state.stage_list:
                             # 添加阶段信息
-                            return_ask_info_md.append(f"## 阶段信息 stage info\n")
-                            return_ask_info_md.append(f"阶段ID：{stage_state.stage_id}\n\n"
+                            return_ask_info_md.append(f"#### 阶段信息 stage info\n")
+                            return_ask_info_md.append(f"阶段ID：{stage_state.stage_id}\n"
                                                       f"阶段意图：{stage_state.stage_intention}\n\n"
                                                       f"阶段分配情况：{stage_state.agent_allocation}\n\n"
                                                       f"阶段执行状态：{stage_state.execution_state}\n\n"
@@ -409,8 +409,8 @@ class SyncState:
                     # 如果自己是该task的参与者
                     if ask_info["sender_id"] in task_state.task_group:
                         # 添加任务信息（除共享消息池的信息）
-                        return_ask_info_md.append(f"# 任务信息 task info\n")
-                        return_ask_info_md.append(f"任务ID：{task_state.task_id}\n\n"
+                        return_ask_info_md.append(f"### 任务信息 task info\n")
+                        return_ask_info_md.append(f"任务ID：{task_state.task_id}\n"
                                                   f"任务意图：{task_state.task_intention}\n\n"
                                                   f"任务群组：{task_state.task_group}\n\n"
                                                   f"任务当前执行状态：{task_state.execution_state}\n\n"
@@ -420,8 +420,8 @@ class SyncState:
                             # 如果自己是该阶段的参与者
                             if ask_info["sender_id"] in stage_state.agent_allocation.keys():
                                 # 添加阶段信息
-                                return_ask_info_md.append(f"## 阶段信息 stage info\n")
-                                return_ask_info_md.append(f"阶段ID：{stage_state.stage_id}\n\n"
+                                return_ask_info_md.append(f"#### 阶段信息 stage info\n")
+                                return_ask_info_md.append(f"阶段ID：{stage_state.stage_id}\n"
                                                           f"阶段意图：{stage_state.stage_intention}\n\n"
                                                           f"阶段分配情况：{stage_state.agent_allocation}\n\n"
                                                           f"阶段执行状态：{stage_state.execution_state}\n\n"
@@ -443,8 +443,8 @@ class SyncState:
                 task_state = self.all_tasks.get(ask_info["task_id"], None)
                 if task_state:
                     # 添加任务详细信息
-                    return_ask_info_md.append(f"# 任务信息 task info\n")
-                    return_ask_info_md.append(f"任务ID：{task_state.task_id}\n\n"
+                    return_ask_info_md.append(f"### 任务信息 task info\n")
+                    return_ask_info_md.append(f"任务ID：{task_state.task_id}\n"
                                               f"任务意图：{task_state.task_intention}\n\n"
                                               f"任务群组：{task_state.task_group}\n\n"
                                               f"任务当前执行状态：{task_state.execution_state}\n\n"
@@ -458,7 +458,7 @@ class SyncState:
                                                   f"阶段ID：{dict["stage_id"]}\n"
                                                   f"内容：{dict["content"]}\n\n")
 
-            # TODO 获取指定阶段的详细信息
+            # 获取指定阶段的详细信息
             if ask_info["type"] == "stage_info":
                 '''
                 {
@@ -470,8 +470,18 @@ class SyncState:
                     "stage_id": "<stage_id>"  # 要查询的阶段ID
                 }
                 '''
+                # 获取指定stage_state
+                stage_state = self.get_stage_state(ask_info["task_id"], ask_info["stage_id"])
+                # 添加阶段信息
+                return_ask_info_md.append(f"### 阶段信息 stage info\n")
+                return_ask_info_md.append(f"阶段ID：{stage_state.stage_id}\n"
+                                          f"阶段意图：{stage_state.stage_intention}\n\n"
+                                          f"阶段分配情况：{stage_state.agent_allocation}\n\n"
+                                          f"阶段执行状态：{stage_state.execution_state}\n\n"
+                                          f"阶段涉及的Agent状态：{stage_state.every_agent_state}\n\n"
+                                          f"阶段完成情况：{stage_state.completion_summary}\n\n")
 
-            # TODO 获取多智能体系统MAS中所有Agent的基本信息
+            # 获取多智能体系统MAS中所有Agent的基本信息
             if ask_info["type"] == "all_agents":
                 '''
                 {
@@ -481,6 +491,24 @@ class SyncState:
                     "sender_task_id":"<查询者的task_id>"
                 }
                 '''
+                return_ask_info_md.append(f"### 所有Agent的基本信息 all agents\n")
+
+                # 获取所有Agent
+                all_agents = self.get_all_agents()
+                # 遍历所有Agent
+                for agent in all_agents:
+                    agent_state = getattr(agent, "agent_state", None)
+                    if agent_state:
+                        # 添加Agent的基本信息(不包含Agent持续性记忆)
+                        return_ask_info_md.append(f"#### Agent信息\n")
+                        return_ask_info_md.append(f"Agent ID：{agent_state["agent_id"]}\n"
+                                                  f"名字 name：{agent_state["name"]}\n"
+                                                  f"角色 role：{agent_state["role"]}\n"
+                                                  f"角色简介 profile：{agent_state["profile"]}\n\n"
+                                                  f"工作状态 working_state：{agent_state["working_state"]}\n"
+                                                  f"工作记忆 working_memory：{agent_state["working_memory"]}\n\n"
+                                                  f"可用技能 skills：{agent_state["skills"]}\n"
+                                                  f"可用工具 tools：{agent_state["tools"]}\n\n")
 
             # TODO 获取团队Team中所有Agent的基本信息
             if ask_info["type"] == "team_agents":
@@ -493,8 +521,9 @@ class SyncState:
                     "team_id": "<team_id>"  # 要查询的团队ID
                 }
                 '''
+                raise NotImplementedError("Team概念未实现")
 
-            # TODO 获取指定任务群组中所有Agent的信息
+            # 获取指定任务群组中所有Agent的信息
             if ask_info["type"] == "task_agents":
                 '''
                 {
@@ -505,8 +534,29 @@ class SyncState:
                     "task_id": "<task_id>"  # 要查询的任务ID
                 }
                 '''
+                return_ask_info_md.append(f"### 任务群组中Agent信息 task agents\n")
 
-            # TODO 获取指定阶段下协作的所有Agent的信息
+                # 获取指定task_state
+                task_state = self.all_tasks.get(ask_info["task_id"], None)
+                if task_state:
+                    for agent_id in task_state.task_group:
+                        # 遍历所有Agents找到id符合的
+                        for agents in self.get_all_agents():
+                            if agents.agent_id == agent_id:
+                                agent_state = getattr(agents, "agent_state", None)
+                                if agent_state:
+                                    # 添加Agent的基本信息(不包含Agent持续性记忆)
+                                    return_ask_info_md.append(f"#### Agent信息\n")
+                                    return_ask_info_md.append(f"Agent ID：{agent_state["agent_id"]}\n"
+                                                              f"名字 name：{agent_state["name"]}\n"
+                                                              f"角色 role：{agent_state["role"]}\n"
+                                                              f"角色简介 profile：{agent_state["profile"]}\n\n"
+                                                              f"工作状态 working_state：{agent_state["working_state"]}\n"
+                                                              f"工作记忆 working_memory：{agent_state["working_memory"]}\n\n"
+                                                              f"可用技能 skills：{agent_state["skills"]}\n"
+                                                              f"可用工具 tools：{agent_state["tools"]}\n\n")
+
+            # 获取指定阶段下协作的所有Agent的信息
             if ask_info["type"] == "stage_agents":
                 '''
                 {
@@ -518,6 +568,25 @@ class SyncState:
                     "stage_id": "<stage_id>"  # 要查询的阶段ID
                 }
                 '''
+                return_ask_info_md.append(f"### 阶段中所有协作Agent信息 stage agents\n")
+                # 获取指定stage_state
+                stage_state = self.get_stage_state(ask_info["task_id"], ask_info["stage_id"])
+                for agent_id in stage_state.agent_allocation.keys():
+                    # 遍历所有Agents找到id符合的
+                    for agents in self.get_all_agents():
+                        if agents.agent_id == agent_id:
+                            agent_state = getattr(agents, "agent_state", None)
+                            if agent_state:
+                                # 添加Agent的基本信息(不包含Agent持续性记忆)
+                                return_ask_info_md.append(f"#### Agent信息\n")
+                                return_ask_info_md.append(f"Agent ID：{agent_state["agent_id"]}\n"
+                                                          f"名字 name：{agent_state["name"]}\n"
+                                                          f"角色 role：{agent_state["role"]}\n"
+                                                          f"角色简介 profile：{agent_state["profile"]}\n\n"
+                                                          f"工作状态 working_state：{agent_state["working_state"]}\n"
+                                                          f"工作记忆 working_memory：{agent_state["working_memory"]}\n\n"
+                                                          f"可用技能 skills：{agent_state["skills"]}\n"
+                                                          f"可用工具 tools：{agent_state["tools"]}\n\n")
 
             # TODO 获取指定Agent的详细状态信息
             if ask_info["type"] == "agent":
@@ -530,11 +599,24 @@ class SyncState:
                     "agent_id": [<agent_id>,<agent_id>,...]  # 包含Agent ID的列表 List[str]
                 }
                 '''
-
-
-
-
-
+                for agent_id in ask_info["agent_id"]:
+                    # 遍历所有Agents找到id符合的
+                    for agents in self.get_all_agents():
+                        if agents.agent_id == agent_id:
+                            agent_state = getattr(agents, "agent_state", None)
+                            if agent_state:
+                                # 添加Agent的基本信息
+                                return_ask_info_md.append(f"#### Agent信息\n")
+                                return_ask_info_md.append(f"Agent ID：{agent_state["agent_id"]}\n"
+                                                          f"名字 name：{agent_state["name"]}\n"
+                                                          f"角色 role：{agent_state["role"]}\n"
+                                                          f"角色简介 profile：{agent_state["profile"]}\n\n"
+                                                          f"工作状态 working_state：{agent_state["working_state"]}\n"
+                                                          f"工作记忆 working_memory：{agent_state["working_memory"]}\n\n"
+                                                          f"可用技能 skills：{agent_state["skills"]}\n"
+                                                          f"可用工具 tools：{agent_state["tools"]}\n\n")
+                                return_ask_info_md.append(f"持续性记忆 persistent_memory：\n"
+                                                          f"{agent_state["persistent_memory"]}\n\n")
 
             # 构造返回消息，消息内容为md格式的查询结果
             message: Message = {
