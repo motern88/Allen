@@ -588,7 +588,7 @@ class SyncState:
                                                           f"可用技能 skills：{agent_state["skills"]}\n"
                                                           f"可用工具 tools：{agent_state["tools"]}\n\n")
 
-            # TODO 获取指定Agent的详细状态信息
+            # 获取指定Agent的详细状态信息
             if ask_info["type"] == "agent":
                 '''
                 {

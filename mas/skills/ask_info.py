@@ -1,6 +1,6 @@
 '''
 技能名称: Ask Info
-期望作用: Agent通过Planning技能规划任务执行步骤，生成多个step的执行计划。
+期望作用: Agent通过Ask Info获取自身以外的系统和任务信息
     Ask Info向Agent提供了查看自身以外的信息的能力包括其他Agent的profile及状态，
     由SyncState帮助收集上级stage_state，task_state等信息，使用Message传递回Agent。
 
@@ -179,7 +179,7 @@ class AskInfoSkill(Executor):
             "agent_id": agent_state["agent_id"],
             "role": agent_state["role"],
             "stage_id": stage_id,
-            "content": f"执行Task Manager步骤:{shared_step_situation}，"
+            "content": f"执行Ask Info步骤:{shared_step_situation}，"
         }
 
         # 3. ask_info,由sync_state完成查询指令的解析、具体执行与消息返回
