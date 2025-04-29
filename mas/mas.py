@@ -1,6 +1,7 @@
 '''
 Multi-Agent System
 
+该类用于管理几个上层组件：
 - 状态同步器
     首先在MultiAgentSystem类中创建一个与Agent实例平级的sync_state，
     以确保sync_state是全局唯一一个状态同步器，同时保证sync_state中的task_state是所有Agent共享的。
@@ -12,6 +13,12 @@ Multi-Agent System
     同时实现一个MAS中的消息转发组件，该组件不断地从sync_state.all_tasks中的每个task_state
     task_state.communication_queue中获取消息，并向指定的Agent发送消息。
 
+同时该类决定MAS的启动方式：
+    1.先启动消息分发器的循环（在一个线程中异步运行），后续任务的启动和创建均依赖此分发器
+    2.添加第一个Agent（管理者），Agent在被实例化时就会启动自己的任务执行线程
+    3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
+    4.主线程保持活跃，接受来自人类操作段的输入
+
 '''
 from mas.agent.state.stage_state import StageState
 from mas.agent.state.task_state import TaskState
@@ -20,9 +27,7 @@ from mas.agent.base.agent_base import AgentBase
 from mas.message_dispatcher import MessageDispatcher
 import time
 import yaml
-
-from develop开发中.MetaGPT.tests.metagpt.actions.di.test_ask_review import test_ask_review
-
+import threading
 
 class MultiAgentSystem:
     '''
@@ -35,7 +40,7 @@ class MultiAgentSystem:
     '''
     def __init__(self):
         self.sync_state = SyncState()  # 实例化局唯一的状态同步器
-        self.agents_list = []  # 存储所有Agent的列表
+        self.agents_list = []  # 存储所有Agent实例的列表
         self.message_dispatcher = MessageDispatcher()  # 实例化消息分发器
 
     def add_agent(self, agent_config):
@@ -53,7 +58,7 @@ class MultiAgentSystem:
 
         self.agents_list.append(
             AgentBase(config=config_data, sync_state=self.sync_state)
-        )
+        )  # 实例化AgentBase对象，并添加到agents_list中。在Agent实例化的同时就启动了Agent自己的任务执行线程。
 
     def get_agent_dict(self):
         '''
@@ -69,14 +74,14 @@ class MultiAgentSystem:
             self.message_dispatcher.dispatch_messages(agent_dict=self.get_agent_dict())  # 传入所有Agent的映射字典
             time.sleep(0.5)  # 每0.5秒检查一次消息队列
 
-    # TODO: 未实现
+
     def init_and_start_first_task(
         self,
         task_manager_id: str
     ):
         '''
         创建MAS中第一个任务，并指定MAS中第一个Agent为管理者。
-        随后启动这个任务。
+        随后启动这个任务的阶段。
         '''
         # 构造第一个任务
         task_state = TaskState(
@@ -100,38 +105,44 @@ class MultiAgentSystem:
         )
         # 添加阶段到第一个任务中
         task_state.add_stage(stage_state)
-        # 将实例化的任务状态添加到MAS系统中
+        # 通过sync_state将实例化的任务状态添加到MAS系统中
         self.sync_state.add_task(task_state)
 
-        # 启动第一个任务 TODO
-
-
+        # 通过sync_state启动任务阶段
+        self.sync_state.start_stage(
+            task_id=task_state.task_id,
+            stage_id=stage_state.stage_id,
+            sender_id=task_manager_id
+        )
+        print(f"[SyncState] 任务{task_state.task_id}的阶段{stage_state.stage_id}已开启")
 
 
 if __name__ == "__main__":
     '''
     测试MAS系统 在在Allen根目录下执行 python -m mas.mas
+    
+    MAS系统的启动方式，
+    1.先启动消息分发器的循环（在一个线程中异步运行），后续任务的启动和创建均依赖此分发器
+    2.添加第一个Agent（管理者），Agent在被实例化时就会启动自己的任务执行线程
+    3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
+    4.主线程保持活跃，接受来自人类操作段的输入
     '''
-    import threading
     # 1. 实例化MAS
     mas = MultiAgentSystem()
 
-    # 2. 添加一个Agent
-    mas.add_agent("mas/role_config/管理者_灰风.yaml")
-
-    # 3. 获取Agent（比如取第一个）
-    agent = mas.agents_list[0]
-
-    # 4. 给Agent手动分配一个任务
-    mas.init_and_start_first_task()
-
-    # 5. 启动消息分发循环（用线程异步跑）
+    # 2. 启动消息分发循环（用线程异步跑）
     dispatch_thread = threading.Thread(
         target=mas.run_message_dispatch_loop,
         daemon=True  # 守护线程，主程序退出时自动关闭
     )
     dispatch_thread.start()
 
-    # 6. 主线程可以执行其他逻辑，或者等待
+    # 3. 初始任务启动
+    mas.add_agent("mas/role_config/管理者_灰风.yaml")
+    agent = mas.agents_list[0]
+    mas.init_and_start_first_task(mas.agents_list[0].agent_id)  # 传入第一个agent（管理者）的ID
+
+    # 4. 主线程可以执行其他逻辑，接受来自人类操作段的输入 TODO：人类操作端未实现，接受人类操作端输入未实现
     while True:
-        time.sleep(1)  # 主线程保持活跃
+        print(".")
+        time.sleep(10)  # 主线程保持活跃

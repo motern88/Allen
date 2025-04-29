@@ -21,11 +21,11 @@ class AgentBase():
     基础Agent类，定义各基础模块的流转逻辑
 
     整体分为两个部分，执行线程和任务分发线程
-    - 执行
+    - 执行线程（在Agent实例化时就启动）
         action方法只负责不断地执行执行每一个step，有新的step就执行新的step。
         action方法执行step时不会区分是否与当前stage相关，只要在agent_step.todo_list中就会执行。
         执行线程保证了Agent生命的自主性与持续性。
-    - 任务管理
+    - 任务管理（被动触发）
         任务管理用于管理任务进度，保证Agent的可控性。所有的任务管理都通过消息传递，Agent会使用receive_message接收。
         receive_message方法：
             Agent接收和处理来自其他Agent的不可预知的消息，提供了Agent之间主动相互干预的能力。
@@ -68,6 +68,11 @@ class AgentBase():
 
         # 初始化线程锁
         self.agent_state_lock = threading.Lock()  # TODO：使用统一AgentState全局锁，还是细分为分区锁？
+
+        # 启动Agent的执行线程
+        self.action_thread = threading.Thread(target=self.action)
+        self.action_thread.daemon = True  # 设置为守护线程，主线程退出时自动退出
+        self.action_thread.start()  # 启动执行线程
 
 
     # Agent被实例化时需要初始化自己的 agent_state, agent_state 会被持续维护用于记录Agent的基本信息、状态与记忆。
@@ -198,8 +203,8 @@ class AgentBase():
             # 3. 执行step_action
             self.step_action(step_id, step_type, step_executor)
 
-            print("打印所有step_state:")
-            agent_step.print_all_steps()  # 打印所有step_state
+            # print("打印所有step_state:")
+            # agent_step.print_all_steps()  # 打印所有step_state
 
     # 上：Agent的执行逻辑
     # ---------------------------------------------------------------------------------------------
@@ -263,7 +268,7 @@ class AgentBase():
             # 回收步骤锁
             self.agent_state["step_lock"].remove(message["return_waiting_id"])
 
-    # TODO：完善其他管理指令
+
     def process_message(self, message):
         '''
         对于不需要回复的消息，进入消息处理分支
