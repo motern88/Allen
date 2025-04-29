@@ -237,7 +237,7 @@ class SyncState:
                 '''
                 # 1. 实例化一个TaskState
                 task_state = TaskState(
-                    task_name=task_instruction["task_name"],  # TODO,来源不支持
+                    task_name=task_instruction["task_name"],
                     task_intention=task_instruction["task_intention"],
                     task_manager=task_instruction["agent_id"],
                     task_group=None,
