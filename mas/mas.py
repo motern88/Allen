@@ -1,6 +1,7 @@
 '''
 Multi-Agent System
 
+该类用于管理几个上层组件：
 - 状态同步器
     首先在MultiAgentSystem类中创建一个与Agent实例平级的sync_state，
     以确保sync_state是全局唯一一个状态同步器，同时保证sync_state中的task_state是所有Agent共享的。
@@ -11,6 +12,12 @@ Multi-Agent System
 - 消息分发器
     同时实现一个MAS中的消息转发组件，该组件不断地从sync_state.all_tasks中的每个task_state
     task_state.communication_queue中获取消息，并向指定的Agent发送消息。
+
+同时该类决定MAS的启动方式：
+    1.先启动消息分发器的循环（在一个线程中异步运行），后续任务的启动和创建均依赖此分发器
+    2.添加第一个Agent（管理者），Agent在被实例化时就会启动自己的任务执行线程
+    3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
+    4.主线程保持活跃，接受来自人类操作段的输入
 
 '''
 from mas.agent.state.stage_state import StageState
