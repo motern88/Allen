@@ -102,7 +102,7 @@ class MultiAgentSystem:
         task_state.add_stage(stage_state)
         # 将实例化的任务状态添加到MAS系统中
         self.sync_state.add_task(task_state)
-        
+
         # 启动第一个任务 TODO
 
 

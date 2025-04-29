@@ -229,6 +229,7 @@ class SyncState:
                 {
                     "agent_id": "<agent_id>",  # 发起者Agent id
                     "action": "add_task",
+                    "task_name": "<task_name>"
                     "task_intention": "<task_intention>",
                 }
                 1.创建task_state
@@ -236,6 +237,7 @@ class SyncState:
                 '''
                 # 1. 实例化一个TaskState
                 task_state = TaskState(
+                    task_name=task_instruction["task_name"],  # TODO,来源不支持
                     task_intention=task_instruction["task_intention"],
                     task_manager=task_instruction["agent_id"],
                     task_group=None,
@@ -379,6 +381,7 @@ class SyncState:
                         # 添加任务信息（除共享消息池的信息）
                         return_ask_info_md.append(f"### 任务信息 task info\n")
                         return_ask_info_md.append(f"任务ID：{task_state.task_id}\n"
+                                                  f"任务名称：{task_state.task_name}\n"
                                                   f"任务意图：{task_state.task_intention}\n\n"
                                                   f"任务群组：{task_state.task_group}\n\n"
                                                   f"任务当前执行状态：{task_state.execution_state}\n\n"
@@ -411,6 +414,7 @@ class SyncState:
                         # 添加任务信息（除共享消息池的信息）
                         return_ask_info_md.append(f"### 任务信息 task info\n")
                         return_ask_info_md.append(f"任务ID：{task_state.task_id}\n"
+                                                  f"任务名称：{task_state.task_name}\n"
                                                   f"任务意图：{task_state.task_intention}\n\n"
                                                   f"任务群组：{task_state.task_group}\n\n"
                                                   f"任务当前执行状态：{task_state.execution_state}\n\n"
@@ -445,6 +449,7 @@ class SyncState:
                     # 添加任务详细信息
                     return_ask_info_md.append(f"### 任务信息 task info\n")
                     return_ask_info_md.append(f"任务ID：{task_state.task_id}\n"
+                                              f"任务名称：{task_state.task_name}\n"
                                               f"任务意图：{task_state.task_intention}\n\n"
                                               f"任务群组：{task_state.task_group}\n\n"
                                               f"任务当前执行状态：{task_state.execution_state}\n\n"

@@ -61,10 +61,12 @@ use_prompt:
       - 创建任务 add_task 指令格式:
         {
           "action": "add_task",
+          "task_name": ""<task_name>",  # 任务名称，简要名称
           "task_intention": "<task_intention>",  # 任务意图, 较为详细的任务目标说明
         }
         add_task指令字典中包含两个字段:
         action (str): 表示操作类型，值为"add_task"
+        task_name (str): 任务名称，简要名称
         task_intention (str): 任务意图, 较为详细的任务目标说明
       
       - 为任务创建阶段 add_stage 指令格式:
