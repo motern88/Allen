@@ -182,7 +182,6 @@ class SyncState:
             print(f"[SyncState] 已更新 stage{info["stage_id"]}"
                   f" 中 agent{info["agent_id"]} 的状态为 {info["state"]}")
 
-
         # 如果字典的key是"send_shared_message",则添加共享消息到任务共享消息池
         if "send_shared_message" in executor_output:
             info = executor_output["send_shared_message"]
@@ -263,6 +262,9 @@ class SyncState:
 
                 print(f"[SyncState] 已添加任务{task_state.task_id}，"
                       f"任务管理者{task_state.task_manager}")
+
+            # TODO：为任务添加参与Agent
+
 
             # 为任务创建阶段 add_stage
             if task_instruction["action"] == "add_stage":
@@ -505,6 +507,12 @@ class SyncState:
 
                 # 添加可直接新增Agent的配置信息
                 return_ask_info_md.append(f"### 系统已有的可直接实例化的Agent配置 available_agents_config\n")
+                return_ask_info_md.append(f"说明："
+                                          f".yaml的Agent配置文件用于实例化新的Agent。"
+                                          f"你可以参考这些Agent配置中不同角色的能力和人格特质。"
+                                          f"(在实例化的时候请保证name名字不重复)\n")
+
+                # 遍历所有配置文件
                 for file_name in agent_files:
                     # 获取当前文件的完整路径
                     fpath = os.path.join(role_config_dir, file_name)
