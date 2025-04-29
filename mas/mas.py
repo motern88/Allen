@@ -20,7 +20,7 @@ from mas.agent.base.agent_base import AgentBase
 from mas.message_dispatcher import MessageDispatcher
 import time
 import yaml
-
+import threading
 
 class MultiAgentSystem:
     '''
@@ -120,7 +120,6 @@ if __name__ == "__main__":
     3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
     4.主线程保持活跃，接受来自人类操作段的输入
     '''
-    import threading
     # 1. 实例化MAS
     mas = MultiAgentSystem()
 
