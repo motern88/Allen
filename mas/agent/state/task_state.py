@@ -13,7 +13,7 @@ class TaskState:
 
     属性:
         task_id (str): 任务ID，用于标识一个任务的唯一ID
-        task_name (str): 一个间接任务的名称，向人类使用者提供基本的信息区分
+        task_name (str): 一个任务简介的名称，向人类使用者提供基本的信息区分
         task_intention (str): 任务意图, 较为详细的任务目标说明
         task_manager (str): 任务管理者Agent ID，负责管理这个任务的Agent ID
 
