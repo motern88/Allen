@@ -237,7 +237,7 @@ class SyncState:
                 '''
                 # 1. 实例化一个TaskState
                 task_state = TaskState(
-                    task_name=task_instruction["task_name"],  # TODO,来源不支持
+                    task_name=task_instruction["task_name"],
                     task_intention=task_instruction["task_intention"],
                     task_manager=task_instruction["agent_id"],
                     task_group=None,
@@ -592,6 +592,34 @@ class SyncState:
                                                           f"工作记忆 working_memory：{agent_state["working_memory"]}\n\n"
                                                           f"可用技能 skills：{agent_state["skills"]}\n"
                                                           f"可用工具 tools：{agent_state["tools"]}\n\n")
+
+            # 获取所有可实例化agent配置信息（包含已激活和未激活的）
+            if ask_info["type"] == "available_agents_config":
+                '''
+                {
+                    "type": "available_agents_config",
+                    "waiting_id": "<唯一等待标识ID>",
+                    "sender_id": "<查询者的agent_id>",
+                    "sender_task_id": "<查询者的task_id>"
+                }
+                '''
+                import os, yaml
+                role_config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../role_config'))
+                agent_files = [f for f in os.listdir(role_config_dir) if f.endswith('.yaml')]
+                return_ask_info_md.append(f"### 系统可用Agent配置 available_agents_config\n")
+                for fname in agent_files:
+                    fpath = os.path.join(role_config_dir, fname)
+                    try:
+                        with open(fpath, 'r', encoding='utf-8') as f:
+                            ydata = yaml.safe_load(f)
+                            info = f"#### 文件: {fname}\n"
+                            if isinstance(ydata, dict):
+                                for k in ['name', 'role', 'profile', 'skills', 'tools']:
+                                    if k in ydata:
+                                        info += f"{k}: {ydata[k]}\n"
+                            return_ask_info_md.append(info + "\n")
+                    except Exception as e:
+                        return_ask_info_md.append(f"#### 文件: {fname} 读取失败：{str(e)}\n\n")
 
             # 获取指定Agent的详细状态信息
             if ask_info["type"] == "agent":
