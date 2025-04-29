@@ -15,6 +15,8 @@ from mas.agent.state.stage_state import StageState
 
 from mas.agent.base.message import Message
 import json
+import os
+import yaml
 import weakref
 
 class SyncState:
@@ -486,6 +488,40 @@ class SyncState:
                                           f"阶段涉及的Agent状态：{stage_state.every_agent_state}\n\n"
                                           f"阶段完成情况：{stage_state.completion_summary}\n\n")
 
+            # 获取所有可实例化agent配置信息（包含已激活和未激活的）
+            if ask_info["type"] == "available_agents_config":
+                '''
+                {
+                    "type": "available_agents_config",
+                    "waiting_id": "<唯一等待标识ID>",
+                    "sender_id": "<查询者的agent_id>",
+                    "sender_task_id": "<查询者的task_id>"
+                }
+                '''
+                # 获取 role_config 目录的绝对路径，该目录位于当前文件的上两级目录中的 "role_config" 文件夹内
+                role_config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../role_config'))
+                # 列出 role_config 目录中所有以 .yaml 结尾的文件名（即所有 Agent 配置文件）
+                agent_files = [f for f in os.listdir(role_config_dir) if f.endswith('.yaml')]
+
+                # 添加可直接新增Agent的配置信息
+                return_ask_info_md.append(f"### 系统已有的可直接实例化的Agent配置 available_agents_config\n")
+                for file_name in agent_files:
+                    # 获取当前文件的完整路径
+                    fpath = os.path.join(role_config_dir, file_name)
+                    try:
+                        # 打开该 YAML 文件并读取内容，使用 utf-8 编码
+                        with open(fpath, 'r', encoding='utf-8') as f:
+                            ydata = yaml.safe_load(f)
+                            return_ask_info_md.append(f"#### Agent配置: {file_name}\n")
+                            # 遍历需要展示的关键字段：
+                            for key in ['name', 'role', 'profile', 'skills', 'tools']:
+                                return_ask_info_md.append(f"{key}:\n"
+                                                          f"{ydata[key]}\n\n")
+
+                    except Exception as e:
+                        return_ask_info_md.append(f"#### Agent配置: {file_name}\n"
+                                                  f"(读取失败：{str(e)})\n\n")
+
             # 获取多智能体系统MAS中所有Agent的基本信息
             if ask_info["type"] == "all_agents":
                 '''
@@ -593,33 +629,6 @@ class SyncState:
                                                           f"可用技能 skills：{agent_state["skills"]}\n"
                                                           f"可用工具 tools：{agent_state["tools"]}\n\n")
 
-            # 获取所有可实例化agent配置信息（包含已激活和未激活的）
-            if ask_info["type"] == "available_agents_config":
-                '''
-                {
-                    "type": "available_agents_config",
-                    "waiting_id": "<唯一等待标识ID>",
-                    "sender_id": "<查询者的agent_id>",
-                    "sender_task_id": "<查询者的task_id>"
-                }
-                '''
-                import os, yaml
-                role_config_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../role_config'))
-                agent_files = [f for f in os.listdir(role_config_dir) if f.endswith('.yaml')]
-                return_ask_info_md.append(f"### 系统可用Agent配置 available_agents_config\n")
-                for fname in agent_files:
-                    fpath = os.path.join(role_config_dir, fname)
-                    try:
-                        with open(fpath, 'r', encoding='utf-8') as f:
-                            ydata = yaml.safe_load(f)
-                            info = f"#### 文件: {fname}\n"
-                            if isinstance(ydata, dict):
-                                for k in ['name', 'role', 'profile', 'skills', 'tools']:
-                                    if k in ydata:
-                                        info += f"{k}: {ydata[k]}\n"
-                            return_ask_info_md.append(info + "\n")
-                    except Exception as e:
-                        return_ask_info_md.append(f"#### 文件: {fname} 读取失败：{str(e)}\n\n")
 
             # 获取指定Agent的详细状态信息
             if ask_info["type"] == "agent":

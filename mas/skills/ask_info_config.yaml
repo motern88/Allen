@@ -18,12 +18,12 @@ use_guide:
     3. 查看指定task_state的详细信息 （不包括附属阶段信息）  
     4. 查看指定stage_stage的信息
     
-    5. 查看MAS中所有Agent的profile （不包括持续性记忆）
-    6. 查看Team中所有Agent的profile （不包括持续性记忆）
-    7. 查看指定task_id的task_group中所有Agent的profile （不包括持续性记忆）
-    8. 查看指定stage下协作的所有Agent的profile （不包括持续性记忆）
-    9. 查看指定agent_id或多个agent_id的详细agent_state信息  
-    10. 获取系统中所有可实例化的agent配置信息（包含已激活和未激活的），即 available_agents_config
+    5. 查看所有可直接实例化的Agent配置信息，为实例化新的Agent提供参考（role_config.yaml)
+    6. 查看MAS中所有Agent的profile （不包括持续性记忆）
+    7. 查看Team中所有Agent的profile （不包括持续性记忆）
+    8. 查看指定task_id的task_group中所有Agent的profile （不包括持续性记忆）
+    9. 查看指定stage下协作的所有Agent的profile （不包括持续性记忆）
+    10. 查看指定agent_id或多个agent_id的详细agent_state信息  
     
     **一次ask_info只允许使用其中一种查询，使用ask_info时请在step.step_intention与step.text_content中清楚写明意图与具体查询类型**
     "
@@ -40,26 +40,19 @@ use_prompt:
        - 获取你参与的任务及参与的阶段的信息，不包括任务共享消息池信息 (assigned_task_and_stage_info)
        - 获取指定任务的详细信息，不包括附属阶段信息 (task_info)
        - 获取指定阶段的详细信息 (stage_info)
-
+    
     - Agent相关信息：
+       - 获取系统中所有可实例化的Agent的**配置文件** (available_agents_config)
        - 获取多智能体系统MAS中所有Agent的基本信息，不包括持续性记忆 (all_agents)
        - 获取团队Team中所有Agent的基本信息，不包括持续性记忆 (team_agents)
        - 获取指定任务群组中所有Agent的信息，需要指定task_id，不包括持续性记忆 (task_agents)
        - 获取指定阶段下协作的所有Agent的信息，需要指定task_id与stage_id，不包括持续性记忆 (stage_agents)
        - 获取指定Agent的详细状态信息 (agent)
 
-    - 获取系统中所有可实例化的agent配置信息（包含已激活和未激活的）(available_agents_config)
-      - 你可以通过该类型获取mas/role_config目录下所有agent的配置（如name/role/profile/skills/tools等字段）
-
     **根据你当前步骤意图，仔细按照return_format中的格式返回具体指令**
 
   return_format: |
     **输出查询指令格式为字典，根据不同的查询类型，填充具体指令的字段值：**
-    
-    - 获取系统中所有可实例化的agent配置信息 (available_agents_config)，需要填充一个字段：
-      {
-        "type": "available_agents_config"
-      }
     
     - 获取你管理的任务及其附属阶段的信息 (managed_task_and_stage_info)，需要填充一个字段：
       {
@@ -82,6 +75,11 @@ use_prompt:
         "type": "stage_info",
         "task_id": "<task_id>",  # 任务ID
         "stage_id": "<stage_id>"  # 阶段ID
+      }
+    
+    - 获取系统中所有可实例化的agent配置信息 (available_agents_config)，需要填充一个字段：
+      {
+        "type": "available_agents_config"
       }
     
     - 获取多智能体系统MAS中所有Agent的基本信息 (all_agents)，需要填充一个字段：
