@@ -83,7 +83,7 @@ Send Message 首先需要构建发送对象列表。[<agent_id>, <agent_id>, ...
 '''
 import re
 import json
-from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union, cast
 
 from mas.agent.base.executor_base import Executor
 from mas.agent.base.llm_base import LLMContext, LLMClient
@@ -261,7 +261,7 @@ class SendMessageSkill(Executor):
             return_waiting_id = self.extract_return_waiting_id(step_state.text_content)  # 如果存在<return_waiting_id>包裹的回复唯一等待ID则返回，否则返回None
 
             # 构造execute_output，中标准格式的消息
-            execute_output["send_message"] = {
+            execute_output["send_message"] = cast(Message,{
                 "task_id": task_id,
                 "sender_id": agent_state["agent_id"],
                 "receiver": send_message["receiver"],
@@ -270,7 +270,7 @@ class SendMessageSkill(Executor):
                 "need_reply": send_message["need_reply"],
                 "waiting": send_message["waiting"],
                 "return_waiting_id": return_waiting_id,
-            }
+            })
 
         return execute_output
 
