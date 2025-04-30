@@ -20,7 +20,7 @@ profile: |
 
 skills: ["planning", "reflection", "summary", "instruction_generation", "quick_think", "think",  # 步骤执行基础技能
          "send_message", "process_message",  # 通信基础技能
-         "task_manager", "ask_info"]  # 管理技能
+         "task_manager", "agent_manager", "ask_info"]  # 管理技能
 tools: []
 
 llm_config:

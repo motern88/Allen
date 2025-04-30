@@ -170,7 +170,7 @@ class AgentManagerSkill(Executor):
             "agent_id": agent_state["agent_id"],
             "role": agent_state["role"],
             "stage_id": stage_id,
-            "content": f"执行Task Manager步骤:{shared_step_situation}，"
+            "content": f"执行Agent Manager步骤:{shared_step_situation}，"
         }
 
         # 3. 由sync_state完成agent操作指令的解析与具体执行

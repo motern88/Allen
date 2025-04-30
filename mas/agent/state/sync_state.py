@@ -19,6 +19,7 @@ from mas.agent.base.message import Message
 import json
 import os
 import yaml
+from pathlib import Path
 import weakref
 
 from develop开发中.MetaGPT.tests.conftest import llm_api
@@ -41,6 +42,30 @@ class SyncState:
         self._agents = []
         # 保存对 MultiAgentSystem 的引用
         self.system = system
+
+    def load_yaml_recursive(self, root_dir):
+        """
+        递归读取目录及其子目录下所有.yaml/.yml文件
+        :param root_dir: 根目录路径(支持str或Path对象)
+        :return: 生成器，产生 (file_path, data) 元组
+        """
+        root_path = Path(root_dir) if isinstance(root_dir, str) else root_dir
+
+        if not root_path.is_dir():
+            raise ValueError(f"路径不存在或不是目录: {root_path}")
+
+        for file_path in root_path.rglob("*"):
+            if file_path.suffix.lower() in ('.yaml', '.yml'):
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data = yaml.safe_load(f)
+                        yield str(file_path), data
+                except yaml.YAMLError as e:
+                    print(f"[YAML解析错误] {file_path}: {e}")
+                except UnicodeDecodeError:
+                    print(f"[编码错误] 无法用UTF-8读取 {file_path}")
+                except Exception as e:
+                    print(f"[系统错误] 处理 {file_path} 时出错: {e}")
 
     def register_agent(self, agent):
         '''
@@ -441,7 +466,7 @@ class SyncState:
             ask_info = executor_output["ask_info"]
             return_ask_info_md = []  # 初始化用于生成markdown格式文本的列表， 限制md文本从三级标题开始！
 
-            # 查询Agent管理的任务及其附属阶段信息（不包括任务共享消息池信息）
+            # 1 查询Agent管理的任务及其附属阶段信息（不包括任务共享消息池信息）
             if ask_info["type"] == "managed_task_and_stage_info":
                 '''
                 {
@@ -474,7 +499,7 @@ class SyncState:
                                                       f"阶段涉及的Agent状态：{stage_state.every_agent_state}\n\n"
                                                       f"阶段完成情况：{stage_state.completion_summary}\n\n")
 
-            # 查询Agent参与的任务及参与的阶段的信息（不包括任务共享消息池信息）
+            # 2 查询Agent参与的任务及参与的阶段的信息（不包括任务共享消息池信息）
             if ask_info["type"] == "assigned_task_and_stage_info":
                 '''
                 {
@@ -509,7 +534,7 @@ class SyncState:
                                                           f"阶段涉及的Agent状态：{stage_state.every_agent_state}\n\n"
                                                           f"阶段完成情况：{stage_state.completion_summary}\n\n")
 
-            # 获取指定任务的详细信息（不包括附属阶段信息）
+            # 3 获取指定任务的详细信息（不包括附属阶段信息）
             if ask_info["type"] == "task_info":
                 '''
                 {
@@ -540,7 +565,7 @@ class SyncState:
                                                   f"阶段ID：{dict["stage_id"]}\n"
                                                   f"内容：{dict["content"]}\n\n")
 
-            # 获取指定阶段的详细信息
+            # 4 获取指定阶段的详细信息
             if ask_info["type"] == "stage_info":
                 '''
                 {
@@ -563,7 +588,7 @@ class SyncState:
                                           f"阶段涉及的Agent状态：{stage_state.every_agent_state}\n\n"
                                           f"阶段完成情况：{stage_state.completion_summary}\n\n")
 
-            # 获取所有可实例化agent配置信息（包含已激活和未激活的）
+            # 5 获取所有可实例化agent配置信息（包含已激活和未激活的）
             if ask_info["type"] == "available_agents_config":
                 '''
                 {
@@ -603,7 +628,7 @@ class SyncState:
                         return_ask_info_md.append(f"#### Agent配置: {file_name}\n"
                                                   f"(读取失败：{str(e)})\n\n")
 
-            # 获取多智能体系统MAS中所有Agent的基本信息
+            # 6 获取多智能体系统MAS中所有Agent的基本信息
             if ask_info["type"] == "all_agents":
                 '''
                 {
@@ -632,7 +657,7 @@ class SyncState:
                                                   f"可用技能 skills：{agent_state["skills"]}\n"
                                                   f"可用工具 tools：{agent_state["tools"]}\n\n")
 
-            # TODO 获取团队Team中所有Agent的基本信息
+            # 7 TODO 获取团队Team中所有Agent的基本信息
             if ask_info["type"] == "team_agents":
                 '''
                 {
@@ -645,7 +670,7 @@ class SyncState:
                 '''
                 raise NotImplementedError("Team概念未实现")
 
-            # 获取指定任务群组中所有Agent的信息
+            # 8 获取指定任务群组中所有Agent的信息
             if ask_info["type"] == "task_agents":
                 '''
                 {
@@ -678,7 +703,7 @@ class SyncState:
                                                               f"可用技能 skills：{agent_state["skills"]}\n"
                                                               f"可用工具 tools：{agent_state["tools"]}\n\n")
 
-            # 获取指定阶段下协作的所有Agent的信息
+            # 9 获取指定阶段下协作的所有Agent的信息
             if ask_info["type"] == "stage_agents":
                 '''
                 {
@@ -710,8 +735,7 @@ class SyncState:
                                                           f"可用技能 skills：{agent_state["skills"]}\n"
                                                           f"可用工具 tools：{agent_state["tools"]}\n\n")
 
-
-            # 获取指定Agent的详细状态信息
+            # 10 获取指定Agent的详细状态信息
             if ask_info["type"] == "agent":
                 '''
                 {
@@ -741,6 +765,51 @@ class SyncState:
                                 return_ask_info_md.append(f"持续性记忆 persistent_memory：\n"
                                                           f"{agent_state["persistent_memory"]}\n\n")
 
+            # 11 获取MAS中所有技能与工具的详细说明
+            if ask_info["type"] == "skills_and_tools":
+                '''
+                {
+                    "type":"<不同查询选项>", 
+                    "waiting_id":"<唯一等待标识ID>",
+                    "sender_id":"<查询者的agent_id>"
+                    "sender_task_id":"<查询者的task_id>"
+                }
+                '''
+                # 添加技能与工具的详细说明
+                return_ask_info_md.append(f"### 所有技能与工具的详细说明 skills and tools\n")
+
+                # 遍历所有技能提示文件
+                for file_path, yaml_data in self.load_yaml_recursive("mas/skills"):
+                    skill_name = yaml_data["use_guide"]["skill_name"]
+                    description = yaml_data["use_guide"]["description"]
+                    skill_prompt = yaml_data["use_prompt"]["skill_prompt"]
+                    return_format = yaml_data["use_prompt"]["return_format"]
+                    return_ask_info_md.append(f"#### 技能 Skill: {skill_name}\n")
+                    return_ask_info_md.append(
+                        f"技能描述 description:\n"
+                        f"{description}\n\n"
+                        f"技能提示词 skill_prompt:\n"
+                        f"{skill_prompt}\n\n"
+                        f"返回格式 return_format:\n"
+                        f"{return_format}\n\n"
+                    )
+
+                # 遍历所有工具提示文件
+                for file_path, yaml_data in self.load_yaml_recursive("mas/tools"):
+                    tool_name = yaml_data["use_guide"]["tool_name"]
+                    description = yaml_data["use_guide"]["description"]
+                    tool_prompt = yaml_data["use_prompt"]["tool_prompt"]
+                    return_format = yaml_data["use_prompt"]["return_format"]
+                    return_ask_info_md.append(f"#### 技能 Tool: {tool_name}\n")
+                    return_ask_info_md.append(
+                        f"技能描述 description:\n"
+                        f"{description}\n\n"
+                        f"技能提示词 skill_prompt:\n"
+                        f"{tool_prompt}\n\n"
+                        f"返回格式 return_format:\n"
+                        f"{return_format}\n\n"
+                    )
+
             # 构造返回消息，消息内容为md格式的查询结果
             message: Message = {
                 "task_id": ask_info["sender_task_id"],  # 发送者所处的任务
@@ -756,6 +825,6 @@ class SyncState:
             task_state = self.all_tasks.get(ask_info["sender_task_id"])
             # 将返回消息添加到任务的通讯队列中
             task_state.communication_queue.put(message)
-            print(f"[SyncState] Agent{ask_info["sender_id"]}的查询结果已返回")
+            print(f"[SyncState] Agent{ask_info["sender_id"]}的查询{ask_info["type"]}，结果已返回")
 
 

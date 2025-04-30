@@ -13,12 +13,14 @@
     3. 查看指定task_state的信息
     4. 查看指定stage_stage的信息
 
-    5. 查看MAS中所有Agent的profile
-    6. 查看Team中所有Agent的profile  TODO：Team未实现
-    7. 查看指定task_id的task_group中所有Agent的profile
-    8. 查看指定stage下协作的所有Agent的profile
-    9. 查看指定agent_id或多个agent_id的详细agent_state信息
+    5. 查看所有可直接实例化的Agent配置信息
+    6. 查看MAS中所有Agent的profile
+    7. 查看Team中所有Agent的profile  TODO：Team未实现
+    8. 查看指定task_id的task_group中所有Agent的profile
+    9. 查看指定stage下协作的所有Agent的profile
+    10. 查看指定agent_id或多个agent_id的详细agent_state信息
 
+    11. 查看MAS中所有技能与工具
 
 说明：
     Ask Info本质上是一种的特殊消息发送技能，它起两个作用（1.向Agent提供信息查询选项，2.向SyncState传递信息查询指令）。

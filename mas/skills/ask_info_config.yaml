@@ -5,8 +5,7 @@
 
 use_guide:
   skill_name: "ask_info"
-  description:
-    "
+  description: |
     该技能用于获取MAS中的各种信息，包括task_state、stage_state和其他Agent的信息。
     **一般该技能的使用（ask_info 系统信息查询）是为了更好地执行任务管理技能task_manager**
     该技能会经由SyncState，将查询结果通过Message传递回你。你将被添加一个process_message用于消化它。
@@ -25,8 +24,10 @@ use_guide:
     9. 查看指定stage下协作的所有Agent的profile （不包括持续性记忆）
     10. 查看指定agent_id或多个agent_id的详细agent_state信息  
     
+    11. 查看MAS中所有技能与工具（所有可以给Agent配置的）
+    
     **一次ask_info只允许使用其中一种查询，使用ask_info时请在step.step_intention与step.text_content中清楚写明意图与具体查询类型**
-    "
+
 
 # 技能实际调用的提示词  
 use_prompt:  
@@ -48,6 +49,9 @@ use_prompt:
        - 获取指定任务群组中所有Agent的信息，需要指定task_id，不包括持续性记忆 (task_agents)
        - 获取指定阶段下协作的所有Agent的信息，需要指定task_id与stage_id，不包括持续性记忆 (stage_agents)
        - 获取指定Agent的详细状态信息 (agent)
+    
+    - 技能与工具相关信息：
+       - 获取MAS中所有技能与工具（所有可以给Agent配置的）
 
     **根据你当前步骤意图，仔细按照return_format中的格式返回具体指令**
 
@@ -110,6 +114,11 @@ use_prompt:
       {
         "type": "agent",
         "agent_id": [<agent_id>,<agent_id>,...]  # 包含Agent ID的列表 List[str]
+      }
+    
+    - 获取MAS中所有技能与工具 (skills_and_tools)，需要填充一个字段：
+      {
+        "type": "skills_and_tools"
       }
 
     **请将你的指令构造结果用<ask_info>和</ask_info>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例： 
