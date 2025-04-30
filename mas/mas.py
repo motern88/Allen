@@ -39,7 +39,7 @@ class MultiAgentSystem:
 
     '''
     def __init__(self):
-        self.sync_state = SyncState()  # 实例化局唯一的状态同步器
+        self.sync_state = SyncState(self)  # 实例化局唯一的状态同步器，把self传进去，让SyncState能访问MultiAgentSystem
         self.agents_list = []  # 存储所有Agent实例的列表
         self.message_dispatcher = MessageDispatcher()  # 实例化消息分发器
 

@@ -4,18 +4,19 @@
 # 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
 use_guide:
   skill_name: "task_manager"
-  description:
-    "
-    该技能用于管理者Agent管理任务进程，操作任务状态与阶段状态。
+  description: |
+    该技能用于帮助管理者Agent管理任务进程，一般用于操作任务状态与阶段状态。
     **该技能使用前你必须对任务状态与阶段状态有清晰的了解与规划（任务信息与阶段信息应当先通过 get_info 技能获取）**。
     **使用该技能为Agent分配任务前你必须清楚准确地了解各个Agent的能力边界（Agent信息应当先通过 ger_info 技能获取）**
     该技能结合自身历史步骤信息，生成用于管理任务进程的指令，包括：
     
     1. 创建任务 add_task，该操作会创建一个 task_state;
+    
     2. 为任务创建阶段 add_stage，该操作会为 task_state 创建一个或多个 stage_state，包含每个阶段中Agent的子目标分配;
+    
     3. 结束任务 finish_task，该操作会进入任务结束流程（包括任务总结，任务汇报，任务日志记录入库等）;
+    
     4. 结束阶段 finish_stage，阶段完成则进入下一个阶段，如果失败则反馈给任务管理者。 
-    "
 
 # 技能实际调用的提示词
 use_prompt:
@@ -61,7 +62,7 @@ use_prompt:
       - 创建任务 add_task 指令格式:
         {
           "action": "add_task",
-          "task_name": ""<task_name>",  # 任务名称，简要名称
+          "task_name": "<task_name>",  # 任务名称，简要名称
           "task_intention": "<task_intention>",  # 任务意图, 较为详细的任务目标说明
         }
         add_task指令字典中包含两个字段:

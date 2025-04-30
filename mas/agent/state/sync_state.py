@@ -13,11 +13,16 @@ from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from mas.agent.state.task_state import TaskState
 from mas.agent.state.stage_state import StageState
 
+from mas.mas import MultiAgentSystem
+from mas.agent.configs.llm_config import LLMConfig
 from mas.agent.base.message import Message
 import json
 import os
 import yaml
 import weakref
+
+from develop开发中.MetaGPT.tests.conftest import llm_api
+
 
 class SyncState:
     '''
@@ -27,11 +32,15 @@ class SyncState:
 
     属性:
         all_tasks (Dict[str, TaskState]): 所有任务的状态信息，键为task_id
+        _agents (List[weakref.ref]): 所有注册的Agent（用弱引用，防止Agent被强引用导致不能销毁）
+        system (MultiAgentSystem): 对 MultiAgentSystem 的引用，用于访问系统级别的信息和方法
     '''
-    def __init__(self):
+    def __init__(self, system: MultiAgentSystem):
         self.all_tasks: Dict[str, TaskState] = {}  # 存储系统中所有任务状态，键为 task_id，值为对应的 TaskState 实例
         # 保存所有注册的 Agent（用弱引用，防止 Agent 被强引用导致不能销毁）
         self._agents = []
+        # 保存对 MultiAgentSystem 的引用
+        self.system = system
 
     def register_agent(self, agent):
         '''
@@ -57,12 +66,37 @@ class SyncState:
             result.append((agent, value))
         return result
 
+    def init_new_agent(self, agent_config_dict):
+        '''
+        根据配置字典实例化新的Agent
+        通过system引用将新Agent添加到system的agents_list中
+
+        agent_config_dict 是一个包含 Agent 配置的字典，包含 name、role、profile 等信息。
+        将agent_config_dict和LLM config合并，用于实例化AgentBase对象
+        '''
+        # 获取LLMconfig
+        llm_config = LLMConfig.from_yaml("mas/role_config/default_llm_config.yaml")
+        # 合并配置
+        agent_config_dict["llm_config"] = llm_config
+        # 实例化AgentBase对象
+        self.system.add_agent(agent_config_dict)
 
     def add_task(self, task_state: TaskState):
         '''
         添加任务状态到SyncState任务字典中中
         '''
         self.all_tasks[task_state.task_id] = task_state
+
+    def add_agents_2_task_group(self, task_id: str, agents: list[str]):
+        '''
+        将Agent添加到任务群组中
+        如果Agent不在任务群组中，则添加到任务群组中
+        '''
+        task_state = self.all_tasks.get(task_id)
+        if task_state:
+            for agent_id in agents:
+                if agent_id not in task_state.task_group:
+                    task_state.task_group.append(agent_id)
 
     def get_task_state(self, task_id: str) -> Optional[TaskState]:
         '''
@@ -159,7 +193,6 @@ class SyncState:
             }
             # 将消息添加到任务的通讯队列中
             task_state.communication_queue.put(message)
-
 
 
     # 实现解析executor_output并更新task/stage状态
@@ -263,9 +296,6 @@ class SyncState:
                 print(f"[SyncState] 已添加任务{task_state.task_id}，"
                       f"任务管理者{task_state.task_manager}")
 
-            # TODO：为任务添加参与Agent
-
-
             # 为任务创建阶段 add_stage
             if task_instruction["action"] == "add_stage":
                 '''
@@ -282,7 +312,8 @@ class SyncState:
                     ] 
                 }
                 1.创建stage_state
-                2.同步工作记忆到参与者
+                2.如果stage中的agent不在task群组中，则添加到task群组中
+                3.同步工作记忆到参与者
                 '''
                 # 获取任务id的task_state
                 task_state = self.all_tasks.get(task_instruction["task_id"])
@@ -298,7 +329,11 @@ class SyncState:
                     # 添加阶段到任务状态中
                     task_state.add_stage(stage_state)
 
-                    # 2. 同步工作记忆到任务参与者
+                    # 2. 如果stage中的agent不在task群组中，则添加到task群组中
+                    for agent_id in stage_info["agent_allocation"].keys():
+                        self.add_agents_2_task_group(task_instruction["task_id"],[agent_id])
+
+                    # 3. 同步工作记忆到任务参与者
                     instruction = {"update_working_memory": {"task_id": task_state.task_id, "stage_id": stage_state.stage_id}}
                     message: Message = {
                         "task_id": task_state.task_id,
@@ -362,6 +397,44 @@ class SyncState:
                     print(f"[SyncState] 任务{task_instruction["task_id"]}的阶段{next_stage.stage_id}已开启")
                 else:
                     print(f"[SyncState] 任务{task_instruction["task_id"]}的所有阶段已结束")
+
+
+        # 如果字典的key是"agent_instruction",则解析并执行具体agent管理操作
+        if "agent_instruction" in executor_output:
+            agent_instruction = executor_output["agent_instruction"]
+
+            # 实例化新Agent
+            if agent_instruction["action"] == "init_new_agent":
+                '''
+                {
+                    "action": "init_new_agent",
+                    "agent_config": {  # 新Agent的配置信息
+                        "name": "<agent_name>",  # 新Agent的名称
+                        "role": "<agent_role>",  # 新Agent的角色
+                        "profile": "<agent_profile>",  # 新Agent的简介
+                        "skills": ["<skill_1>", "<skill_2>", ...],  # 新Agent的技能列表
+                        "tools": ["<tool_1>", "<tool_2>", ...],  # 新Agent的工具列表
+                    }
+                }
+                '''
+                self.init_new_agent(agent_instruction["agent_config"])
+                print(f"[SyncState] 已实例化新Agent{agent_instruction["agent_config"]["name"]}")
+
+            # 为任务添加参与Agent
+            if agent_instruction["action"] == "add_task_participant":
+                '''
+                {
+                    "agent_id": "<agent_id>",  # 发起者Agent id
+                    "action": "add_task_participant",
+                    "task_id": "<task_id>",  # 任务ID
+                    "agents": [
+                        "<agent_id_1>", "<agent_id_2>" # 参与者Agent id
+                    ]
+                }
+                '''
+                self.add_agents_2_task_group(task_id=agent_instruction["task_id"], agents=agent_instruction["agents"])
+                print(f"[SyncState] 已添加Agent{agent_instruction["agents"]}于任务群组{agent_instruction["task_id"]}中")
+
 
         # 如果字典的key是"ask_info",则解析并执行具体信息查询操作
         if "ask_info" in executor_output:

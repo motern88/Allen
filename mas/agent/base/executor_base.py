@@ -134,6 +134,8 @@ class Executor(ABC):
             f"**Role(你的角色)**: {agent_state['role']}\n"
             f"**Profile(你的简介)**: {agent_state['profile']}"
         )
+        md_output.append("**你的行为做事逻辑必须严格按照以上角色设定来执行，不能随意更改角色设定。**")
+
 
         return "\n".join(md_output)
 

@@ -1,0 +1,91 @@
+# Date: 2025/04/30
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  skill_name: "agent_manager"
+  description: |
+    该技能用于帮助管理者Agent管理其他Agent状态。
+    **该技能使用前需要你对相关Agent状态有清晰的了解（可通过 get_info 技能获取）**。
+    **使用该技能改变Agent状态你必须清楚准确地理解各个任务和阶段的需求（任务与阶段信息可通过 ger_info 技能获取）**
+    该技能结合自身历史步骤信息，生成用于操作Agent的指令，包括：
+    
+    1. 实例化一个新的Agent init_new_agent，该操作会在系统中实例化一个新的Agent;
+      **只有你认为当前系统中已有的Agent均无法满足任务需求，你才能实例化一个新的Agent**
+      你可以通过ask_info技能中all_agents获取当前系统中已实例化的所有Agent的信息来判断。
+      
+      如果你确定要实例化一个新的Agent，你应当通过ask_info技能中的available_agents_config，
+      来获取系统中所有可实例化的agent配置信息以供参考。因为在此之后你需要组装相应的字段用于新实例化Agent。
+    
+    2. 添加agent到任务群组中 add_task_participant，该操作会为指定任务添加Agent，Agent会被添加到该任务的任务群组task_group中;
+       (**任务中所有参与的Agent都应当被添加进该任务的任务群组中**)
+
+# 技能实际调用的提示词
+use_prompt:
+  skill_name: "agent_manager"
+  skill_prompt: |
+    **你现在正在执行agent_manager技能，你正在履行管理者的职能，对相关agent进行操作。**
+    
+    你需要根据前面步骤的get_info中获取的系统中相关Agent信息，结合自身历史步骤信息
+    （已执行的历史step信息在**history_step**章节中给出），生成用于操作其他Agent的指令。
+    
+    该技能允许以下操作，请根据实际情况选择其中的操作：
+    
+    - (特殊指令)实例化新Agent init_new_agent
+      如果你判断当前系统中已有的Agent均无法满足任务需求（ask_info中all_agents可以获取当前系统所有Agent的信息）,
+      你可以使用init_new_agent来实例化一个新的Agent。
+      你需要确保这个新Agent的能力与任务目标是匹配的，并且**你需要为这个新Agent提供一个不重复的名字**。
+    
+    - 添加任务参与者 add_task_participant:
+      该操作会为任务中添加指定Agent，Agent会被添加到该任务的任务群组task_group中。
+      **任务中所有参与的Agent都应当被添加进该任务的任务群组中**
+      所有在任务群组中的Agent都能够相互通信，查看任务群组中的共享消息池。
+    
+    **请最终按照return_format中指示的对应返回格式使用这些操作**
+
+  return_format: |
+    - 输出指令格式用字典表示，不同Agent管理操作对应的指令字典字段不同：
+      
+      - 实例化新Agent init_new_agent 指令格式:
+        {
+          "action": "init_new_agent",
+          "agent_config": {  # 新Agent的配置信息
+            "name": "<agent_name>",  # 新Agent的名称
+            "role": "<agent_role>",  # 新Agent的角色
+            "profile": "<agent_profile>",  # 新Agent的简介
+            "skills": ["<skill_1>", "<skill_2>", ...],  # 新Agent的技能列表
+            "tools": ["<tool_1>", "<tool_2>", ...],  # 新Agent的工具列表
+          }
+        }
+        init_new_agent指令字典中包含两个字段:
+        action (str): 表示操作类型，值为"init_new_agent"
+        agent_config (Dict[str,Any]): 新Agent的配置信息，
+          **由你生成，生成时务必保持与已有Agent配置（从ask_info获取）相同的风格**
+          包含以下字段：
+            name (str): 新Agent的名称，不与现有Agent重复
+            role (str): 新Agent的角色，填职责或岗位，例如工程师，产品经历，XX专员等
+            profile (str): 新Agent的简介，包含简要介绍、身份起源和人格特质
+            skills (List[str]): 新Agent的技能列表，包含技能名称。其中必须要拥有以下技能：
+              planning, reflection, summary, instruction_generation, quick_think, think
+              send_message, process_message, ask_info
+            tools (List[str]): 新Agent的工具列表，包含工具名称。
+      
+      - 添加任务参与者 add_task_participant 指令格式:
+        {
+          "action": "add_task_participant",
+          "task_id": "<task_id>",  # 任务ID
+          "agents": ["<agent_id_1>", "<agent_id_2>",...] # 参与者Agent id组成的List
+        }
+        add_task_participant指令字典中包含三个字段:
+        action (str): 表示操作类型，值为"add_task_participant"
+        task_id (str): 任务ID，要将Agent添加到的任务群组的任务ID
+        agents (List[str]): 要添加的Agent id组成的List
+    
+    - **请将你的指令构造结果用<agent_instruction>和</agent_instruction>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例：
+    <agent_instruction>
+    具体操作指令...
+    </agent_instruction>
+    
+    
+    
+    
