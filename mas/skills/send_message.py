@@ -242,7 +242,7 @@ class SendMessageSkill(Executor):
                 "waiting": List or None  # 如果需要等待，则外部已经将该字段生成每个接收对象的唯一等待ID列表
                 "return_waiting_id": <str>  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
             
-            最终Massage构造体包含：
+            最终Message构造体包含：
                 task_id (str): 任务ID
                 sender_id (str): 发送者ID
                 receiver (List[str]): 接收者ID列表
@@ -261,7 +261,7 @@ class SendMessageSkill(Executor):
             return_waiting_id = self.extract_return_waiting_id(step_state.text_content)  # 如果存在<return_waiting_id>包裹的回复唯一等待ID则返回，否则返回None
 
             # 构造execute_output，中标准格式的消息
-            execute_output["send_message"]:Message = {
+            execute_output["send_message"] = {
                 "task_id": task_id,
                 "sender_id": agent_state["agent_id"],
                 "receiver": send_message["receiver"],
