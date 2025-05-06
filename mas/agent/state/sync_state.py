@@ -22,7 +22,6 @@ import yaml
 from pathlib import Path
 import weakref
 
-from develop开发中.MetaGPT.tests.conftest import llm_api
 
 
 class SyncState:
