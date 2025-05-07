@@ -9,7 +9,7 @@ from browser_use.browser.browser import Browser, BrowserConfig
 import traceback 
 import re
 
-@Executor.register(executor_type="tool", executor_name="BrowserUseTool")  
+@Executor.register(executor_type="tool", executor_name="browser_use")  
 class BrowserUseTool(Executor):  
     def __init__(self, llm_config=None):  
         super().__init__()  
@@ -88,7 +88,10 @@ class BrowserUseTool(Executor):
         4. 解析结果并更新执行结果  
         5. 构造并返回execute_output  
         """  
+        # 更新步骤状态为运行中 
         agent_state["agent_step"].update_step_status(step_id, "running")  
+        # 获取当前步骤状态
+        step_state = agent_state["agent_step"].get_step(step_id)[0]  
 
         # 如果没有传入llm_config，就从agent_state获取  
         if self.llm_config is None and "llm_config" in agent_state:  
@@ -106,8 +109,7 @@ class BrowserUseTool(Executor):
             )
 
         try:
-            #  # 1. 从step_state获取指令文本-----------------已弃用
-            # step_state = agent_state["agent_step"].get_step(step_id)[0]  
+            # 1. 从step_state获取指令文本-----------------已弃用
             # task_description  = step_state.text_content.strip()    
 
             # 1. 组装浏览器任务生成提示词  
@@ -134,6 +136,15 @@ class BrowserUseTool(Executor):
             if not browser_task:  
                 error_msg = "无法从LLM响应中提取有效的浏览器任务描述"  
                 agent_state["agent_step"].update_step_status(step_id, "failed")  
+                # 记录错误并返回  
+                execute_result = {"browser_use_error": error_msg}  
+                step_state.update_execute_result(execute_result)  
+                return self.get_execute_output(  
+                    step_id,  
+                    agent_state,  
+                    update_agent_situation="failed",  
+                    shared_step_situation=f"失败: {error_msg}",  
+                )  
 
             # 4. 使用任务描述执行browser-use操作  
             result = self.run_browser_use_task(browser_task)  
@@ -172,7 +183,6 @@ class BrowserUseTool(Executor):
             print(f"BrowserUseTool错误: {error_details}")  
 
             # 记录错误到执行结果  
-            step_state = agent_state["agent_step"].get_step(step_id)[0]  
             execute_result = {  
                 "browser_use_error": error_msg  
             }  
@@ -296,17 +306,13 @@ class BrowserUseTool(Executor):
         if llm_config is None:  
             raise ValueError("LLM配置不能为空")  
         try:
-            from langchain_ollama import ChatOllama  
-            from langchain_openai import ChatOpenAI  
-
-            # 根据api_type创建对应的LLM  
             # 获取配置参数  
-            api_type = self.llm_config.api_type  
+            api_type = llm_config.api_type  
             api_type_str = api_type.lower() if isinstance(api_type, str) else str(api_type).lower() 
-            model = self.llm_config.model  
-            api_key = self.llm_config.api_key 
-            base_url = self.llm_config.base_url  
-            temperature = self.llm_config.temperature 
+            model = llm_config.model  
+            api_key = llm_config.api_key 
+            base_url = llm_config.base_url  
+            temperature = llm_config.temperature 
             # 处理不同的LLM类型  
             if "openai" in api_type_str:  
                 from langchain_openai import ChatOpenAI  
@@ -334,3 +340,88 @@ class BrowserUseTool(Executor):
                 raise ImportError("使用Ollama需要安装: pip install langchain_ollama")  
             else:  
                 raise ImportError(f"LLM初始化失败: {e}")  
+            
+# Debug
+if __name__ == "__main__":
+    '''
+    测试browser use需在Allen根目录下执行 python -m mas.tools.browser_use
+    '''
+    from mas.agent.configs.llm_config import LLMConfig
+    from mas.agent.state.step_state import StepState, AgentStep
+
+    print("测试BrowserUseTool工具的调用")  
+    llm_config = LLMConfig.from_yaml("mas/role_config/qwq32b.yaml")
+    agent_state = {  
+        "agent_id": "0001",  
+        "name": "网络助手",  
+        "role": "网络调研专员",  
+        "profile": "负责在网络上搜集信息，提取网页内容，完成各种网络任务",  
+        "working_state": "idle",  
+        "llm_config": llm_config,  
+        "working_memory": {},  
+        "persistent_memory": "我是一个网络调研专员，帮助用户完成网络任务。",  
+        "agent_step": AgentStep("0001"),  
+        "skills": ["planning", "reflection", "summary", "instruction_generation"],  
+        "tools": ["browser_use"],  
+    }  
+
+    # 创建一个简单的浏览器任务  
+    browser_task_step = StepState(  
+        task_id="task_001",  
+        stage_id="stage_001",  
+        agent_id="0001",  
+        step_intention="搜索Python相关信息",  
+        step_type="tool",  
+        executor="browser_use",  
+        text_content="请访问Python官网(https://www.python.org)，提取首页的主要新闻内容和Python的最新版本号。",  
+        execute_result={},  
+    )  
+
+    # 添加步骤到agent_state  
+    agent_state["agent_step"].add_step(browser_task_step)  
+    step_id = agent_state["agent_step"].step_list[0].step_id  # 获取步骤ID  
+
+    # 创建工具实例  
+    print("初始化BrowserUseTool...")  
+    browser_tool = BrowserUseTool(llm_config)  
+    
+    print("执行浏览器任务...")  
+    result = browser_tool.execute(step_id, agent_state)  
+    
+    print("\n==== 执行结果 ====")  
+    print(f"状态: {agent_state['agent_step'].get_step(step_id)[0].status}")  
+    print("\n==== 执行输出 ====")  
+    for key, value in result.items():  
+        print(f"{key}: {value}")  
+    
+    # 显示执行结果详情  
+    execute_result = agent_state["agent_step"].get_step(step_id)[0].execute_result  
+    print("\n==== 详细结果 ====")  
+    if execute_result:  
+        if "browser_use_result" in execute_result:  
+            print("浏览器结果摘要:")  
+            browser_result = execute_result["browser_use_result"]  
+            
+            # 显示访问的URL  
+            if "urls_visited" in browser_result and browser_result["urls_visited"]:  
+                print(f"访问的网站: {', '.join(browser_result['urls_visited'])}")  
+            
+            # 显示提取的内容数量  
+            if "content_count" in browser_result:  
+                print(f"提取的内容项数: {browser_result['content_count']}")  
+            
+            # 显示最终结果  
+            if "final_result" in browser_result and browser_result["final_result"]:  
+                print(f"最终结果: {browser_result['final_result'][:200]}")  
+                if len(browser_result["final_result"]) > 200:  
+                    print("...")  
+        
+        # 如果存在错误  
+        if "browser_use_error" in execute_result:  
+            print(f"错误信息: {execute_result['browser_use_error']}")  
+    else:  
+        print("没有执行结果")  
+
+    # 打印所有步骤信息  
+    print("\n==== 所有步骤信息 ====")  
+    agent_state["agent_step"].print_all_steps()  
