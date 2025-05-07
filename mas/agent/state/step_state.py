@@ -7,7 +7,9 @@ Agent被分配执行或协作执行一个阶段时，Agent会为自己规划数�
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from collections import deque
+from mas.utils.monitor import StateMonitor
 
+@StateMonitor.track  # 注册状态监控器
 class StepState:
     '''
     由Agent生成的最小执行单位。包含LLM的文本回复（思考/反思/规划/决策）或一次工具调用。

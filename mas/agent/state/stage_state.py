@@ -5,8 +5,9 @@ Agent被分配执行或协作执行一个任务时，任务会由管理Agent拆�
 
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
+from mas.utils.monitor import StateMonitor
 
-
+@StateMonitor.track  # 注册状态监控器
 class StageState:
     '''
     由Agent生成的任务阶段，包含需要共同完成这个阶段目标的Agent。

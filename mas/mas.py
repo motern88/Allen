@@ -17,14 +17,18 @@ Multi-Agent System
     1.先启动消息分发器的循环（在一个线程中异步运行），后续任务的启动和创建均依赖此分发器
     2.添加第一个Agent（管理者），Agent在被实例化时就会启动自己的任务执行线程
     3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
-    4.主线程保持活跃，接受来自人类操作段的输入
+    4.启动状态监控网页服务（可视化 + 热更新）
+    5.主线程保持活跃，接受来自人类操作段的输入
 
 '''
 from mas.agent.state.stage_state import StageState
 from mas.agent.state.task_state import TaskState
 from mas.agent.state.sync_state import SyncState
 from mas.agent.base.agent_base import AgentBase
-from mas.message_dispatcher import MessageDispatcher
+from mas.utils.message_dispatcher import MessageDispatcher  # 消息分发器
+
+from web.server import start_monitor_web  # 监控器网页服务
+
 import time
 import yaml
 import threading
@@ -36,6 +40,7 @@ class MultiAgentSystem:
     属性:
         sync_state (SyncState): 全局状态同步器，用于协调所有Agent的状态
         agents_list (List[AgentBase]): 用于存放所有Agent的列表
+        message_dispatcher (MessageDispatcher): 消息分发器，用于在Agent之间传递消息
 
     '''
     def __init__(self):
@@ -123,9 +128,15 @@ if __name__ == "__main__":
     
     MAS系统的启动方式，
     1.先启动消息分发器的循环（在一个线程中异步运行），后续任务的启动和创建均依赖此分发器
+    
     2.添加第一个Agent（管理者），Agent在被实例化时就会启动自己的任务执行线程
+    
     3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
-    4.主线程保持活跃，接受来自人类操作段的输入
+    
+    4.启动状态监控网页服务（可视化 + 热更新）
+    
+    5.主线程保持活跃，接受来自人类操作段的输入
+    
     '''
     # 1. 实例化MAS
     mas = MultiAgentSystem()
@@ -142,7 +153,10 @@ if __name__ == "__main__":
     agent = mas.agents_list[0]
     mas.init_and_start_first_task(mas.agents_list[0].agent_id)  # 传入第一个agent（管理者）的ID
 
-    # 4. 主线程可以执行其他逻辑，接受来自人类操作段的输入 TODO：人类操作端未实现，接受人类操作端输入未实现
+    # 4. 启动状态监控网页服务（可视化 + 热更新） TODO：网页服务未实现
+    threading.Thread(target=start_monitor_web, daemon=True).start()
+
+    # 5. 主线程可以执行其他逻辑，接受来自人类操作段的输入 TODO：人类操作端未实现，接受人类操作端输入未实现
     while True:
         print(".")
         time.sleep(10)  # 主线程保持活跃

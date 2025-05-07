@@ -6,7 +6,9 @@ import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from mas.agent.state.stage_state import StageState
 import queue
+from mas.utils.monitor import StateMonitor
 
+@StateMonitor.track  # 注册状态监控器
 class TaskState:
     '''
     表示一个完整任务的状态，由多个阶段（StageState）组成。

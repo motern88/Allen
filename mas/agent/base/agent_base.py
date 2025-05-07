@@ -7,6 +7,7 @@ from mas.agent.state.step_state import StepState, AgentStep
 from mas.agent.state.stage_state import StageState
 from mas.agent.state.sync_state import SyncState
 from mas.agent.base.router import Router
+from mas.utils.monitor import StateMonitor
 
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import threading
@@ -15,7 +16,7 @@ import re
 import json
 import uuid
 
-
+@StateMonitor.track  # 注册状态监控器，主要监控agent_state
 class AgentBase():
     '''
     基础Agent类，定义各基础模块的流转逻辑
