@@ -38,7 +38,7 @@ class LLMType(Enum):  # 定义 LLMType 枚举，表示支持的 LLM 类型
     # ARK = "ark"  # 火山引擎提供的 Ark 模型  # https://www.volcengine.com/docs/82379/1263482#python-sdk
 
     def __missing__(self, key):
-        """如果未匹配到类型，默认返回 OpenAI。"""
+        """如果未匹配到类型，默认返回 OLLAMA。"""
         return self.OLLAMA
 
 class LLMConfig:

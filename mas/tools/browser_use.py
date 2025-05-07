@@ -1,49 +1,234 @@
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict
 from mas.agent.base.executor_base import Executor 
-from playwright.sync_api import sync_playwright
-import json 
-import re 
 import os
-import time
+import asyncio  
+from mas.agent.configs.llm_config import LLMConfig
+from mas.agent.base.llm_base import LLMClient, LLMContext 
+from browser_use import Agent, Controller  
+from browser_use.browser.browser import Browser, BrowserConfig  
+import traceback 
+import re
 
 @Executor.register(executor_type="tool", executor_name="BrowserUseTool")  
 class BrowserUseTool(Executor):  
-    def __init__(self):  
+    def __init__(self, llm_config=None):  
         super().__init__()  
-        self.playwright = None  
-        self.browser = None  
-        self.context = None  
-        self.page = None  
+        self.llm_config = llm_config 
         # 创建存储截图的目录  
-        os.makedirs("screenshots", exist_ok=True)  
+        os.makedirs("screenshots", exist_ok=True)
 
+    def extract_browser_task(self, text: str):  
+        """从文本中解析browser_use任务描述"""  
+        match = re.findall(r"<BROWSER_USE>\s*(.*?)\s*</BROWSER_USE>", text, re.DOTALL)  
+        if match:  
+            browser_task = match[-1]  # 获取最后一个匹配内容  
+            return browser_task  
+        else:  
+            return None  
+        
+    
+    def get_browser_task_generation_prompt(self, step_id: str, agent_state: Dict[str, Any]) -> str:
+        '''
+        组装提示词
+        1 MAS系统提示词（# 一级标题）
+        2 Agent角色提示词:（# 一级标题）
+            2.1 Agent角色背景提示词（## 二级标题）
+            2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
+        3 browser_use_task step:（# 一级标题）
+            3.1 step.step_intention 当前步骤的简要意图
+            3.2 step.text_content 具体目标
+            3.3 技能规则提示(browser_use_config["use_prompt"])
+        4. 持续性记忆:（# 一级标题）
+            4.1 Agent持续性记忆说明提示词（## 二级标题）
+            4.2 Agent持续性记忆内容提示词（## 二级标题）
+        '''
+        md_output = []
+
+        # 1. 获取MAS系统的基础提示词
+        md_output.append("# 系统提示 system_prompt\n")
+        system_prompt = self.get_base_prompt(key="system_prompt")  # 已包含 # 一级标题的md
+        md_output.append(f"{system_prompt}\n")
+
+        # 2. 组装角色提示词
+        md_output.append("# Agent角色\n")
+        # 角色背景
+        agent_role_prompt = self.get_agent_role_prompt(agent_state)  # 不包含标题的md格式文本
+        md_output.append(f"## 你的角色信息 agent_role\n"
+                         f"{agent_role_prompt}\n")
+        # 工具与技能权限
+        available_skills_and_tools = self.get_skill_and_tool_prompt(agent_state["skills"],
+                                                                    agent_state["tools"])  # 包含 # 三级标题的md
+        md_output.append(f"## 角色可用技能与工具 available_skills_and_tools\n"
+                         f"{available_skills_and_tools}\n")
+
+        # 3. browser_use_task step提示词
+        md_output.append(f"# 当前需要执行的步骤 current_step\n")
+        current_step = self.get_current_tool_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
+        md_output.append(f"{current_step}\n")
+
+        # 4. 持续性记忆提示词
+        md_output.append("# 持续性记忆 persistent_memory\n")
+        # 获取persistent_memory的使用说明
+        base_persistent_memory_prompt = self.get_base_prompt(key="persistent_memory_prompt")  # 不包含标题的md格式文本
+        md_output.append(f"## 持续性记忆使用规则说明：\n"
+                         f"{base_persistent_memory_prompt}\n")
+        # persistent_memory的具体内容
+        persistent_memory = self.get_persistent_memory_prompt(agent_state)  # 不包含标题的md格式文本
+        md_output.append(f"## 你已有的持续性记忆内容：\n"
+                         f"{persistent_memory}\n")
+
+        return "\n".join(md_output)
+        
     def execute(self, step_id: str, agent_state: Dict[str, Any]) -> Dict[str, Any]: 
-        """执行浏览器自动化任务"""  
-        agent_step = agent_state["agent_step"]  
-        agent_step.update_step_status(step_id, "running")  
+        """  
+        BrowserUseTool工具的具体执行方法:  
+        1. 使用LLM生成浏览器任务描述  
+        2. 提取浏览器任务描述  
+        3. 执行browser-use任务  
+        4. 解析结果并更新执行结果  
+        5. 构造并返回execute_output  
+        """  
+        agent_state["agent_step"].update_step_status(step_id, "running")  
 
-        execute_output = {}  
-        task_id = step_state.task_id
-        stage_id = step_state.stage_id
-        agent_id = agent_state.get("agent_id", "unknown")  
-        role = agent_state.get("role", "unknown") 
+        # 如果没有传入llm_config，就从agent_state获取  
+        if self.llm_config is None and "llm_config" in agent_state:  
+            self.llm_config = agent_state["llm_config"]  
+
+        # 检查是否有可用的LLM配置  
+        if self.llm_config is None:  
+            error_msg = "缺少LLM配置，无法执行浏览器任务"  
+            agent_state["agent_step"].update_step_status(step_id, "failed")  
+            return self.get_execute_output(  
+                step_id,   
+                agent_state,   
+                update_agent_situation="failed",  
+                shared_step_situation="failed: 缺少LLM配置",  
+            )
 
         try:
-             # 1. 从step_state获取指令文本  
+            #  # 1. 从step_state获取指令文本-----------------已弃用
+            # step_state = agent_state["agent_step"].get_step(step_id)[0]  
+            # task_description  = step_state.text_content.strip()    
+
+            # 1. 组装浏览器任务生成提示词  
+            browser_task_prompt = self.get_browser_task_generation_prompt(step_id, agent_state)  
+            print(f"浏览器操作任务生成提示词:\n{browser_task_prompt}")  
+
+            # 2. LLM调用  
+            llm_client = LLMClient(self.llm_config)  
+            chat_context = LLMContext(context_size=15)  
+            
+            chat_context.add_message("assistant", "我将根据你的需求生成浏览器自动化任务描述。"  
+                                                 "我会在<BROWSER_USE>和</BROWSER_USE>标签之间提供明确的任务描述。")  
+            
+            response = llm_client.call(  
+                browser_task_prompt,  
+                context=chat_context  
+            )  
+            print(f"LLM响应:\n{response}")  
+            
+            # 3. 提取浏览器任务描述  
+            browser_task = self.extract_browser_task(response)  
+
+            # 如果无法提取有效的任务描述  
+            if not browser_task:  
+                error_msg = "无法从LLM响应中提取有效的浏览器任务描述"  
+                agent_state["agent_step"].update_step_status(step_id, "failed")  
+
+            # 4. 使用任务描述执行browser-use操作  
+            result = self.run_browser_use_task(browser_task)  
+
+            # 5. 记录执行结果到step的execute_result  
+            execute_result = {  
+                "browser_use_result": {  
+                    "final_result": result.get("final_result", ""),  
+                    "urls_visited": result.get("urls", []),  
+                    "content_count": len(result.get("extracted_content", [])),  
+                }  
+            }  
+            step_state.update_execute_result(execute_result)  
+
+            # 构建摘要信息用于状态更新  
+            summary = self._build_result_summary(result)  
+
+            # 6. 步骤状态更新为 finished  
+            agent_state["agent_step"].update_step_status(step_id, "finished")  
+
+            # 7. 构造execute_output  
+            execute_output = self.get_execute_output(  
+                step_id,  
+                agent_state,  
+                update_agent_situation="working", 
+                shared_step_situation=f"完成: {summary}",  
+            )  
+            
+            return execute_output  
+        
+        except Exception as e:  
+            # 获取详细的错误信息  
+            error_details = traceback.format_exc()  
+            agent_state["agent_step"].update_step_status(step_id, "failed")  
+            error_msg = f"浏览器操作失败: {str(e)}"    
+            print(f"BrowserUseTool错误: {error_details}")  
+
+            # 记录错误到执行结果  
             step_state = agent_state["agent_step"].get_step(step_id)[0]  
-            # step_state.text_content 是本步骤为该技能准备的执行文本（含LLM生成的带<BROWSER_USE>标签的内容）  
-            instruction = step_state.text_content  
+            execute_result = {  
+                "browser_use_error": error_msg  
+            }  
+            step_state.update_execute_result(execute_result)  
+            
+            # 构造并返回错误状态的execute_output  
+            return self.get_execute_output(  
+                step_id,  
+                agent_state,  
+                update_agent_situation="failed",  
+                shared_step_situation=f"失败: {error_msg[:100]}",  
+            )  
 
-            # 2. 解析指令获取浏览器操作列表  
-            actions = self.extract_browser_use_step(instruction)  
-            result = self.run_browser_actions(actions)  
+    def get_execute_output(  
+        self,  
+        step_id: str,  
+        agent_state: Dict[str, Any],  
+        update_agent_situation: str,  
+        shared_step_situation: str,  
+    ) -> Dict[str, Any]:  
+        '''  
+        构造BrowserUseTool工具的execute_output。  
+        1. update_agent_situation:  
+            通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态  
+            (一般情况下，只有Summary技能完成时，该字段传入finished，其他步骤完成时，该字段都传入working)  
+        2. shared_step_situation:  
+            添加步骤信息到task共享消息池  
+        '''  
+        execute_output = {}  
 
-             # 4. 更新步骤状态为完成  
-            agent_step.update_step_status(step_id, "finished")  
-            execute_output["result"] = result  
+        # 1. 通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态  
+        # 获取当前步骤的task_id与stage_id  
+        step_state = agent_state["agent_step"].get_step(step_id)[0]  
+        task_id = step_state.task_id  
+        stage_id = step_state.stage_id  
+        # 构造execute_output  
+        execute_output["update_stage_agent_state"] = {  
+            "task_id": task_id,  
+            "stage_id": stage_id,  
+            "agent_id": agent_state["agent_id"],  
+            "state": update_agent_situation,  
+        }  
 
-                        # 5. a. 构建结果摘要用于状态更新和消息分享  
-            urls_visited = [act.get("url") for act in actions if act.get("type") == "goto" and "url" in act]  
+        # 2. 添加步骤信息到task共享消息池  
+        execute_output["send_shared_message"] = {  
+            "agent_id": agent_state["agent_id"],  
+            "role": agent_state["role"],  
+            "stage_id": stage_id,  
+            "content": f"执行browser_use步骤: {shared_step_situation}"  
+        }  
+        return execute_output  
+
+    def _build_result_summary(self, result: Dict[str, Any]) -> str:  
+        """构建结果摘要"""  
+        if "urls" in result:  
+            urls_visited = result.get("urls", [])  
             content_count = len(result.get("extracted_content", []))  
             
             summary = f"访问了{len(urls_visited)}个网页，提取了{content_count}项内容"  
@@ -51,224 +236,101 @@ class BrowserUseTool(Executor):
                 summary += f"，包括网站：{', '.join(urls_visited[:2])}"  
                 if len(urls_visited) > 2:  
                     summary += f"等{len(urls_visited)}个站点"  
-            
-            # 5. b. 如果有截图，添加到摘要中  
-            screenshot_count = len(result.get("screenshots", []))  
-            if screenshot_count > 0:  
-                summary += f"，保存了{screenshot_count}张截图"  
-            
-            # 6. 更新Agent状态  
-            execute_output["update_stage_agent_state"] = {  
-                "task_id": task_id,  
-                "stage_id": stage_id,  
-                "agent_id": agent_id,  
-                "state": f"完成浏览器操作: {summary}"  
-            }  
-            
-            # 7. 发送共享消息  
-            execute_output["send_shared_message"] = {  
-                "agent_id": agent_id,  
-                "role": role,  
-                "stage_id": stage_id,  
-                "content": f"执行browser_use步骤: {summary}"  
-            }  
-            
-            return execute_output  
-        
-        except Exception as e:  
-            # 处理执行失败的情况  
-            agent_step.update_step_status(step_id, "failed")  
-            error_msg = f"浏览器操作失败: {str(e)}"  
-            execute_output["error"] = error_msg  
-            
-            # 更新失败状态和共享消息  
-            execute_output["update_stage_agent_state"] = {  
-                "task_id": task_id,  
-                "stage_id": stage_id,  
-                "agent_id": agent_id,  
-                "state": error_msg  
-            }  
-            
-            execute_output["send_shared_message"] = {  
-                "agent_id": agent_id,  
-                "role": role,  
-                "stage_id": stage_id,  
-                "content": f"执行browser_use步骤失败: {error_msg}"  
-            }  
-            return execute_output  
-        finally:
-            # 确保资源被正确释放 
-            self._close_browser()
-
-
-    def extract_browser_use_step(self, text: str) -> List[Dict[str, Any]]:
-        """从指令文本中解析浏览器操作序列"""  
-        match = re.search(r"<BROWSER_USE>(.*?)</BROWSER_USE>", text, re.S)  
-        if not match:  
-            
-            raise ValueError("未找到有效 browser_use 指令")  
-        try:  
-            json_text = match.group(1).strip()  
-            actions_data = json.loads(json_text)  
-            
-            # 支持两种格式：直接的actions列表或包含actions键的对象  
-            if isinstance(actions_data, list):  
-                return actions_data  
-            elif isinstance(actions_data, dict) and "actions" in actions_data:  
-                return actions_data["actions"]  
-            else:  
-                raise ValueError("无效的actions格式，应为列表或包含actions键的对象")  
-        except json.JSONDecodeError as e:  
-            raise ValueError(f"指令中的JSON格式无效: {str(e)}\n原始JSON: {match.group(1)}")  
-        
-    def run_browser_actions(self, actions: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """执行浏览器操作序列并返回结果"""  
-
-        result = {  
-            "extracted_content": [],  
-            "screenshots": []  
-        }  
-
-        try:  
-            # 设置浏览器  
-            self.playwright = sync_playwright().start()  
-            self.browser = self.playwright.chromium.launch(headless=True)  
-            self.context = self.browser.new_context()  
-            self.page = self.context.new_page()  
-            
-            for action in actions:  
-                action_type = action.get("type", "")  
-                
-                if action_type == "goto":  
-                    self._goto_url(action.get("url", ""))  
-                
-                elif action_type == "click":  
-                    self._click_element(action.get("selector", ""), action.get("text", None))  
-                
-                elif action_type == "fill":  
-                    self._fill_form(action.get("selector", ""), action.get("value", ""))  
-                
-                elif action_type == "extract_content":  
-                    content = self._extract_content(action.get("selector", ""))  
-                    result["extracted_content"].append({  
-                        "content": content,  
-                        "selector": action.get("selector", ""),  
-                        "url": self.page.url if self.page else ""  
-                    })  
-                
-                elif action_type == "wait_for":  
-                    self._wait_for(  
-                        action.get("selector", ""),   
-                        action.get("timeout", 30000)  
-                    )  
-                
-                elif action_type == "screenshot":  
-                    screenshot_path = self._take_screenshot(action.get("name", "screenshot"))  
-                    result["screenshots"].append(screenshot_path)  
-                
-                elif action_type == "wait":  
-                    time.sleep(action.get("seconds", 1))  
-                
-                # 可以添加其他操作类型  
+        else:  
+            summary = "完成浏览器操作"  
+            if result.get("final_result"):  
+                final_result = result.get("final_result", "")  
+                if len(final_result) > 100:  
+                    summary += f": {final_result[:100]}..."  
                 else:  
-                    print(f"警告: 未知的操作类型 '{action_type}'")  
-                
-            return result  
-        except Exception as e:
-            # 捕获并记录详细错误
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"浏览器操作错误: {error_details}")  
-            raise  
-        finally:
-            self._close_browser()  # 确保浏览器在操作完成后关闭
-
-    def _close_browser(self):
-        """关闭浏览器和Playwright实例"""  
-        try:
-            if self.page:  
-                self.page.close()  
-                self.page = None  
-            
-            if self.context:  
-                self.context.close()  
-                self.context = None  
-            
-            if self.browser:  
-                self.browser.close()  
-                self.browser = None  
-                
-            if self.playwright:  
-                self.playwright.stop()  
-                self.playwright = None  
-
-        except Exception as e:
-            print(f"关闭浏览器时发生错误: {str(e)}")
-
-    def _goto_url(self, url: str):  
-        """访问指定URL"""  
-        if not url:  
-            raise ValueError("URL不能为空")  
+                    summary += f": {final_result}"  
         
-        # 确保URL格式正确  
-        if not url.startswith(("http://", "https://")):  
-            url = "https://" + url  
-            
-        self.page.goto(url, wait_until="domcontentloaded")  
-        # 给页面一点加载时间  
-        self.page.wait_for_load_state("networkidle")  
-
+        return summary  
     
-    def _click_element(self, selector: str, text: Optional[str] = None):  
-        """点击元素"""  
-        try:  
-            if text:  
-                # 如果提供了文本，寻找包含该文本的元素  
-                locator = self.page.get_by_text(text)  
-                if selector:  
-                    locator = self.page.locator(selector).filter(has_text=text)  
-                locator.click()  
-            else:  
-                self.page.click(selector)  
-        except Exception as e:  
-            raise ValueError(f"点击元素失败: {selector} {text if text else ''}, 错误: {str(e)}")  
+    def run_browser_use_task(self, task_description: str) -> Dict[str, Any]:  
+        """  
+        使用browser-use库执行高级任务  
+        """  
+        # 1. 设置browser-use组件  
+        browser_config = BrowserConfig(
+            headless=True, # 设置为False可以显示浏览器窗口，便于调试  
+            viewport_size={"width": 1280, "height": 800}  
+            )  
+        browser = Browser(config=browser_config)  
+        controller = Controller()  
         
-    def _fill_form(self, selector: str, value: str):  
-        """填写表单"""  
+        # 2. 使用LLMConfig获取LLM    
+        llm = self._get_llm(self.llm_config)  
+        
+        # 3. 创建agent并执行任务  
+        agent = Agent(  
+            task=task_description,  
+            llm=llm,  
+            browser=browser,  
+            controller=controller,  
+            generate_gif=False  # 设置为True可生成操作GIF  
+        )  
+        
+        # 4. 运行任务并获取结果  
         try:  
-            self.page.fill(selector, value)  
-        except Exception as e:  
-            raise ValueError(f"填写表单失败: {selector}, 错误: {str(e)}")  
+            # 使用asyncio运行异步方法  
+            loop = asyncio.new_event_loop()  
+            asyncio.set_event_loop(loop)  
+            result = loop.run_until_complete(agent.run(max_steps=100))  
+            loop.close()  
+            
+            # 5. 转换结果为统一格式  
+            return {  
+                "final_result": result.final_result(),  
+                "extracted_content": result.extracted_content(),  
+                "urls": result.urls(),  
+                "browser_use_result": result  # 保留原始结果  
+            }  
+        finally:  
+            browser.close()  
 
-    def _extract_content(self, selector: str) -> str:  
-        """提取内容"""  
-        try:  
-            if not selector:  
-                # 如果没有指定选择器，提取页面全部文本  
-                return self.page.content()  
-            
-            elements = self.page.query_selector_all(selector)  
-            content = []  
-            for element in elements:  
-                text = element.inner_text()  
-                if text:  
-                    content.append(text)  
-            
-            return "\n".join(content)  
-        except Exception as e:  
-            raise ValueError(f"提取内容失败: {selector}, 错误: {str(e)}")  
-        
-    def _take_screenshot(self, name: str = "screenshot") -> str:  
-        """截图并保存"""  
-        from datetime import datetime  
-        
-        # 生成带时间戳的文件名  
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  
-        filename = f"screenshots/{name}_{timestamp}.png"  
-        
-        # 保存截图  
-        try:  
-            self.page.screenshot(path=filename)  
-            return filename  
-        except Exception as e:  
-            raise ValueError(f"截图失败: {name}, 错误: {str(e)}")  
+    def _get_llm(self, llm_config: LLMConfig):  
+        """  
+        创建LangChain兼容的LLM
+        """  
+        if llm_config is None:  
+            raise ValueError("LLM配置不能为空")  
+        try:
+            from langchain_ollama import ChatOllama  
+            from langchain_openai import ChatOpenAI  
+
+            # 根据api_type创建对应的LLM  
+            # 获取配置参数  
+            api_type = self.llm_config.api_type  
+            api_type_str = api_type.lower() if isinstance(api_type, str) else str(api_type).lower() 
+            model = self.llm_config.model  
+            api_key = self.llm_config.api_key 
+            base_url = self.llm_config.base_url  
+            temperature = self.llm_config.temperature 
+            # 处理不同的LLM类型  
+            if "openai" in api_type_str:  
+                from langchain_openai import ChatOpenAI  
+                
+                params = {  
+                    "model": model or "gpt-3.5-turbo",  
+                    "temperature": temperature,  
+                    "api_key": api_key  
+                }  
+                return ChatOpenAI(**params)  
+            elif "ollama" in api_type_str or "local" in api_type_str:  
+                from langchain_ollama import ChatOllama  
+                params = {  
+                    "base_url": base_url,  
+                    "model": model,  
+                    "temperature": temperature,  
+                    "num_ctx": 32000  
+                }  
+                return ChatOllama(**params)
+        except ImportError as e:  
+            # 如果缺少依赖，提供有用的错误消息  
+            if "langchain_openai" in str(e):  
+                raise ImportError("使用OpenAI需要安装: pip install langchain_openai")  
+            elif "langchain_ollama" in str(e):  
+                raise ImportError("使用Ollama需要安装: pip install langchain_ollama")  
+            else:  
+                raise ImportError(f"LLM初始化失败: {e}")  

@@ -1,53 +1,46 @@
+# 该文件用于描述browser_use工具的使用方法，以及工具包含的提示词  
+
+# 工具的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中  
 use_guide:  
   tool_name: browser_use  
-  description: 通过浏览器自动执行网页操作，包括浏览网页、提取内容、填写表单、截图等。  
+  description: 浏览器自动化工具，能够访问网页、点击元素、填写表单、提取内容等，帮助你执行各种网页操作任务。  
 
+# 为工具进行指令生成时调用的提示词  
 use_prompt:  
   tool_name: browser_use  
   tool_prompt: |  
-    你是一个网页自动化工具。根据用户需求，生成用于browser_use工具的自动化操作序列。  
+    browser_use工具可以帮你执行浏览器自动化任务，包括但不限于：  
+    1. 访问网页  
+    2. 点击网页元素  
+    3. 填写表单  
+    4. 提取网页内容  
+    5. 等待元素出现  
+    6. 截图  
     
-    支持的操作类型包括：  
-    1. 基础导航：  
-       - goto: 访问指定URL (参数: url)  
-       - refresh: 刷新页面  
-       - go_back: 后退到上一页  
-       
-    2. 基础交互：  
-       - click: 点击元素 (参数: selector, 可选text)  
-       - fill: 填写表单 (参数: selector, value)  
-       - hover: 鼠标悬停在元素上 (参数: selector)  
-       - select_option: 下拉选择 (参数: selector, value或label)  
-       - check: 勾选/取消勾选 (参数: selector, checked)  
-       - press_key: 按键操作 (参数: key, 可选selector)  
-       
-    3. 等待操作：  
-       - wait_for: 等待元素出现 (参数: selector, 可选timeout)  
-       - wait: 等待指定秒数 (参数: seconds)  
-       
-    4. 内容提取：  
-       - extract_content: 提取文本内容 (参数: selector)  
-       - get_attribute: 获取元素属性 (参数: selector, attribute)  
-       - get_elements: 获取多个元素 (参数: selector, extract)  
-       
-    5. 多页面操作：  
-       - open_new_tab: 打开新标签页 (参数: 可选url)  
-       - switch_tab: 切换标签页 (参数: tab_index)  
-       - close_tab: 关闭当前标签页  
-       
-    6. 高级操作：  
-       - screenshot: 截图 (参数: 可选name)  
-       - execute_javascript: 执行JS脚本 (参数: script)  
+    你可以通过自然语言描述要完成的浏览器任务。描述应该清晰明确，包括：  
+    - 要访问的网站URL  
+    - 需要执行的具体操作（如点击、搜索、表单填写）  
+    - 需要提取的内容类型  
+    - 任务的最终目标  
     
-    根据任务需求，生成最简洁、最高效的操作序列。  
+    例如：  
+    - "访问百度网站，搜索'人工智能'，提取前5条搜索结果"  
+    - "登录example.com网站（用户名: user123，密码: pass456），查看个人账户页面，提取账户余额信息"  
+    - "访问招聘网站，查看最新发布的算法工程师职位，提取职位名称、公司和薪资范围"  
+    - "面试官视角访问招聘网站后台，查看最新沟通的候选人详细信息，提取候选人姓名和联系方式"
+    
+    请尽可能详细地描述任务，这将帮助browser_use工具更准确地执行操作。  
   
   return_format: |  
+    请仅提供纯文本形式的任务描述，无需特殊格式化。任务描述应该简明扼要但包含完成任务所需的全部信息。  
+    
+    将你的指令放在<BROWSER_USE></BROWSER_USE>标签内，例如：  
+    
     <BROWSER_USE>  
-    {  
-      "actions": [  
-        {"type": "goto", "url": "https://example.com"},  
-        {"type": "wait_for", "selector": ".main-content"},  
-        {"type": "extract_content", "selector": "h1, p, .article-content"}  
-      ]  
-    }  
+    访问GitHub网站，搜索"Python"，点击第一个搜索结果，提取仓库的README内容。  
     </BROWSER_USE>  
+    
+    注意:  
+    1. 不要在标签内包含任何JSON或代码块，只提供纯文本任务描述  
+    2. 如果任务需要登录凭证，确保包含这些信息  
+    3. 仅提供必要信息，避免过多的解释或背景  
