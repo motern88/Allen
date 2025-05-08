@@ -153,6 +153,7 @@ class BrowserUseTool(Executor):
             execute_result = {  
                 "browser_use_result": {  
                     "final_result": result.get("final_result", ""),  
+                    # "final_result": (await result).get("final_result", "") if asyncio.iscoroutine(result) else result.get("final_result", ""),  
                     "urls_visited": result.get("urls", []),  
                     "content_count": len(result.get("extracted_content", [])),  
                 }  
@@ -261,43 +262,54 @@ class BrowserUseTool(Executor):
         """  
         使用browser-use库执行高级任务  
         """  
-        # 1. 设置browser-use组件  
-        browser_config = BrowserConfig(
-            headless=True, # 设置为False可以显示浏览器窗口，便于调试  
+        # 1. 使用LLMConfig获取LLM    
+        llm = self._get_llm(self.llm_config)  
+
+        # 在异步上下文中创建资源 
+        async def main():  
+            # 2. 设置browser-use组件  
+            browser_config = BrowserConfig(
+            headless=False, # 设置为False可以显示浏览器窗口，便于调试  
             viewport_size={"width": 1280, "height": 800}  
             )  
-        browser = Browser(config=browser_config)  
-        controller = Controller()  
-        
-        # 2. 使用LLMConfig获取LLM    
-        llm = self._get_llm(self.llm_config)  
-        
-        # 3. 创建agent并执行任务  
-        agent = Agent(  
-            task=task_description,  
-            llm=llm,  
-            browser=browser,  
-            controller=controller,  
-            generate_gif=False  # 设置为True可生成操作GIF  
-        )  
-        
-        # 4. 运行任务并获取结果  
-        try:  
-            # 使用asyncio运行异步方法  
-            loop = asyncio.new_event_loop()  
-            asyncio.set_event_loop(loop)  
-            result = loop.run_until_complete(agent.run(max_steps=100))  
-            loop.close()  
-            
-            # 5. 转换结果为统一格式  
-            return {  
-                "final_result": result.final_result(),  
-                "extracted_content": result.extracted_content(),  
-                "urls": result.urls(),  
-                "browser_use_result": result  # 保留原始结果  
-            }  
-        finally:  
-            browser.close()  
+            browser = Browser(config=browser_config)  
+            controller = Controller()  
+
+            try:
+                agent = Agent(  
+                    task=task_description,  
+                    llm=llm,  
+                    browser=browser,  
+                    controller=controller,  
+                    generate_gif=False,  
+                    enable_memory=False  
+                )  
+                result = await agent.run(max_steps=100)  
+                return {  
+                    "final_result": result.final_result(),  
+                    "extracted_content": result.extracted_content(),  
+                    "urls": result.urls(),  
+                    "browser_use_result": result  
+                } 
+            finally:
+                # 在异步上下文中正确关闭资源  
+                # 关闭浏览器  
+                if hasattr(browser, 'close') and callable(browser.close):  
+                    if asyncio.iscoroutinefunction(browser.close):  
+                        await browser.close()  
+                    else:  
+                        browser.close()  
+                        
+                # 获取并关闭playwright实例  
+                if hasattr(browser, '_browser') and hasattr(browser._browser, '_playwright'):  
+                    playwright = browser._browser._playwright  
+                    if hasattr(playwright, 'stop') and callable(playwright.stop):  
+                        if asyncio.iscoroutinefunction(playwright.stop):  
+                            await playwright.stop()  
+                        else:  
+                            playwright.stop()  
+        return asyncio.run(main())     
+
 
     def _get_llm(self, llm_config: LLMConfig):  
         """  
@@ -325,6 +337,9 @@ class BrowserUseTool(Executor):
                 return ChatOpenAI(**params)  
             elif "ollama" in api_type_str or "local" in api_type_str:  
                 from langchain_ollama import ChatOllama  
+                # 去掉 /api 部分  
+                if base_url.endswith("/api"):  
+                    base_url = base_url[:-len("/api")]  
                 params = {  
                     "base_url": base_url,  
                     "model": model,  
@@ -350,7 +365,7 @@ if __name__ == "__main__":
     from mas.agent.state.step_state import StepState, AgentStep
 
     print("测试BrowserUseTool工具的调用")  
-    llm_config = LLMConfig.from_yaml("mas/role_config/qwq32b.yaml")
+    llm_config = LLMConfig.from_yaml("mas/role_config/qwen235b.yaml")
     agent_state = {  
         "agent_id": "0001",  
         "name": "网络助手",  
@@ -389,7 +404,7 @@ if __name__ == "__main__":
     result = browser_tool.execute(step_id, agent_state)  
     
     print("\n==== 执行结果 ====")  
-    print(f"状态: {agent_state['agent_step'].get_step(step_id)[0].status}")  
+    print(f"状态: {agent_state['agent_step'].get_step(step_id)[0].execution_state}")  
     print("\n==== 执行输出 ====")  
     for key, value in result.items():  
         print(f"{key}: {value}")  
