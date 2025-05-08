@@ -27,7 +27,7 @@ from mas.agent.state.sync_state import SyncState
 from mas.agent.base.agent_base import AgentBase
 from mas.utils.message_dispatcher import MessageDispatcher  # 消息分发器
 
-from web.server import start_monitor_web  # 监控器网页服务
+from mas.utils.web.server import start_monitor_web  # 监控器网页服务
 
 import time
 import yaml

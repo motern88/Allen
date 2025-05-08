@@ -9,11 +9,12 @@ executor执行返回的executor_output用于指导sync_state工作
     Agent在实例化时需要向SyncState注册，以方便SyncState可以获取到Agent的私有属性，例如agent_id、agent_state等
 '''
 
-from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union, TYPE_CHECKING
 from mas.agent.state.task_state import TaskState
 from mas.agent.state.stage_state import StageState
 
-from mas.mas import MultiAgentSystem
+if TYPE_CHECKING:  # 避免循环导入和mas.py产生冲突
+    from mas.mas import MultiAgentSystem
 from mas.agent.configs.llm_config import LLMConfig
 from mas.agent.base.message import Message
 import json
@@ -35,7 +36,7 @@ class SyncState:
         _agents (List[weakref.ref]): 所有注册的Agent（用弱引用，防止Agent被强引用导致不能销毁）
         system (MultiAgentSystem): 对 MultiAgentSystem 的引用，用于访问系统级别的信息和方法
     '''
-    def __init__(self, system: MultiAgentSystem):
+    def __init__(self, system: 'MultiAgentSystem'):
         self.all_tasks: Dict[str, TaskState] = {}  # 存储系统中所有任务状态，键为 task_id，值为对应的 TaskState 实例
         # 保存所有注册的 Agent（用弱引用，防止 Agent 被强引用导致不能销毁）
         self._agents = []
