@@ -236,8 +236,8 @@ class SyncState:
             stage_state = task_state.get_stage(info["stage_id"])
             # 更新阶段中agent状态
             stage_state.update_agent_state(info["agent_id"], info["state"])
-            print(f"[SyncState] 已更新 stage{info["stage_id"]}"
-                  f" 中 agent{info["agent_id"]} 的状态为 {info["state"]}")
+            print(f"[SyncState] 已更新 stage{info['stage_id']}"
+                  f" 中 agent{info['agent_id']} 的状态为 {info['state']}")
 
         # 如果字典的key是"send_shared_message",则添加共享消息到任务共享消息池
         if "send_shared_message" in executor_output:
@@ -251,8 +251,8 @@ class SyncState:
                 info["stage_id"],
                 info["content"]
             )
-            print(f"[SyncState] 已更新任务{info["task_id"]}的共享消息池，"
-                    f"添加了来自 agent{info["agent_id"]} 的消息")
+            print(f"[SyncState] 已更新任务{info['task_id']}的共享消息池，"
+                    f"添加了来自 agent{info['agent_id']} 的消息")
 
         # 如果字典的key是"update_stage_agent_completion",则更新阶段中Agent完成情况
         if "update_stage_agent_completion" in executor_output:
@@ -263,8 +263,8 @@ class SyncState:
             stage_state = task_state.get_stage(info["stage_id"])
             # 更新阶段中agent完成情况
             stage_state.update_agent_cpmpletion(info["agent_id"], info["completion_summary"])
-            print(f"[SyncState] 已更新 stage{info["stage_id"]}"
-                  f"中 agent{info["agent_id"]} 的完成情况")
+            print(f"[SyncState] 已更新 stage{info['stage_id']}"
+                  f"中 agent{info['agent_id']} 的完成情况")
 
         # 如果字典的key是"send_message",则添加消息到任务通讯队列
         if "send_message" in executor_output:
@@ -273,8 +273,8 @@ class SyncState:
             task_state = self.all_tasks.get(info["task_id"])
             # 将消息添加到任务的通讯队列中
             task_state.communication_queue.put(info)
-            print(f"[SyncState] 已更新任务{info["task_id"]}的通讯队列，"
-                  f"添加了来自 agent{info["sender"]} 的消息")
+            print(f"[SyncState] 已更新任务{info['task_id']}的通讯队列，"
+                  f"添加了来自 agent{info['sender']} 的消息")
 
 
         # 如果字典的key是"task_instruction",则解析并执行具体任务管理操作
@@ -373,7 +373,7 @@ class SyncState:
                     task_state.communication_queue.put(message)
 
                     print(f"[SyncState] 已添加阶段{stage_state.stage_id}，"
-                          f"到任务{task_instruction["task_id"]}中")
+                          f"到任务{task_instruction['task_id']}中")
 
             # 结束任务 finish_task
             if task_instruction["action"] == "finish_task":
@@ -386,11 +386,11 @@ class SyncState:
                 进入任务结束流程，通知所有Agent任务结束（以message指令形式）
                 '''
                 task_state = self.all_tasks.get(task_instruction["task_id"])
-                if task_state.execution_state is not "failed":
+                if task_state.execution_state != "failed":
                     task_state.execution_state = "finished"
                 # 向Agent发送任务结束的指令
                 self.finish_task(task_instruction["task_id"], task_instruction["agent_id"])
-                print(f"[SyncState] 任务{task_instruction["task_id"]}已结束")
+                print(f"[SyncState] 任务{task_instruction['task_id']}已结束")
 
             # 结束阶段 finish_stage
             if task_instruction["action"] == "finish_stage":
@@ -405,11 +405,11 @@ class SyncState:
                 '''
                 # 结束当前阶段
                 stage_state = self.get_stage_state(task_instruction["task_id"], task_instruction["stage_id"])
-                if stage_state.execution_state is not "failed":
+                if stage_state.execution_state != "failed":
                     stage_state.execution_state = "finished"
                 # 向Agent发送结束当前阶段的指令
                 self.finish_stage(task_instruction["task_id"], task_instruction["stage_id"], task_instruction["agent_id"])
-                print(f"[SyncState] 任务{task_instruction["task_id"]}的阶段{task_instruction["stage_id"]}已结束")
+                print(f"[SyncState] 任务{task_instruction['task_id']}的阶段{task_instruction['stage_id']}已结束")
 
                 # 如果还有下一个阶段，则开启下一个阶段
                 task_state = self.all_tasks.get(task_instruction["task_id"])
@@ -418,9 +418,9 @@ class SyncState:
                     next_stage.execution_state = "running"
                     # 向Agent发送开启下一个阶段的指令
                     self.start_stage(task_instruction["task_id"], next_stage.stage_id, task_instruction["agent_id"])
-                    print(f"[SyncState] 任务{task_instruction["task_id"]}的阶段{next_stage.stage_id}已开启")
+                    print(f"[SyncState] 任务{task_instruction['task_id']}的阶段{next_stage.stage_id}已开启")
                 else:
-                    print(f"[SyncState] 任务{task_instruction["task_id"]}的所有阶段已结束")
+                    print(f"[SyncState] 任务{task_instruction['task_id']}的所有阶段已结束")
 
 
         # 如果字典的key是"agent_instruction",则解析并执行具体agent管理操作
@@ -442,7 +442,7 @@ class SyncState:
                 }
                 '''
                 self.init_new_agent(agent_instruction["agent_config"])
-                print(f"[SyncState] 已实例化新Agent{agent_instruction["agent_config"]["name"]}")
+                print(f"[SyncState] 已实例化新Agent{agent_instruction['agent_config']['name']}")
 
             # 为任务添加参与Agent
             if agent_instruction["action"] == "add_task_participant":
@@ -457,7 +457,7 @@ class SyncState:
                 }
                 '''
                 self.add_agents_2_task_group(task_id=agent_instruction["task_id"], agents=agent_instruction["agents"])
-                print(f"[SyncState] 已添加Agent{agent_instruction["agents"]}于任务群组{agent_instruction["task_id"]}中")
+                print(f"[SyncState] 已添加Agent{agent_instruction['agents']}于任务群组{agent_instruction['task_id']}中")
 
 
         # 如果字典的key是"ask_info",则解析并执行具体信息查询操作
@@ -559,10 +559,10 @@ class SyncState:
                     # 遍历共享消息池
                     for dict in task_state.shared_message_pool:
                         return_ask_info_md.append(f"---"
-                                                  f"Agent ID：{dict["agent_id"]}\n"
-                                                  f"角色：{dict["role"]}\n"
-                                                  f"阶段ID：{dict["stage_id"]}\n"
-                                                  f"内容：{dict["content"]}\n\n")
+                                                  f"Agent ID：{dict['agent_id']}\n"
+                                                  f"角色：{dict['role']}\n"
+                                                  f"阶段ID：{dict['stage_id']}\n"
+                                                  f"内容：{dict['content']}\n\n")
 
             # 4 获取指定阶段的详细信息
             if ask_info["type"] == "stage_info":
@@ -647,14 +647,14 @@ class SyncState:
                     if agent_state:
                         # 添加Agent的基本信息(不包含Agent持续性记忆)
                         return_ask_info_md.append(f"#### Agent信息\n")
-                        return_ask_info_md.append(f"Agent ID：{agent_state["agent_id"]}\n"
-                                                  f"名字 name：{agent_state["name"]}\n"
-                                                  f"角色 role：{agent_state["role"]}\n"
-                                                  f"角色简介 profile：{agent_state["profile"]}\n\n"
-                                                  f"工作状态 working_state：{agent_state["working_state"]}\n"
-                                                  f"工作记忆 working_memory：{agent_state["working_memory"]}\n\n"
-                                                  f"可用技能 skills：{agent_state["skills"]}\n"
-                                                  f"可用工具 tools：{agent_state["tools"]}\n\n")
+                        return_ask_info_md.append(f"Agent ID：{agent_state['agent_id']}\n"
+                                                  f"名字 name：{agent_state['name']}\n"
+                                                  f"角色 role：{agent_state['role']}\n"
+                                                  f"角色简介 profile：{agent_state['profile']}\n\n"
+                                                  f"工作状态 working_state：{agent_state['working_state']}\n"
+                                                  f"工作记忆 working_memory：{agent_state['working_memory']}\n\n"
+                                                  f"可用技能 skills：{agent_state['skills']}\n"
+                                                  f"可用工具 tools：{agent_state['tools']}\n\n")
 
             # 7 TODO 获取团队Team中所有Agent的基本信息
             if ask_info["type"] == "team_agents":
@@ -693,14 +693,14 @@ class SyncState:
                                 if agent_state:
                                     # 添加Agent的基本信息(不包含Agent持续性记忆)
                                     return_ask_info_md.append(f"#### Agent信息\n")
-                                    return_ask_info_md.append(f"Agent ID：{agent_state["agent_id"]}\n"
-                                                              f"名字 name：{agent_state["name"]}\n"
-                                                              f"角色 role：{agent_state["role"]}\n"
-                                                              f"角色简介 profile：{agent_state["profile"]}\n\n"
-                                                              f"工作状态 working_state：{agent_state["working_state"]}\n"
-                                                              f"工作记忆 working_memory：{agent_state["working_memory"]}\n\n"
-                                                              f"可用技能 skills：{agent_state["skills"]}\n"
-                                                              f"可用工具 tools：{agent_state["tools"]}\n\n")
+                                    return_ask_info_md.append(f"Agent ID：{agent_state['agent_id']}\n"
+                                                              f"名字 name：{agent_state['name']}\n"
+                                                              f"角色 role：{agent_state['role']}\n"
+                                                              f"角色简介 profile：{agent_state['profile']}\n\n"
+                                                              f"工作状态 working_state：{agent_state['working_state']}\n"
+                                                              f"工作记忆 working_memory：{agent_state['working_memory']}\n\n"
+                                                              f"可用技能 skills：{agent_state['skills']}\n"
+                                                              f"可用工具 tools：{agent_state['tools']}\n\n")
 
             # 9 获取指定阶段下协作的所有Agent的信息
             if ask_info["type"] == "stage_agents":
@@ -725,14 +725,14 @@ class SyncState:
                             if agent_state:
                                 # 添加Agent的基本信息(不包含Agent持续性记忆)
                                 return_ask_info_md.append(f"#### Agent信息\n")
-                                return_ask_info_md.append(f"Agent ID：{agent_state["agent_id"]}\n"
-                                                          f"名字 name：{agent_state["name"]}\n"
-                                                          f"角色 role：{agent_state["role"]}\n"
-                                                          f"角色简介 profile：{agent_state["profile"]}\n\n"
-                                                          f"工作状态 working_state：{agent_state["working_state"]}\n"
-                                                          f"工作记忆 working_memory：{agent_state["working_memory"]}\n\n"
-                                                          f"可用技能 skills：{agent_state["skills"]}\n"
-                                                          f"可用工具 tools：{agent_state["tools"]}\n\n")
+                                return_ask_info_md.append(f"Agent ID：{agent_state['agent_id']}\n"
+                                                          f"名字 name：{agent_state['name']}\n"
+                                                          f"角色 role：{agent_state['role']}\n"
+                                                          f"角色简介 profile：{agent_state['profile']}\n\n"
+                                                          f"工作状态 working_state：{agent_state['working_state']}\n"
+                                                          f"工作记忆 working_memory：{agent_state['working_memory']}\n\n"
+                                                          f"可用技能 skills：{agent_state['skills']}\n"
+                                                          f"可用工具 tools：{agent_state['tools']}\n\n")
 
             # 10 获取指定Agent的详细状态信息
             if ask_info["type"] == "agent":
@@ -753,16 +753,16 @@ class SyncState:
                             if agent_state:
                                 # 添加Agent的基本信息
                                 return_ask_info_md.append(f"#### Agent信息\n")
-                                return_ask_info_md.append(f"Agent ID：{agent_state["agent_id"]}\n"
-                                                          f"名字 name：{agent_state["name"]}\n"
-                                                          f"角色 role：{agent_state["role"]}\n"
-                                                          f"角色简介 profile：{agent_state["profile"]}\n\n"
-                                                          f"工作状态 working_state：{agent_state["working_state"]}\n"
-                                                          f"工作记忆 working_memory：{agent_state["working_memory"]}\n\n"
-                                                          f"可用技能 skills：{agent_state["skills"]}\n"
-                                                          f"可用工具 tools：{agent_state["tools"]}\n\n")
+                                return_ask_info_md.append(f"Agent ID：{agent_state['agent_id']}\n"
+                                                          f"名字 name：{agent_state['name']}\n"
+                                                          f"角色 role：{agent_state['role']}\n"
+                                                          f"角色简介 profile：{agent_state['profile']}\n\n"
+                                                          f"工作状态 working_state：{agent_state['working_state']}\n"
+                                                          f"工作记忆 working_memory：{agent_state['working_memory']}\n\n"
+                                                          f"可用技能 skills：{agent_state['skills']}\n"
+                                                          f"可用工具 tools：{agent_state['tools']}\n\n")
                                 return_ask_info_md.append(f"持续性记忆 persistent_memory：\n"
-                                                          f"{agent_state["persistent_memory"]}\n\n")
+                                                          f"{agent_state['persistent_memory']}\n\n")
 
             # 11 获取MAS中所有技能与工具的详细说明
             if ask_info["type"] == "skills_and_tools":
@@ -824,6 +824,6 @@ class SyncState:
             task_state = self.all_tasks.get(ask_info["sender_task_id"])
             # 将返回消息添加到任务的通讯队列中
             task_state.communication_queue.put(message)
-            print(f"[SyncState] Agent{ask_info["sender_id"]}的查询{ask_info["type"]}，结果已返回")
+            print(f"[SyncState] Agent{ask_info['sender_id']}的查询{ask_info['type']}，结果已返回")
 
 
