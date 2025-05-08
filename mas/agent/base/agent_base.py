@@ -191,8 +191,10 @@ class AgentBase():
                 continue
 
             # 1. 从agent_state.todo_list获取step_id
-            step_id = agent_step.todo_list.popleft()
-            if step_id is None:
+            if agent_step.todo_list:
+                # 如果队列不为空，则获取第一个step_id
+                step_id = agent_step.todo_list.popleft()
+            else:
                 time.sleep(1)  # 队列为空时等待，避免 CPU 空转
                 continue
 
@@ -376,8 +378,8 @@ class AgentBase():
         stage_state = self.sync_state.get_stage_state(task_id=task_id, stage_id=stage_id)
         # Agent从当前StageState来获取信息明确目标
         agent_id = self.agent_state["agent_id"]
-        task_id = stage_state["task_id"]
-        stage_id = stage_state["stage_id"]
+        task_id = stage_state.task_id
+        stage_id = stage_state.stage_id
 
         # 1. 构造Agent规划当前阶段的提示词
         agent_stage_prompt = self.get_stage_prompt(agent_id, stage_state)
@@ -433,12 +435,12 @@ class AgentBase():
         '''
         md_output = []
 
-        task_id = stage_state["task_id"]
-        stage_id = stage_state["stage_id"]
+        task_id = stage_state.task_id
+        stage_id = stage_state.stage_id
 
-        stage_intention = stage_state["stage_intention"]  # 整体阶段目标 (str)
-        agent_allocation = stage_state["agent_allocation"]  # 阶段中Agent的分配情况 (Dict[<agent_id>, <agent_stage_goal>])
-        agent_goal = stage_state["agent_allocation"][agent_id]  # 阶段中这个Agent自己的目标
+        stage_intention = stage_state.stage_intention  # 整体阶段目标 (str)
+        agent_allocation = stage_state.agent_allocation  # 阶段中Agent的分配情况 (Dict[<agent_id>, <agent_stage_goal>])
+        agent_goal = stage_state.agent_allocation[agent_id]  # 阶段中这个Agent自己的目标
 
         md_output.append("你被分配协助完成当前阶段stage的目标\n")
         md_output.append(

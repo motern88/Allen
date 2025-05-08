@@ -46,7 +46,7 @@ class MultiAgentSystem:
     def __init__(self):
         self.sync_state = SyncState(self)  # 实例化局唯一的状态同步器，把self传进去，让SyncState能访问MultiAgentSystem
         self.agents_list = []  # 存储所有Agent实例的列表
-        self.message_dispatcher = MessageDispatcher()  # 实例化消息分发器
+        self.message_dispatcher = MessageDispatcher(self.sync_state)  # 实例化消息分发器
 
     def add_agent(self, agent_config):
         '''
@@ -147,16 +147,27 @@ if __name__ == "__main__":
         daemon=True  # 守护线程，主程序退出时自动关闭
     )
     dispatch_thread.start()
+    print(f"[MAS] 消息分发循环已启动。")
 
     # 3. 初始任务启动
     mas.add_agent("mas/role_config/管理者_灰风.yaml")
     agent = mas.agents_list[0]
     mas.init_and_start_first_task(mas.agents_list[0].agent_id)  # 传入第一个agent（管理者）的ID
 
-    # 4. 启动状态监控网页服务（可视化 + 热更新） TODO：网页服务未实现
+    # 4. 启动状态监控网页服务（可视化 + 热更新）
     threading.Thread(target=start_monitor_web, daemon=True).start()
+    print(f"[MAS] 状态监控网页服务已启动，访问 http://localhost:5000 查看状态。")
+
+    from mas.utils.monitor import StateMonitor  # Debug：查看监控器捕获信息时需要导入
 
     # 5. 主线程可以执行其他逻辑，接受来自人类操作段的输入 TODO：人类操作端未实现，接受人类操作端输入未实现
     while True:
+        # # Debug:打印系统任务状态，MAS是否正确创建任务
+        # all_tasks = mas.sync_state.all_tasks
+        # print(f"sync_state.all_tasks:\n{all_tasks}")
+
+        # # Debug:打印监控状态，监控器是否成功捕获MAS的各种状态
+        # print(f"monitor.get_all_states：\n{StateMonitor().get_all_states()}")
+
         print(".")
-        time.sleep(10)  # 主线程保持活跃
+        time.sleep(60)  # 主线程保持活跃

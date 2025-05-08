@@ -46,7 +46,7 @@ class StateMonitor:
         def new_init(instance, *args, **kwargs):
             # 替代构造方法：初始化原始类内容
             original_init(instance, *args, **kwargs)
-            # 生成唯一 state_id（由类名和 UUID 组成）
+            # 生成唯一 state_id（由类名和 UUID组成）
             state_id = f"{cls.__name__}_{uuid.uuid4()}"
             instance._state_id = state_id
             # 将该实例注册到监控器的注册表中
