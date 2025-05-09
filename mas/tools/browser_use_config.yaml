@@ -34,12 +34,6 @@ use_prompt:
   return_format: |  
     请仅提供纯文本形式的任务描述，无需特殊格式化。任务描述应该简明扼要但包含完成任务所需的全部信息。  
     
-    将你的指令放在<BROWSER_USE></BROWSER_USE>标签内，例如：  
-    
-    <BROWSER_USE>  
-    访问GitHub网站，搜索"Python"，点击第一个搜索结果，提取仓库的README内容。  
-    </BROWSER_USE>  
-    
     注意:  
     1. 不要在标签内包含任何JSON或代码块，只提供纯文本任务描述  
     2. 如果任务需要登录凭证，确保包含这些信息  

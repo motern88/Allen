@@ -323,7 +323,7 @@ if __name__ == "__main__":
         "role": "向量数据库管理员",  
         "profile": "负责管理Milvus向量数据库的文档存储与检索",  
         "working_state": "Unassigned tasks",  
-        "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),  
+        "llm_config": LLMConfig.from_yaml("mas/role_config/qwen235b.yaml"),  
         "working_memory": {},  
         "persistent_memory": "",  
         "agent_step": AgentStep("0001"),  
@@ -350,7 +350,7 @@ if __name__ == "__main__":
         step_intention="存储文档",  
         step_type="tool",  
         executor="milvus_vector_db",  
-        text_content="将文档内容存储到Milvus中",  
+        text_content="将以下文档存储到Milvus数据库中，collection_name为docs2025。文档：“2025年小铁科技集团目标战略计划......”",  
         execute_result={},  
     )
 

@@ -6,39 +6,31 @@ Browser Use工具允许MAS系统直接与网络世界进行交互，扩展其信
 
 具体实现:
 
-组装提示词:
-1.1 MAS系统提示词（# 一级标题）
-1.2 Agent角色:（# 一级标题）
-1.2.1 Agent角色背景提示词（## 二级标题）
-1.2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
-1.3 browser_use_task step:（# 一级标题）
-1.3.1 step.step_intention 当前步骤的简要意图
-1.3.2 step.text_content 具体目标
-1.3.3 技能规则提示
-1.4 持续性记忆:（# 一级标题）
-1.4.1 Agent持续性记忆说明提示词（## 二级标题）
-1.4.2 Agent持续性记忆内容提示词（## 二级标题）
+从步骤状态获取指令:
+1.1 从step_state.instruction_content获取由instruction_generation技能生成的浏览器操作指令
+1.2 尝试提取指令生成中提取到的任务描述
 
-LLM调用生成浏览器任务描述
-2.1 调用LLM生成明确的浏览器操作任务描述
-2.2 从LLM响应中提取<BROWSER_USE>标签中的内容作为任务描述
+执行浏览器操作任务:
+2.1 根据LLM配置初始化兼容的LLM (OpenAI或Ollama)
+2.2 设置浏览器环境配置(Browser、Controller)
+2.3 创建并运行browser-use 第三方Agent执行任务，限制最大步骤数为100
+2.4 确保资源正确关闭(浏览器、playwright实例)
 
-执行浏览器操作任务
-3.1 初始化浏览器环境（Browser、Controller和Agent组件）
-3.2 执行任务并收集结果（访问的URL、提取的内容、最终结果）
-3.3 确保资源正确关闭（浏览器、playwright实例）
+处理执行结果:
+3.1 提取任务执行的最终结果(final_result)
+3.2 记录访问的URL列表(urls_visited)和提取的内容数量(content_count)
+3.3 构建结果摘要用于状态更新
 
-处理执行结果
-4.1 解析执行结果并构建结果摘要
-4.2 更新步骤状态与执行结果
-4.3 处理可能出现的错误情况
+更新步骤状态:
+4.1 成功执行时将步骤状态更新为finished
+4.2 失败时将步骤状态更新为failed并记录错误信息
 
-返回用于指导状态同步的execute_output
-5.1 通过update_stage_agent_state指导更新agent状态
-5.2 通过send_shared_message添加步骤信息到task共享消息池
+返回用于指导状态同步的execute_output:
+5.1 通过update_stage_agent_state指导更新agent状态为working
+5.2 通过send_shared_message添加步骤执行结果到task共享消息池
 
 错误处理:
-LLM任务生成失败：当无法从LLM响应中提取有效的浏览器任务描述时，更新步骤状态为failed
+指令完全为空: 更新步骤状态为failed并返回错误信息
 浏览器操作失败：捕获并记录详细的异常信息，更新步骤状态为failed
 LLM配置缺失：检查是否有可用的LLM配置，不存在则报错并更新状态
 
@@ -52,8 +44,14 @@ content_count: 提取内容的数量统计
 网络信息采集：从多个网站收集特定信息
 自动化表单填写：完成注册、申请等需要填写表单的任务
 市场调研：收集产品信息、价格比较等
-数据提取：从特定网站提取结构化数据
 自动化测试：验证网站功能和内容的有效性
+预约和订购: 自动化完成在线预约和订购流程
+
+注意事项:
+必须由instruction_generation技能先生成明确的浏览器操作指令
+指令应详细描述所需的浏览任务，包括目标网站、操作步骤和期望结果
+默认以非无头模式运行浏览器(headless=False)，便于观察和调试
+操作过程中的截图会保存到screenshots目录
 '''
 
 from typing import Any, Dict
@@ -74,77 +72,15 @@ class BrowserUseTool(Executor):
         self.llm_config = llm_config 
         # 创建存储截图的目录  
         os.makedirs("screenshots", exist_ok=True)
-
-    def extract_browser_task(self, text: str):  
-        """从文本中解析browser_use任务描述"""  
-        match = re.findall(r"<BROWSER_USE>\s*(.*?)\s*</BROWSER_USE>", text, re.DOTALL)  
-        if match:  
-            browser_task = match[-1]  # 获取最后一个匹配内容  
-            return browser_task  
-        else:  
-            return None  
-        
-    
-    def get_browser_task_generation_prompt(self, step_id: str, agent_state: Dict[str, Any]) -> str:
-        '''
-        组装提示词
-        1 MAS系统提示词（# 一级标题）
-        2 Agent角色提示词:（# 一级标题）
-            2.1 Agent角色背景提示词（## 二级标题）
-            2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
-        3 browser_use_task step:（# 一级标题）
-            3.1 step.step_intention 当前步骤的简要意图
-            3.2 step.text_content 具体目标
-            3.3 技能规则提示(browser_use_config["use_prompt"])
-        4. 持续性记忆:（# 一级标题）
-            4.1 Agent持续性记忆说明提示词（## 二级标题）
-            4.2 Agent持续性记忆内容提示词（## 二级标题）
-        '''
-        md_output = []
-
-        # 1. 获取MAS系统的基础提示词
-        md_output.append("# 系统提示 system_prompt\n")
-        system_prompt = self.get_base_prompt(key="system_prompt")  # 已包含 # 一级标题的md
-        md_output.append(f"{system_prompt}\n")
-
-        # 2. 组装角色提示词
-        md_output.append("# Agent角色\n")
-        # 角色背景
-        agent_role_prompt = self.get_agent_role_prompt(agent_state)  # 不包含标题的md格式文本
-        md_output.append(f"## 你的角色信息 agent_role\n"
-                         f"{agent_role_prompt}\n")
-        # 工具与技能权限
-        available_skills_and_tools = self.get_skill_and_tool_prompt(agent_state["skills"],
-                                                                    agent_state["tools"])  # 包含 # 三级标题的md
-        md_output.append(f"## 角色可用技能与工具 available_skills_and_tools\n"
-                         f"{available_skills_and_tools}\n")
-
-        # 3. browser_use_task step提示词
-        md_output.append(f"# 当前需要执行的步骤 current_step\n")
-        current_step = self.get_current_tool_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
-        md_output.append(f"{current_step}\n")
-
-        # 4. 持续性记忆提示词
-        md_output.append("# 持续性记忆 persistent_memory\n")
-        # 获取persistent_memory的使用说明
-        base_persistent_memory_prompt = self.get_base_prompt(key="persistent_memory_prompt")  # 不包含标题的md格式文本
-        md_output.append(f"## 持续性记忆使用规则说明：\n"
-                         f"{base_persistent_memory_prompt}\n")
-        # persistent_memory的具体内容
-        persistent_memory = self.get_persistent_memory_prompt(agent_state)  # 不包含标题的md格式文本
-        md_output.append(f"## 你已有的持续性记忆内容：\n"
-                         f"{persistent_memory}\n")
-
-        return "\n".join(md_output)
         
     def execute(self, step_id: str, agent_state: Dict[str, Any]) -> Dict[str, Any]: 
         """  
         BrowserUseTool工具的具体执行方法:  
-        1. 使用LLM生成浏览器任务描述  
+        1. 从step_state获取指令文本
         2. 提取浏览器任务描述  
         3. 执行browser-use任务  
         4. 解析结果并更新执行结果  
-        5. 构造并返回execute_output  
+        5. 构造并返回execute_output   
         """  
         # 更新步骤状态为运行中 
         agent_state["agent_step"].update_step_status(step_id, "running")  
@@ -167,47 +103,36 @@ class BrowserUseTool(Executor):
             )
 
         try:
-            # 1. 从step_state获取指令文本-----------------已弃用
-            # task_description  = step_state.text_content.strip()    
+            # 1. 从step_state获取指令文本
+            task_description  = step_state.instruction_content.strip()
+            print(f"从step_state获取的原始指令文本:\n{task_description}")
 
-            # 1. 组装浏览器任务生成提示词  
-            browser_task_prompt = self.get_browser_task_generation_prompt(step_id, agent_state)  
-            print(f"浏览器操作任务生成提示词:\n{browser_task_prompt}")  
-
-            # 2. LLM调用  
-            llm_client = LLMClient(self.llm_config)  
-            chat_context = LLMContext(context_size=15)  
-            
-            chat_context.add_message("assistant", "我将根据你的需求生成浏览器自动化任务描述。"  
-                                                 "我会在<BROWSER_USE>和</BROWSER_USE>标签之间提供明确的任务描述。")  
-            
-            response = llm_client.call(  
-                browser_task_prompt,  
-                context=chat_context  
-            )  
-            print(f"LLM响应:\n{response}")  
-            
-            # 3. 提取浏览器任务描述  
-            browser_task = self.extract_browser_task(response)  
+            # 2. 提取浏览器任务描述   
+            browser_task = self.extract_browser_task(task_description)
+            print(f"浏览器操作任务描述:\n{browser_task}")    
 
             # 如果无法提取有效的任务描述  
             if not browser_task:  
-                error_msg = "无法从LLM响应中提取有效的浏览器任务描述"  
-                agent_state["agent_step"].update_step_status(step_id, "failed")  
-                # 记录错误并返回  
-                execute_result = {"browser_use_error": error_msg}  
-                step_state.update_execute_result(execute_result)  
-                return self.get_execute_output(  
-                    step_id,  
-                    agent_state,  
-                    update_agent_situation="failed",  
-                    shared_step_situation=f"失败: {error_msg}",  
-                )  
-
-            # 4. 使用任务描述执行browser-use操作  
+                # 如果没有找到标签包裹的任务，尝试使用整个文本作为任务
+                browser_task = task_description
+                # 如果任务描述仍然为空，则报错
+                if not browser_task:
+                    error_msg = "无法从指令中提取有效的浏览器任务描述"  
+                    agent_state["agent_step"].update_step_status(step_id, "failed")  
+                    # 记录错误并返回  
+                    execute_result = {"browser_use_error": error_msg}  
+                    step_state.update_execute_result(execute_result)  
+                    return self.get_execute_output(  
+                        step_id,  
+                        agent_state,  
+                        update_agent_situation="failed",  
+                        shared_step_situation=f"失败: {error_msg}",  
+                    )  
+                
+            # 3. 使用任务描述执行browser-use操作  
             result = self.run_browser_use_task(browser_task)  
 
-            # 5. 记录执行结果到step的execute_result  
+            # 4. 记录执行结果到step的execute_result  
             execute_result = {  
                 "browser_use_result": {  
                     "final_result": result.get("final_result", ""),  
@@ -218,16 +143,12 @@ class BrowserUseTool(Executor):
             step_state.update_execute_result(execute_result)  
 
             # 构建摘要信息用于状态更新  
-            summary = self._build_result_summary(result)  
+            summary = self._build_result_summary(result)   
 
-            new_persistent_memory = self.extract_persistent_memory(response)
-            if new_persistent_memory:  # 当有新的记忆内容时追加持续性记忆
-                agent_state["persistent_memory"] += "\n" + new_persistent_memory
-
-            # 6. 步骤状态更新为 finished  
+            # 5. 步骤状态更新为 finished  
             agent_state["agent_step"].update_step_status(step_id, "finished")  
 
-            # 7. 构造execute_output  
+            # 6. 构造execute_output  
             execute_output = self.get_execute_output(  
                 step_id,  
                 agent_state,  
@@ -398,7 +319,7 @@ class BrowserUseTool(Executor):
                 return ChatOpenAI(**params)  
             elif "ollama" in api_type_str or "local" in api_type_str:  
                 from langchain_ollama import ChatOllama  
-                # 去掉 /api 部分  
+                # 去掉 /api 部分，不然会报错
                 if base_url.endswith("/api"):  
                     base_url = base_url[:-len("/api")]  
                 params = {  
@@ -424,6 +345,7 @@ if __name__ == "__main__":
     '''
     from mas.agent.configs.llm_config import LLMConfig
     from mas.agent.state.step_state import StepState, AgentStep
+    from mas.skills.Instruction_generation import InstructionGenerationSkill
 
     print("测试BrowserUseTool工具的调用")  
     llm_config = LLMConfig.from_yaml("mas/role_config/qwen235b.yaml")
@@ -440,6 +362,17 @@ if __name__ == "__main__":
         "skills": ["planning", "reflection", "summary", "instruction_generation"],  
         "tools": ["browser_use"],  
     }  
+    # 由于tool需要依赖instruction_generation这个Skill生成指令，所以这里需要构造一个类型为skill的StepState
+    step0 = StepState(
+        task_id="task_001",
+        stage_id="stage_001",
+        agent_id="0001",
+        step_intention="为浏览器操作工具生成指令",
+        step_type="skill",
+        executor="instruction_generation",
+        text_content="需要访问Python官网(https://www.python.org)，提取首页的主要新闻内容和Python的最新版本号。",
+        execute_result={},
+    )
 
     # 创建一个简单的浏览器任务  
     browser_task_step = StepState(  
@@ -449,29 +382,48 @@ if __name__ == "__main__":
         step_intention="搜索Python相关信息",  
         step_type="tool",  
         executor="browser_use",  
-        text_content="请访问Python官网(https://www.python.org)，提取首页的主要新闻内容和Python的最新版本号。",  
+        text_content="",
         execute_result={},  
     )  
 
     # 添加步骤到agent_state  
+    agent_state["agent_step"].add_step(step0)
     agent_state["agent_step"].add_step(browser_task_step)  
-    step_id = agent_state["agent_step"].step_list[0].step_id  # 获取步骤ID  
+
+    instuct_step_id = agent_state["agent_step"].step_list[0].step_id  # 指令生成为第0个step  
+    browser_task_step_id = agent_state["agent_step"].step_list[1].step_id  # 浏览器操作为第1个step
+    instruction_generation_skill = InstructionGenerationSkill()
+    gen_result = instruction_generation_skill.execute(instuct_step_id, agent_state)
+
+    print("指令生成结果:", gen_result)  # 打印指令生成结果
+        # 检查生成的指令格式  
+    if gen_result.get("update_stage_agent_state", {}).get("state") == "failed":  
+        print("失败原因追踪:")  
+        print("LLM响应内容:", agent_state["agent_step"].step_list[0].execute_result.get("raw_response"))  
+        print("提取的指令:", agent_state["agent_step"].step_list[0].execute_result.get("instruction_generation"))  
+
+    # 验证指令生成结果  
+    if gen_result.get("update_stage_agent_state", {}).get("state") == "finished":  
+        # 获取生成的浏览器操作指令
+        store_instruction = agent_state["agent_step"].step_list[1].instruction_content  
+        store_step_id = agent_state["agent_step"].step_list[1].step_id
+        print(f"生成的浏览器操作指令: {store_instruction}，浏览器操作步骤ID: {store_step_id}")  
 
     # 创建工具实例  
     print("初始化BrowserUseTool...")  
     browser_tool = BrowserUseTool(llm_config)  
     
     print("执行浏览器任务...")  
-    result = browser_tool.execute(step_id, agent_state)  
+    result = browser_tool.execute(browser_task_step_id, agent_state)  
     
     print("\n==== 执行结果 ====")  
-    print(f"状态: {agent_state['agent_step'].get_step(step_id)[0].execution_state}")  
+    print(f"状态: {agent_state['agent_step'].get_step(browser_task_step_id)[0].execution_state}")  
     print("\n==== 执行输出 ====")  
     for key, value in result.items():  
         print(f"{key}: {value}")  
     
     # 显示执行结果详情  
-    execute_result = agent_state["agent_step"].get_step(step_id)[0].execute_result  
+    execute_result = agent_state["agent_step"].get_step(browser_task_step_id)[0].execute_result  
     print("\n==== 详细结果 ====")  
     if execute_result:  
         if "browser_use_result" in execute_result:  
