@@ -89,23 +89,16 @@ def get_states():
     # 统一获取全部状态（统一结构：{state_id: 内容dict}）
     all_states: Dict[str, dict] = monitor.get_all_states()
     print("[DEBUG] all state ids:", list(all_states.keys()))  # Debug: 打印所有状态 ID
+    # print("[DEBUG] all state ", all_states)
 
     # 过滤匹配类型:通过状态 ID 前缀匹配（如 TaskState_）
-    # ，并只保留能序列化的字段
     result = {}
-    for state_id, state_obj in all_states.items():
-        if state_id.lower().startswith(f"{state_type}state_"):
-            state_dict = {}
-            for k, v in state_obj.items():
-                try:
-                    json.dumps(v)
-                    state_dict[k] = v
-                except:
-                    continue  # 忽略不能序列化的字段
+    for state_id, state_dict in all_states.items():
+        if state_id.lower().startswith(f"{state_type}"):
             result[state_id] = state_dict
 
     # 返回 JSON 格式的结果
-    return jsonify(result)
+    return result
 
 
 
