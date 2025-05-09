@@ -1,3 +1,61 @@
+'''
+工具名称：Browser Use
+期望作用：Agent通过browser_use工具能够执行自动化的网络浏览任务，包括访问网站、提取网页内容、填写表单、点击按钮等复杂的网页交互操作。
+
+Browser Use工具允许MAS系统直接与网络世界进行交互，扩展其信息获取和任务执行能力。工具使用底层的browser-use库，该库通过Playwright提供浏览器自动化能力，结合LLM的理解能力实现复杂网页任务的自动化完成。
+
+具体实现:
+
+组装提示词:
+1.1 MAS系统提示词（# 一级标题）
+1.2 Agent角色:（# 一级标题）
+1.2.1 Agent角色背景提示词（## 二级标题）
+1.2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
+1.3 browser_use_task step:（# 一级标题）
+1.3.1 step.step_intention 当前步骤的简要意图
+1.3.2 step.text_content 具体目标
+1.3.3 技能规则提示
+1.4 持续性记忆:（# 一级标题）
+1.4.1 Agent持续性记忆说明提示词（## 二级标题）
+1.4.2 Agent持续性记忆内容提示词（## 二级标题）
+
+LLM调用生成浏览器任务描述
+2.1 调用LLM生成明确的浏览器操作任务描述
+2.2 从LLM响应中提取<BROWSER_USE>标签中的内容作为任务描述
+
+执行浏览器操作任务
+3.1 初始化浏览器环境（Browser、Controller和Agent组件）
+3.2 执行任务并收集结果（访问的URL、提取的内容、最终结果）
+3.3 确保资源正确关闭（浏览器、playwright实例）
+
+处理执行结果
+4.1 解析执行结果并构建结果摘要
+4.2 更新步骤状态与执行结果
+4.3 处理可能出现的错误情况
+
+返回用于指导状态同步的execute_output
+5.1 通过update_stage_agent_state指导更新agent状态
+5.2 通过send_shared_message添加步骤信息到task共享消息池
+
+错误处理:
+LLM任务生成失败：当无法从LLM响应中提取有效的浏览器任务描述时，更新步骤状态为failed
+浏览器操作失败：捕获并记录详细的异常信息，更新步骤状态为failed
+LLM配置缺失：检查是否有可用的LLM配置，不存在则报错并更新状态
+
+浏览器任务结果包含:
+final_result: 任务执行的最终结果文本
+urls_visited: 访问过的网页URL列表
+extracted_content: 从网页中提取的内容列表
+content_count: 提取内容的数量统计
+
+适用场景:
+网络信息采集：从多个网站收集特定信息
+自动化表单填写：完成注册、申请等需要填写表单的任务
+市场调研：收集产品信息、价格比较等
+数据提取：从特定网站提取结构化数据
+自动化测试：验证网站功能和内容的有效性
+'''
+
 from typing import Any, Dict
 from mas.agent.base.executor_base import Executor 
 import os
@@ -153,7 +211,6 @@ class BrowserUseTool(Executor):
             execute_result = {  
                 "browser_use_result": {  
                     "final_result": result.get("final_result", ""),  
-                    # "final_result": (await result).get("final_result", "") if asyncio.iscoroutine(result) else result.get("final_result", ""),  
                     "urls_visited": result.get("urls", []),  
                     "content_count": len(result.get("extracted_content", [])),  
                 }  
@@ -162,6 +219,10 @@ class BrowserUseTool(Executor):
 
             # 构建摘要信息用于状态更新  
             summary = self._build_result_summary(result)  
+
+            new_persistent_memory = self.extract_persistent_memory(response)
+            if new_persistent_memory:  # 当有新的记忆内容时追加持续性记忆
+                agent_state["persistent_memory"] += "\n" + new_persistent_memory
 
             # 6. 步骤状态更新为 finished  
             agent_state["agent_step"].update_step_status(step_id, "finished")  
