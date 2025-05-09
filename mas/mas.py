@@ -138,6 +138,8 @@ if __name__ == "__main__":
     5.主线程保持活跃，接受来自人类操作段的输入
     
     '''
+    # TODO：将MAS启动写成一个函数
+
     # 1. 实例化MAS
     mas = MultiAgentSystem()
 
