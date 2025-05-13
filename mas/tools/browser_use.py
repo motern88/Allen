@@ -103,31 +103,23 @@ class BrowserUseTool(Executor):
             )
 
         try:
-            # 1. 从step_state获取指令文本
-            task_description  = step_state.instruction_content.strip()
-            print(f"从step_state获取的原始指令文本:\n{task_description}")
-
-            # 2. 提取浏览器任务描述   
-            browser_task = self.extract_browser_task(task_description)
+            # 1. 从step_state获取指令文本, 提取浏览器任务描述   
+            browser_task  = step_state.instruction_content.strip()
             print(f"浏览器操作任务描述:\n{browser_task}")    
 
-            # 如果无法提取有效的任务描述  
-            if not browser_task:  
-                # 如果没有找到标签包裹的任务，尝试使用整个文本作为任务
-                browser_task = task_description
-                # 如果任务描述仍然为空，则报错
-                if not browser_task:
-                    error_msg = "无法从指令中提取有效的浏览器任务描述"  
-                    agent_state["agent_step"].update_step_status(step_id, "failed")  
-                    # 记录错误并返回  
-                    execute_result = {"browser_use_error": error_msg}  
-                    step_state.update_execute_result(execute_result)  
-                    return self.get_execute_output(  
-                        step_id,  
-                        agent_state,  
-                        update_agent_situation="failed",  
-                        shared_step_situation=f"失败: {error_msg}",  
-                    )  
+                # 如果任务描述为空，则报错
+            if not browser_task:
+                error_msg = "无法从指令中提取有效的浏览器任务描述"  
+                agent_state["agent_step"].update_step_status(step_id, "failed")  
+                # 记录错误并返回  
+                execute_result = {"browser_use_error": error_msg}  
+                step_state.update_execute_result(execute_result)  
+                return self.get_execute_output(  
+                    step_id,  
+                    agent_state,  
+                    update_agent_situation="failed",  
+                    shared_step_situation=f"失败: {error_msg}",  
+                )  
                 
             # 3. 使用任务描述执行browser-use操作  
             result = self.run_browser_use_task(browser_task)  
