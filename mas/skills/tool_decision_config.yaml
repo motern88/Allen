@@ -1,0 +1,82 @@
+# Date: 2025/05/13
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+
+use_guide:
+  skill_name: "tool_decision"
+  description: |
+    该技能负责调用LLM接收并处理长尾工具的返回结果，并决定下一步该工具的执行或是结束长尾工具调用。
+    当Agent需要处理长尾工具返回的结果并决定是否继续调用工具时，可以使用该技能。
+    长尾工具是指一系列连续性工具调用，可能需要多次交互才能完成任务。
+    
+    该技能的主要功能：
+    1. 分析上一个工具的返回结果
+    2. 决定是否需要继续调用工具
+    3. 如果需要继续，确定下一步调用的工具名称和参数提示（用于指导InstructionGeneration生成具体参数）
+    4. 如果不需要继续，正确结束工具调用流程
+    
+    工具长尾调用流程：([InstructionGeneration] -> [Tool]) -> [ToolDecision] -> ([InstructionGeneration] -> [Tool]) -> ...
+    
+    **使用tool_decision时请在step.step_intention与step.text_content中清楚写明意图与工具返回结果**
+
+# 技能实际调用的提示词  
+use_prompt:  
+  skill_name: "tool_decision"  
+  skill_prompt: |
+    **你现在正在执行tool_decision技能，你需要分析上一个工具的返回结果并决定下一步行动。**
+    
+    长尾工具执行流程：([InstructionGeneration] -> [Tool]) -> [ToolDecision] -> ([InstructionGeneration] -> [Tool]) -> ...
+    
+    作为Tool Decision技能执行者，你处于长尾工具调用的关键决策点，你需要：
+    
+    1. 仔细分析上一个工具的返回结果
+    2. 决定是否需要继续调用工具来完成当前任务
+    3. 如果需要继续，确定下一步调用的工具名称和参数提示（用于指导InstructionGeneration生成具体参数）
+    4. 如果任务已完成或无法继续，决定结束工具调用流程
+    
+    请注意：
+    - 每次决策都应基于当前工具的返回结果和任务上下文
+    - 如果工具返回错误或不符合预期，你需要决定是重试还是尝试其他方法
+    - 保持工具调用的效率，避免不必要的调用
+    - 当任务目标已达成时，应及时结束工具调用
+    - 如果决定继续，你的决策会触发一个新的InstructionGeneration步骤，而不是直接执行工具
+
+    **根据你当前步骤意图和工具返回结果，仔细按照return_format中的格式返回具体指令**
+
+  return_format: |
+    **输出工具决策指令格式为字典，根据你的决策填充适当的字段：**
+    
+    - 如果决定继续调用工具，需要填充以下字段：
+      # 下面是继续调用工具的JSON格式
+      # action：设置为"continue"
+      # tool_name：下一步要调用的工具名称
+      # tool_params：工具参数提示，用于指导InstructionGeneration生成具体参数
+      # previous_result：可选，可以包含对上一个工具结果的简要总结
+      # reason：为什么需要继续调用此工具的原因
+      {
+        "action": "continue",
+        "tool_name": "<tool_name>",
+        "tool_params": {
+          "param1": "value1",
+          "param2": "value2"
+        },
+        "previous_result": "<previous_result>",
+        "reason": "<reason>"
+      }
+    
+    - 如果决定结束工具调用流程，需要填充以下字段：
+      # 下面是结束工具调用的JSON格式
+      # action：设置为"terminate"
+      # result：最终结果的摘要
+      # reason：结束工具调用的原因
+      {
+        "action": "terminate",
+        "result": "<r>",
+        "reason": "<reason>"
+      }
+    
+    **请将你的指令构造结果用<tool_decision>和</tool_decision>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例： 
+     <tool_decision>
+     具体决策指令...
+     </tool_decision>
