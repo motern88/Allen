@@ -111,7 +111,7 @@ class StateMonitor:
 
         # queue.Queue 特殊序列化, 例如task_state.communication_queue
         elif isinstance(obj, queue.Queue):
-            return f"<Queue(size={obj.qsize()})>"
+            return f"通讯队列未分发数：{obj.qsize()}"
         # list[StageState] 特殊序列化, 例如task_state.stage_list
         elif isinstance(obj, list) and all(
                 type(item).__name__ == "StageState" for item in obj):  # 不依赖导入类而通过名字判断
