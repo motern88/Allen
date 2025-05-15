@@ -91,25 +91,6 @@ class ToolDecisionSkill(Executor):
         step_intention = step.step_intention
         text_content = step.text_content
         
-        # 提取上一个工具的名称和结果
-        previous_tool_name = ""
-        previous_tool_result = ""
-        
-        # 尝试从步骤意图中提取工具名称
-        tool_name_match = re.search(r'工具[名称|名|为][:：]?\s*["\']*(\w+)["\']', step_intention)
-        if tool_name_match:
-            previous_tool_name = tool_name_match.group(1)
-        
-        # 查找最近的工具执行步骤
-        previous_steps = agent_state["agent_step"].step_list
-        if len(previous_steps) >= 2:
-            for prev_step in reversed(previous_steps[:-1]):
-                if prev_step.type == "tool" and prev_step.execute_result:
-                    previous_tool_result = json.dumps(prev_step.execute_result, ensure_ascii=False)
-                    if not previous_tool_name and prev_step.executor:
-                        previous_tool_name = prev_step.executor
-                    break
-        
         # 组装最终的提示词
         md_output = []
         
@@ -117,34 +98,25 @@ class ToolDecisionSkill(Executor):
         system_prompt = self.get_base_prompt(key="system_prompt")
         md_output.append(f"# 多智能体系统 MAS\n{system_prompt}\n")
         md_output.append("Tool Decision是连接工具执行和指令生成的关键决策步骤，\n"
-                       "你需要基于工具返回结果决定是继续执行工具还是结束工具调用流程。\n")
+                       "你需要基于工具返回结果决定是继续调用工具还是结束工具调用流程。\n")
         
         # 2. 获取Agent角色提示词
         role_prompt = self.get_agent_role_prompt(agent_state)
         md_output.append(f"# Agent角色\n{role_prompt}\n")
         
-        # 获取技能与工具提示
+        # 3. 获取技能与工具提示
         skills_tools_prompt = self.get_skill_and_tool_prompt(agent_state["skills"], agent_state["tools"])
         md_output.append(f"{skills_tools_prompt}\n")
+
+        # 4. Tool Decision step提示词
+        md_output.append(f"# 当前需要执行的步骤 current_step\n")
+        current_step = self.get_current_skill_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
+        md_output.append(f"{current_step}\n")
         
-        # 3. Tool Decision步骤提示词
-        md_output.append(f"# Tool Decision步骤\n")
-        md_output.append(f"**当前步骤的简要意图 step_intention**: {step_intention}\n")
-        md_output.append(f"**当前步骤的文本描述 text_content**: {text_content}\n")
-        
-        # 添加上一个工具的相关信息（如果有）
-        if previous_tool_name:
-            md_output.append(f"**上一个工具信息**:\n工具名称: {previous_tool_name}\n")
-            if previous_tool_result:
-                md_output.append(f"工具结果: {previous_tool_result}\n")
-        
-        # 获取Tool Decision技能的提示词
-        tool_decision_config = self.load_skill_config("tool_decision")
-        skill_prompt = tool_decision_config["use_prompt"].get("skill_prompt", "暂无描述")
-        return_format = tool_decision_config["use_prompt"].get("return_format", "暂无描述")
-        
-        md_output.append(f"{skill_prompt}\n")
-        md_output.append(f"**return_format**: {return_format}\n")
+        # 从step.text_content中再次强调上一个工具的相关信息，帮助tool_decision技能进行决策
+        if text_content:
+            prvious_tool_info = text_content
+            md_output.append(f"**上一个工具相关信息**, 这是你决定是继续调用工具还是结束工具调用的主要依据:{prvious_tool_info}\n")
         
         # 4. 持续性记忆提示词
         # 获取基础持续性记忆提示词
@@ -258,24 +230,38 @@ class ToolDecisionSkill(Executor):
         
         # 9. 构造execute_output
         if tool_decision["action"] == "continue":
-            # 尝试从步骤内容或工作记忆中提取上一个工具的执行结果
-            previous_result = ""
-            previous_steps = agent_state["agent_step"].step_list
-            if len(previous_steps) >= 2:
-                # 查找最近的工具执行步骤
-                for prev_step in reversed(previous_steps[:-1]):
-                    # 如果找到工具执行步骤且有执行结果，则将其序列化为JSON字符串
-                    if prev_step.type == "tool" and prev_step.execute_result:
-                        previous_result = json.dumps(prev_step.execute_result, ensure_ascii=False)
-                        break
-            
-            # 将上一个工具的执行结果添加到工具决策中，用于传递给指令生成步骤
-            if previous_result and "previous_result" not in tool_decision:
-                tool_decision["previous_result"] = previous_result
+            # 确保 tool_decision 中包含必要的字段
+            if "tool_name" not in tool_decision:
+                tool_decision["tool_name"] = "" # 防止缺失需要的字段
                 
+            if "tool_params" not in tool_decision or not isinstance(tool_decision["tool_params"], dict):
+                tool_decision["tool_params"] = {} # 防止缺失需要的字段
+                
+            if "reason" not in tool_decision:
+                tool_decision["reason"] = "需要继续执行以完成任务"
+                    
+            # 生成决策信息用于共享消息
             shared_message = f"决定继续调用工具: {tool_decision['tool_name']}, 原因: {tool_decision['reason']}"
+            print(f"[ToolDecisionSkill] 决定继续执行工具 {tool_decision['tool_name']}")
+            
+            # 记录日志
+            print(f"[ToolDecisionSkill] Tool decision (continue): {json.dumps(tool_decision, ensure_ascii=False)}")
+            
         else:  # action == "terminate"
+            # 确保 tool_decision 中包含必要的字段
+            if "result" not in tool_decision:
+                tool_decision["result"] = "没有返回明确的结果"
+                
+            if "reason" not in tool_decision:
+                tool_decision["reason"] = "任务已完成或无法继续"
+            
+            # 生成决策信息用于共享消息
             shared_message = f"决定结束工具调用流程, 结果: {tool_decision['result']}, 原因: {tool_decision['reason']}"
+            print(f"[ToolDecisionSkill] 决定结束工具调用流程")
+            
+            # 记录日志
+            print(f"[ToolDecisionSkill] Tool decision (terminate): {json.dumps(tool_decision, ensure_ascii=False)}")
+            
         
         execute_output = self.get_execute_output(
             step_id,

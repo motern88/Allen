@@ -135,7 +135,25 @@ class BrowserUseTool(Executor):
             step_state.update_execute_result(execute_result)  
 
             # 构建摘要信息用于状态更新  
-            summary = self._build_result_summary(result)   
+            summary = self._build_result_summary(result)  
+
+            # 构建浏览器结果详情字符串
+            browser_result_details = ""
+            if execute_result.get("browser_use_result"):
+                browser_result = execute_result["browser_use_result"]
+                final_result = browser_result.get("final_result", "")
+                if final_result:
+                    browser_result_details = f"浏览器操作结果: {final_result}"
+                    # 如果结果太长，截断显示
+                    if len(browser_result_details) > 500:
+                        browser_result_details = browser_result_details[:497] + "..."
+
+            # 拼接完整的shared_step_situation
+            if browser_result_details:
+                full_situation = f"{browser_result_details}\n\n完成了以下操作: {summary}"
+            else:
+                full_situation = f"完成了以下操作: {summary}"
+    
 
             # 5. 步骤状态更新为 finished  
             agent_state["agent_step"].update_step_status(step_id, "finished")  
@@ -145,7 +163,7 @@ class BrowserUseTool(Executor):
                 step_id,  
                 agent_state,  
                 update_agent_situation="working", 
-                shared_step_situation=f"完成: {summary}",  
+                shared_step_situation=full_situation,  
             )  
             
             return execute_output  
@@ -182,32 +200,42 @@ class BrowserUseTool(Executor):
         构造BrowserUseTool工具的execute_output。  
         1. update_agent_situation:  
             通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态  
-            (一般情况下，只有Summary技能完成时，该字段传入finished，其他步骤完成时，该字段都传入working)  
         2. shared_step_situation:  
-            添加步骤信息到task共享消息池  
-        '''  
-        execute_output = {}  
-
-        # 1. 通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态  
-        # 获取当前步骤的task_id与stage_id  
+            通过send_shared_message字段指导sync_state设置stage中共享的信息
+        3. tool_execution:
+            提供工具执行的详细信息，用于标识工具是否为长尾工具
+            并为后续的Tool Decision提供工具执行结果
+        '''
         step_state = agent_state["agent_step"].get_step(step_id)[0]  
         task_id = step_state.task_id  
         stage_id = step_state.stage_id  
+        agent_id = agent_state["agent_id"]
+        execute_result = step_state.execute_result or {}
+
         # 构造execute_output  
-        execute_output["update_stage_agent_state"] = {  
-            "task_id": task_id,  
-            "stage_id": stage_id,  
-            "agent_id": agent_state["agent_id"],  
-            "state": update_agent_situation,  
+        execute_output = {  
+            "update_stage_agent_state": {  
+                "task_id": task_id,  
+                "stage_id": stage_id,  
+                "agent_id": agent_id,  
+                "state": update_agent_situation  
+            },  
+            "send_shared_message": {  
+                "task_id": task_id,  
+                "stage_id": stage_id,  
+                "agent_id": agent_id,  
+                "role": agent_state["role"],  
+                "content": shared_step_situation  
+            },
+            # ** 添加工具执行信息，标识这是一个长尾工具**
+            "tool_execution": {
+                "step_id": step_id,
+                "tool_name": "browser_use",
+                "is_long_tail": True,  # 标识为长尾工具
+                "result": execute_result.get("browser_use_result", {})
+            }
         }  
 
-        # 2. 添加步骤信息到task共享消息池  
-        execute_output["send_shared_message"] = {  
-            "agent_id": agent_state["agent_id"],  
-            "role": agent_state["role"],  
-            "stage_id": stage_id,  
-            "content": f"执行browser_use步骤: {shared_step_situation}"  
-        }  
         return execute_output  
 
     def _build_result_summary(self, result: Dict[str, Any]) -> str:  

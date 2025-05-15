@@ -293,6 +293,7 @@ class AgentBase():
         3. 对于finish_stage指令，清除该stage的所有step，和相应工作记忆
         4. 对于finish_task指令，清除该task所有step，和相应工作记忆
         5. 对于update_working_memory指令，更新Agent的工作记忆
+        6. 对于tool_decision指令，执行tool_decision
 
         '''
         # 解析文本中的指令和非指令文本
@@ -360,6 +361,48 @@ class AgentBase():
             task_id = instruction["update_working_memory"]["task_id"]
             stage_id = instruction["update_working_memory"]["stage_id"]
             self.agent_state["working_memory"][task_id] = stage_id
+        
+        # 6. 如果instruction字典包含add_tool_decision的key,则添加一个Tool Decision步骤
+        if instruction and "add_tool_decision" in instruction:
+            # 指令内容 {"add_tool_decision": {"tool_name": <tool_name>, "result": <result>, "step_id": <step_id>, "context": <context>}}
+            tool_info = instruction["add_tool_decision"]
+            tool_name = tool_info.get("tool_name", "")
+            result = tool_info.get("result", {})
+            step_id = tool_info.get("step_id", "")
+            context = tool_info.get("context", "")
+            
+            # 从消息中获取任务ID和阶段ID
+            task_id = message["task_id"]
+            stage_id = message["stage_relative"]  # 可能是no_relative 与阶段无关
+            
+            # 准备工具决策步骤的意图描述
+            step_intention = f"对工具 '{tool_name}' 的执行结果进行决策，确定是继续调用还是结束调用流程"
+            
+            # 准备文本内容，包含工具执行结果和相关上下文
+            text_content = f"工具名称: {tool_name}\n\n"
+            
+            # 如果有工具执行结果，将其添加到文本内容中
+            if result:
+                if isinstance(result, dict):
+                    text_content += f"工具执行结果:\n{json.dumps(result, ensure_ascii=False, indent=2)}\n\n"
+                else:
+                    text_content += f"工具执行结果:\n{result}\n\n"
+            
+            # 如果有相关上下文，将其添加到文本内容中
+            if context:
+                text_content += f"相关上下文:\n{context}\n\n"
+                
+            # 添加Tool Decision步骤
+            self.add_next_step(
+                task_id=task_id,
+                stage_id=stage_id,
+                step_intention=step_intention,
+                step_type="skill",
+                executor="tool_decision",
+                text_content=text_content
+            )
+            
+            print(f"[AgentBase] 已为长尾工具 {tool_name} 添加Tool Decision步骤")
 
 
 

@@ -828,32 +828,55 @@ class SyncState:
             print(f"[SyncState] Agent{ask_info['sender_id']}的查询{ask_info['type']}，结果已返回")
 
 
+        # 如果字典的key是"tool_execution",则处理工具执行结果
+        '''
+        所有工具执行后都会进入到这个分支，根据是不是长尾工具来决定是否需要添加Tool Decision步骤
+        '''
+        if "tool_execution" in executor_output and "update_stage_agent_state" in executor_output:
+            tool_info = executor_output["tool_execution"]
+            info = executor_output["update_stage_agent_state"]
+            task_id = info["task_id"]
+            agent_id = info["agent_id"]
+            step_id = tool_info.get("step_id", "")
+            tool_name = tool_info.get("tool_name", "")
+            is_long_tail = tool_info.get("is_long_tail", False)  # 判断是否是长尾工具
+            result = tool_info.get("result", {})
+            shared_step_situation = executor_output.get("send_shared_message", {}).get("content", "")
+            
+            # 获取任务状态
+            task_state = self.all_tasks.get(task_id)
+            
+            # 如果是长尾工具，自动添加Tool Decision步骤
+            if is_long_tail and task_state:
+                # 将工具执行结果作为消息发送给Agent，以方便Agent添加Tool Decision步骤
+                tool_decision_instruction = {
+                    "add_tool_decision": {
+                        "tool_name": tool_name,
+                        "result": result,
+                        "step_id": step_id,
+                        "context": shared_step_situation
+                    }
+                }
+                
+                # 构造消息
+                message: Message = {
+                    "task_id": task_id,
+                    "sender_id": "system",  # 系统作为发送者
+                    "receiver": [agent_id],  # 接收者是工具执行者
+                    "message": "<instruction>" + json.dumps(tool_decision_instruction) + "</instruction>",
+                    "stage_relative": "no_relative",
+                    "need_reply": False,
+                    "waiting": None,
+                    "return_waiting_id": None
+                }
+                
+                # 将消息添加到任务的通讯队列中
+                task_state.communication_queue.put(message)
+                print(f"[SyncState] 长尾工具{tool_name}执行完成，添加Tool Decision步骤")
+
         # 如果字典的key是"tool_decision",则处理工具决策指令
         if "tool_decision" in executor_output:
             tool_decision = executor_output["tool_decision"]
-            
-            '''
-            工具决策指令有两种类型：
-            1. 继续执行工具：
-            {
-                "action": "continue",
-                "tool_name": "<tool_name>",  # 下一步要调用的工具名称
-                "tool_params": {  # TODO: 工具参数提示，用于指导InstructionGeneration生成具体参数
-                    "param1": "value1",
-                    "param2": "value2",
-                    ...
-                },
-                "previous_result": "<previous_result>",  # 可选，上一个工具的执行结果
-                "reason": "<reason>"  # 为什么需要继续调用此工具的原因
-            }
-            
-            2. 结束工具调用流程：
-            {
-                "action": "terminate",
-                "result": "<result>",  # 最终结果的摘要
-                "reason": "<reason>"  # 结束工具调用的原因
-            }
-            '''
             # 从executor_output中获取发送者信息和任务信息
             if "update_stage_agent_state" in executor_output:
                 info = executor_output["update_stage_agent_state"]
@@ -865,7 +888,7 @@ class SyncState:
                 if tool_decision["action"] == "continue":
                     # 如果决定继续执行工具，则构造指令生成步骤的指令
                     # 按照工具长尾调用模式：([I.G.] -> [Tool]) -> [ToolDecision] -> ([I.G.] -> [Tool]) -> ...
-                    # 需要构造一个启动指令生成步骤的指令，而不是直接执行工具
+                    # 需要构造一个启动指令生成步骤的指令，而不是直接执行工具（[InstructionGeneration]->[Tool]）
                     instruction_gen_instruction = {
                         "generate_tool_instruction": {
                             "tool_name": tool_decision["tool_name"],
@@ -915,5 +938,3 @@ class SyncState:
                     # 将消息添加到任务的通讯队列中
                     task_state.communication_queue.put(message)
                     print(f"[SyncState] 根据Agent{agent_id}的工具决策，结束工具调用流程，结果：{tool_decision['result']}")
-
-
