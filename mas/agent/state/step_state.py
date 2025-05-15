@@ -42,7 +42,7 @@ class StepState:
 
     def __init__(
         self,
-        task_id: str,  # TODO:任务还未创建时 第一个管理者Agent需要被认为构造一个task和stage才能运行。可以这么理解，MAS中的一个Agent在加入Task Group之前没有办法进行任何操作。
+        task_id: str,
         stage_id: Optional[str],  # TODO:确保process_message与阶段无关的step能顺利执行
         agent_id: str,
         step_intention: str,
