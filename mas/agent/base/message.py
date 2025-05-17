@@ -11,6 +11,7 @@ Message字典包含Key及含义:
 
     stage_relative (str): 是否与任务阶段相关
         用于方便清除机制判断是否要随任务阶段
+        是则填对应阶段Stage ID，否则为no_relative的字符串
     need_reply (bool): 是否需要回复
         如果需要回复，则接收者被追加一个指向发送者的Send Message step，
         如果不需要回复，则接收者被追加一个Process Message step，Process Message 不需要向其他实体传递消息或回复

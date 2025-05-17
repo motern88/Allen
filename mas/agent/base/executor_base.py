@@ -252,6 +252,13 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
+    # TODO:组装特定工具的历史步骤执行结果提示词
+    def get_history_tools_result_prompt(self, step_id, agent_state, tool_name):
+        '''
+        接收tool_name，向前查找当前stage_id下所有该工具的执行信息，并将其结构化组装。
+        本方法应用于tool_decision中用于获取 工具历史调用的执行结果 以辅佐决策。
+        '''
+
     # 组装为tool_step执行指令生成时的提示词
     def get_tool_instruction_generation_step_prompt(self, step_id, agent_state):
         '''

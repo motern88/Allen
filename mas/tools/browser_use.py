@@ -1,5 +1,6 @@
 '''
 工具名称：Browser Use
+工具类型：长尾工具
 期望作用：Agent通过browser_use工具能够执行自动化的网络浏览任务，包括访问网站、提取网页内容、填写表单、点击按钮等复杂的网页交互操作。
 
 Browser Use工具允许MAS系统直接与网络世界进行交互，扩展其信息获取和任务执行能力。工具使用底层的browser-use库，该库通过Playwright提供浏览器自动化能力，结合LLM的理解能力实现复杂网页任务的自动化完成。
@@ -210,7 +211,6 @@ class BrowserUseTool(Executor):
         task_id = step_state.task_id  
         stage_id = step_state.stage_id  
         agent_id = agent_state["agent_id"]
-        execute_result = step_state.execute_result or {}
 
         # 构造execute_output  
         execute_output = {  
@@ -227,12 +227,12 @@ class BrowserUseTool(Executor):
                 "role": agent_state["role"],  
                 "content": shared_step_situation  
             },
-            # ** 添加工具执行信息，标识这是一个长尾工具**
-            "tool_execution": {
-                "step_id": step_id,
+            # 长尾工具传出工具执行结果
+            "need_tool_decision": {
+                "task_id": task_id,
+                "stage_id": stage_id,
+                "agent_id": agent_id,
                 "tool_name": "browser_use",
-                "is_long_tail": True,  # 标识为长尾工具
-                "result": execute_result.get("browser_use_result", {})
             }
         }  
 

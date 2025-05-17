@@ -1,11 +1,52 @@
 '''
 技能名称: Tool Decision
 期望作用: Agent通过Tool Decision处理长尾工具的返回结果，并决定下一步该工具的执行或是结束长尾工具调用
+    该技能会调用LLM接收并处理长尾工具的返回结果，并决定下一步该工具的调用的方向（指导指令生成步骤）或是结束长尾工具调用。
 
-Tool Decision向Agent提供了处理长尾工具返回结果的能力，能够根据工具的返回结果决定：
-1. 是否继续调用工具
-2. 如果继续，调用哪个工具及其参数
-3. 如果不继续，如何结束工具调用流程
+如果工具返回结果需要向LLM确认，并反复多次调用该工具的，这种情况为工具的长尾调用。
+同一个工具的连续多次调用，需要由LLM不断判断每一步工具使用的方向。
+长尾工具会在工具步骤执行后将工具返回结果经由SyncState以消息的方式,让Agent追加一个Tool Decision来决策工具否继续调用及如何继续调用
+
+因此多次调用的长尾工具:
+    以InstructionGeneration开始，以ToolDecision结尾，其中可能包含多次(指令生成-工具执行)的步骤。
+    ([I.G.] -> [Tool]) -> [ToolDecision] -> ([I.G.] -> [Tool]) -> [ToolDecision] -> ...
+
+    对于单次调用的一般工具：以InstructionGeneration开始，以具体工具步骤结尾。
+    对于多次调用的长尾工具：以InstructionGeneration开始，以ToolDecision结尾，其中可能包含多次 (指令生成-工具执行) 的步骤。
+
+
+LLM需要获取足够进行决策判断的条件:
+1. 工具最初调用的意图  TODO（未确定获取来源）
+
+2. 工具当次调用的执行结果
+    由长尾工具在执行后将工具返回结果通过execute_output传出，使用"need_tool_decision"字段，SyncState会捕获该字段内容。
+    need_tool_decision字段需要包含：
+        "task_id" 指导SyncState构造的消息应当存于哪个任务消息队列中
+        "Stage_id" 保证和Stage相关性，可同一清除
+        "agent_id" 指导MessageDispatcher从任务消息队列中获取到消息时，应当将消息发送给谁
+        "tool_name" 指导Agent接收到消息后，追加ToolDecision技能步骤的决策结果应当使用哪个工具
+    注：工具当次调用结果不需要单独传出，由Tool Decision执行时，获取该工具的历史调用结果一并获取即可。
+
+3. 工具历史调用的执行结果  TODO（未确定获取来源）
+
+4. 由工具定义的不同决策对应不同格式指令的说明  TODO
+    Tool Decision不需要知道具体工具指令调用方式，Tool Decision只需要给出下一步工具调用的执行方向，
+    由Instruction Generation根据工具具体提示生成具体工具调用指令
+
+
+说明:
+    该Tool Decision是MAS中的一个经典循环，执行该技能前有：
+        Step（具体工具Tool执行）-> SyncState（生成指令消息）-> MessageDispatcher（分发消息给对应Agent）->
+        Agent（receive_message处理消息）-> Step（插入一个ToolDecision步骤）
+    
+    TODO：ToolDecision执行暂未实现
+    执行该技能后，如果Tool Decision继续工具调用则有： TODO：追加step还需要经过SyncState吗？
+        Step（ToolDecision技能执行）-> SyncState（生成指令消息）-> MessageDispatcher（分发消息给对应Agent）->
+        Agent（receive_message处理消息）-> Step（插入一个InstructionGeneration步骤和对应的Tool步骤）
+
+    执行该技能后，如果Tool Decision终止工具继续调用则有：
+        Step（ToolDecision技能执行）
+
 
 提示词顺序（系统 → 角色 → (目标 → 规则) → 记忆）
 
@@ -17,11 +58,12 @@ Tool Decision向Agent提供了处理长尾工具返回结果的能力，能够�
             1.2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
         1.3 tool_decision step:（# 一级标题）
             1.3.1 step.step_intention 当前步骤的简要意图
-            1.3.2 step.text_content 工具返回结果和相关上下文
+            1.3.2 step.text_content 长尾工具提供的返回结果
             1.3.3 技能规则提示(tool_decision_config["use_prompt"])
-        1.4 持续性记忆:（# 一级标题）
-            1.4.1 Agent持续性记忆说明提示词（## 二级标题）
-            1.4.2 Agent持续性记忆内容提示词（## 二级标题）
+        1.4 该工具历史执行结果（# 一级标题） TODO未实现
+        1.5 持续性记忆:（# 一级标题）
+            1.5.1 Agent持续性记忆说明提示词（## 二级标题）
+            1.5.2 Agent持续性记忆内容提示词（## 二级标题）
 
     2. llm调用
     3. 解析llm返回的决策指令
@@ -80,56 +122,69 @@ class ToolDecisionSkill(Executor):
 
     def get_tool_decision_prompt(self, step_id: str, agent_state: Dict[str, Any]):
         '''
-        组装提示词
-        1. MAS系统提示词（# 一级标题）
-        2. Agent角色提示词（# 一级标题）
-        3. Tool Decision步骤提示词（# 一级标题）
-        4. 持续性记忆提示词（# 一级标题）
+        组装提示词:
+        1 MAS系统提示词（# 一级标题）
+        2 Agent角色:（# 一级标题）
+            2.1 Agent角色背景提示词（## 二级标题）
+            2.2 Agent可使用的工具与技能权限提示词（## 二级标题）
+        3 tool_decision step:（# 一级标题）
+            3.1 step.step_intention 当前步骤的简要意图
+            3.2 step.text_content 长尾工具提供的返回结果
+            3.3 技能规则提示(tool_decision_config["use_prompt"])
+        4 该工具历史执行结果（# 一级标题） TODO未实现
+        5 持续性记忆:（# 一级标题）
+            5.1 Agent持续性记忆说明提示词（## 二级标题）
+            5.2 Agent持续性记忆内容提示词（## 二级标题）
         '''
-        # 获取当前步骤信息
-        step = agent_state["agent_step"].get_step(step_id)[0]
-        step_intention = step.step_intention
-        text_content = step.text_content
-        
-        # 组装最终的提示词
         md_output = []
-        
-        # 1. 获取基础MAS系统提示词
-        system_prompt = self.get_base_prompt(key="system_prompt")
-        md_output.append(f"# 多智能体系统 MAS\n{system_prompt}\n")
-        md_output.append("Tool Decision是连接工具执行和指令生成的关键决策步骤，\n"
-                       "你需要基于工具返回结果决定是继续调用工具还是结束工具调用流程。\n")
-        
-        # 2. 获取Agent角色提示词
-        role_prompt = self.get_agent_role_prompt(agent_state)
-        md_output.append(f"# Agent角色\n{role_prompt}\n")
-        
-        # 3. 获取技能与工具提示
-        skills_tools_prompt = self.get_skill_and_tool_prompt(agent_state["skills"], agent_state["tools"])
-        md_output.append(f"{skills_tools_prompt}\n")
 
-        # 4. Tool Decision step提示词
+        # 提前获取该技能需要决策的工具名称，以便获取工具历史结果提示词时传入
+        step_state = agent_state["agent_step"].get_step(step_id)[0]
+        text_content = step_state.text_content  # text_content中包含 <tool_name></tool_name> 用于指示技能执行时获取哪些工具历史结果
+        match = re.search(r"<tool_name>\s*(.*?)\s*</tool_name>", text_content)
+        tool_name = match.group(1)
+
+        # 1. 获取MAS系统的基础提示词
+        md_output.append("# 系统提示 system_prompt\n")
+        system_prompt = self.get_base_prompt(key="system_prompt")  # 已包含 # 一级标题的md
+        md_output.append(f"{system_prompt}\n")
+
+
+        # 2. 组装角色提示词
+        md_output.append("# Agent角色\n")
+        # 角色背景
+        agent_role_prompt = self.get_agent_role_prompt(agent_state)  # 不包含标题的md格式文本
+        md_output.append(f"## 你的角色信息 agent_role\n"
+                         f"{agent_role_prompt}\n")
+        # 工具与技能权限
+        available_skills_and_tools = self.get_skill_and_tool_prompt(agent_state["skills"],
+                                                                    agent_state["tools"])  # 包含###三级标题的md
+        md_output.append(f"## 角色可用技能与工具 available_skills_and_tools\n"
+                         f"{available_skills_and_tools}\n")
+
+
+        # 3. Tool Decision step提示词
         md_output.append(f"# 当前需要执行的步骤 current_step\n")
         current_step = self.get_current_skill_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
         md_output.append(f"{current_step}\n")
-        
-        # 从step.text_content中再次强调上一个工具的相关信息，帮助tool_decision技能进行决策
-        if text_content:
-            prvious_tool_info = text_content
-            md_output.append(f"**上一个工具相关信息**, 这是你决定是继续调用工具还是结束工具调用的主要依据:{prvious_tool_info}\n")
-        
-        # 4. 持续性记忆提示词
-        # 获取基础持续性记忆提示词
-        base_persistent_memory_prompt = self.get_base_prompt(key="persistent_memory_prompt")
-        md_output.append(f"# 持续性记忆\n\n"
-                       f"## 持续性记忆使用规则说明:\n"
-                       f"{base_persistent_memory_prompt}\n")
-        
-        # 获取当前持续性记忆内容
-        persistent_memory = self.get_persistent_memory_prompt(agent_state)
-        md_output.append(f"## 你已有的持续性记忆内容:\n"
-                       f"{persistent_memory}\n")
-        
+
+
+        # 4. 获取该工具历史执行结果
+        md_output.append(f"# 工具历史执行结果 history_tools_result\n")
+        history_tools_result = self.get_history_tools_result_prompt(step_id, agent_state, tool_name)  # TODO 未实现
+        md_output.append(f"{history_tools_result}\n")
+
+        # 5. 持续性记忆提示词
+        md_output.append("# 持续性记忆persistent_memory\n")
+        # 获取persistent_memory的使用说明
+        base_persistent_memory_prompt = self.get_base_prompt(key="persistent_memory_prompt")  # 不包含标题的md格式文本
+        md_output.append(f"## 持续性记忆使用规则说明：\n"
+                         f"{base_persistent_memory_prompt}\n")
+        # persistent_memory的具体内容
+        persistent_memory = self.get_persistent_memory_prompt(agent_state)  # 不包含标题的md格式文本
+        md_output.append(f"## 你已有的持续性记忆内容：\n"
+                         f"{persistent_memory}\n")
+
         return "\n".join(md_output)
 
     def get_execute_output(

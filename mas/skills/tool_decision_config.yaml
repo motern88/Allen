@@ -6,43 +6,23 @@
 use_guide:
   skill_name: "tool_decision"
   description: |
-    该技能负责调用LLM接收并处理长尾工具的返回结果，并决定下一步该工具的执行或是结束长尾工具调用。
-    当Agent需要处理长尾工具返回的结果并决定是否继续调用工具时，可以使用该技能。
-    长尾工具是指一系列连续性工具调用，可能需要多次交互才能完成任务。
+    **tool_decision技能不允许在Planning/Reflection时由Agent主动使用！！**
+    该技能负责调用LLM接收并处理长尾工具的返回结果，
+    并决定下一步该工具的执行（指导指令生成步骤）或是结束长尾工具调用。
     
-    该技能的主要功能：
-    1. 分析上一个工具的返回结果
-    2. 决定是否需要继续调用工具
-    3. 如果需要继续，确定下一步调用的工具名称和参数提示（用于指导InstructionGeneration生成具体参数）
-    4. 如果不需要继续，正确结束工具调用流程
-    
-    工具长尾调用流程：([InstructionGeneration] -> [Tool]) -> [ToolDecision] -> ([InstructionGeneration] -> [Tool]) -> ...
-    
-    **使用tool_decision时请在step.step_intention与step.text_content中清楚写明意图与工具返回结果**
+    该技能的触发只由长尾工具主动触发
+    （长尾工具是指同一个工具的连续多次调用，需要由LLM不断判断每一步工具使用的方向）
+    **tool_decision技能不允许在Planning/Reflection时由Agent主动使用！！**
 
-# 技能实际调用的提示词  
+# 技能实际调用的提示词  TODO：skill_prompt和return_format提示词
 use_prompt:  
   skill_name: "tool_decision"  
   skill_prompt: |
-    **你现在正在执行tool_decision技能，你需要分析上一个工具的返回结果并决定下一步行动。**
-    
-    长尾工具执行流程：([InstructionGeneration] -> [Tool]) -> [ToolDecision] -> ([InstructionGeneration] -> [Tool]) -> ...
-    
-    作为Tool Decision技能执行者，你处于长尾工具调用的关键决策点，你需要：
-    
-    1. 仔细分析上一个工具的返回结果
-    2. 决定是否需要继续调用工具来完成当前任务
-    3. 如果需要继续，确定下一步调用的工具名称和参数提示（用于指导InstructionGeneration生成具体参数）
-    4. 如果任务已完成或无法继续，决定结束工具调用流程
-    
-    请注意：
-    - 每次决策都应基于当前工具的返回结果和任务上下文
-    - 如果工具返回错误或不符合预期，你需要决定是重试还是尝试其他方法
-    - 保持工具调用的效率，避免不必要的调用
-    - 当任务目标已达成时，应及时结束工具调用
-    - 如果决定继续，你的决策会触发一个新的InstructionGeneration步骤，而不是直接执行工具
+    **你现在正在执行tool_decision技能，你需要分析长尾工具的返回结果（工具返回结果于"history_tools_result"中）并决定下一步该工具的执行（指导指令生成步骤）或是结束长尾工具调用。**
+        
+    结合工具调用的最初意图,该工具的历史长尾调用结果
 
-    **根据你当前步骤意图和工具返回结果，仔细按照return_format中的格式返回具体指令**
+    **根据你当前步骤意图，仔细按照return_format中的格式返回具体指令**
 
   return_format: |
     **输出工具决策指令格式为字典，根据你的决策填充适当的字段：**
@@ -78,5 +58,5 @@ use_prompt:
     
     **请将你的指令构造结果用<tool_decision>和</tool_decision>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例： 
      <tool_decision>
-     具体决策指令...
+     具体工具调用决策...
      </tool_decision>
