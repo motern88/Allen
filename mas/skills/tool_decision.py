@@ -47,16 +47,6 @@ LLM需要获取足够进行决策判断的条件:
     执行该技能后，如果Tool Decision终止工具继续调用则有：
         Step（ToolDecision技能执行）
 
-=======
-期望作用:Tool Decision 是一种专门用于处理长尾工具调用决策的智能体技能。当Agent执行完一个工具后，Tool Decision 负责分析工具返回结果，并做出下一步决策：是继续调用工具还是结束工具调用流程。
-
-核心功能：
-1.分析工具执行结果：评估上一个工具执行的返回内容和效果
-2.决策制定：基于分析结果，决是否继续调用工具
-· 如果继续，明确需要调用的工具及其参数
-· 如果不继续，提供合理的结束原因及最终结果
-3.状态管理：更新智能体的工作状态和持续性记忆
->>>>>>> e9780f95325519911f07d64aea76d65ee3dc273f
 
 提示词顺序（系统 → 角色 → (目标 → 规则) → 记忆）
 
@@ -91,10 +81,6 @@ from mas.agent.state.step_state import StepState, AgentStep
 
 @Executor.register(executor_type="skill", executor_name="tool_decision")
 class ToolDecisionSkill(Executor):
-    '''
-    工具决策技能
-    处理长尾工具调用，根据上一步骤的工具执行结果，决定是继续调用工具还是结束调用
-    '''
     def __init__(self):
         super().__init__()
 
@@ -183,6 +169,7 @@ class ToolDecisionSkill(Executor):
         md_output.append(f"# 工具历史执行结果 history_tools_result\n")
         history_tools_result = self.get_history_tools_result_prompt(step_id, agent_state, tool_name)  # TODO 未实现
         md_output.append(f"{history_tools_result}\n")
+
 
         # 5. 持续性记忆提示词
         md_output.append("# 持续性记忆persistent_memory\n")
