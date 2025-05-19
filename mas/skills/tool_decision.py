@@ -163,7 +163,6 @@ class ToolDecisionSkill(Executor):
         md_output.append(f"# 该工具历史的历史信息 tool_history\n")
         history_tools_result = self.get_tool_history_prompt(step_id, agent_state, tool_name)  # 不包含标题的md格式文本
         md_output.append(f"{history_tools_result}\n")
-        print(history_tools_result)
 
         # 5. 持续性记忆提示词
         md_output.append("# 持续性记忆persistent_memory\n")
@@ -235,7 +234,7 @@ class ToolDecisionSkill(Executor):
         
         # 1. 组装Tool Decision提示词
         tool_decision_prompt = self.get_tool_decision_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
-        # print(tool_decision_prompt)
+        print(tool_decision_prompt)
         
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
@@ -342,7 +341,7 @@ if __name__ == "__main__":
     step2 = StepState(
         task_id="0001",stage_id="0001",agent_id="0001",
         step_intention="获取候选人简历",
-        step_type="skill",
+        step_type="tool",
         executor="browser_use",
         text_content="打开Boss直聘网站获取候选人简历",
         execute_result={"browser_use":
@@ -373,7 +372,7 @@ if __name__ == "__main__":
     step5 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="获取候选人简历",
-        step_type="skill",
+        step_type="tool",
         executor="browser_use",
         text_content="打开Boss直聘网站获取候选人简历",
         execute_result={"browser_use":
@@ -426,7 +425,7 @@ if __name__ == "__main__":
     step9 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="下载候选人简历",
-        step_type="skill",
+        step_type="tool",
         executor="browser_use",
         text_content="在当前页面上点击候选人简历下载按钮",
         execute_result={"browser_use":

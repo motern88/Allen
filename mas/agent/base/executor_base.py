@@ -246,6 +246,7 @@ class Executor(ABC):
                 f"- 文本内容(skills): {step.text_content}\n",
                 f"- 指令内容: {json.dumps(step.instruction_content, ensure_ascii=False) if step.instruction_content else '无'}\n",
                 f"- 执行结果: {json.dumps(step.execute_result, ensure_ascii=False) if step.execute_result else '无'}\n",
+                f"- 执行状态: {step.execution_state}\n",
             ]
             md_output.append(f"{step_info}")
         md_output.append(f"\n以上是已执行step信息（共 {len(history_steps)} 步）")
@@ -289,19 +290,25 @@ class Executor(ABC):
         # 2 提取当前阶段最近一段连续的 Tool -> ToolDecision 调用链
         valid_steps = []
         i = len(history_steps) - 1
+        break_loop = False  # 标记遍量，方便内循环的条件判断不仅打破内循环，且能够打破外循环
+        got_first_tool = False   # 标记是否获取到第一个Tool
 
-        while i >= 0:
+        while i >= 0 and not break_loop:
             step = history_steps[i]
+            # print(f"[DEBUG] 获取到最近的第一个Tool: idx={i}, executor={step.executor}")
 
             # 2.1 从最近的 Tool 开始（匹配工具名t ool_name）
             if step.type == "tool" and step.executor == tool_name:
                 valid_steps.insert(0, step)
+                got_first_tool = True   # 标记已经获取到第一个Tool
                 j = i - 1
 
                 # 2.2 向前寻找 ToolDecision
                 # （跳过允许的 gap 步骤）
                 while j >= 0:
                     td_candidate = history_steps[j]
+                    # print(f"[DEBUG] 当前步骤: idx={j}, executor={td_candidate.executor}")
+
                     if td_candidate.executor == "tool_decision":
                         valid_steps.insert(0, td_candidate)
 
@@ -317,20 +324,27 @@ class Executor(ABC):
                                 k -= 1
                         else:
                             # 理论上不该触发：ToolDecision 前没找到 Tool
+                            # print(f"[executor][get_tool_history_prompt]没有找到 ToolDecision 前的 Tool，终止")
+
+                            break_loop = True
                             i = -1
                         break
 
                     elif td_candidate.executor in ["instruction_generation", "send_message"]:
                         j -= 1  # 跳过 gap 步骤继续找 ToolDecision
                     else:
-                        # 2.4 遇到非法步骤，说明该工具的连续调用被打断，终止
-                        i = -1
+                        # 2.4 遇到非法步骤，说明该工具的连续调用被打断，终止所有循环
+                        break_loop = True
                         break
                 else:
                     # 2.5 没有找到更早的 ToolDecision，终止
-                    i = -1
+                    break_loop = True
+                    break
             else:
                 # 继续往前找最近一个 Tool 步骤
+                if got_first_tool:
+                    # 如果已经找到第一个 Tool，则不需要再继续往前找了
+                    break_loop = True
                 i -= 1
 
         # 4 将找到的工具链结构化组装成提示词
@@ -339,17 +353,17 @@ class Executor(ABC):
             # 3 获取工具最初调用意图
             if i == 0:
                 md_output.append(
-                    f"---------工具最初调用意图--------\n"
+                    f"{tool_name}工具最初调用意图：\n"
                     f"- 步骤意图：{step.step_intention}\n"
                     f"- 详细说明：{step.text_content}\n"
                 )
             # 获取工具和工具决策的步骤执行结果
-            if step.executor in ["tool", "tool_decision"]:
-                md_output.append(
-                    f"-------------step-------------\n"
-                    f"- 步骤名: [{step.type}]{step.executor}\n"
-                    f"- 执行结果: {json.dumps(step.execute_result, ensure_ascii=False) if step.execute_result else '无'}\n"
-                )
+            md_output.append(
+                f"step：\n"
+                f"- 步骤名称: {step.executor}\n"
+                f"- 执行结果: {json.dumps(step.execute_result, ensure_ascii=False) if step.execute_result else '无'}\n"
+            )
+        # print(f"[DEBUG] 最终组装提示信息，共 {len(md_output)} 段")
 
         return "\n".join(md_output)
 
