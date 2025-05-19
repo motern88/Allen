@@ -252,12 +252,107 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
-    # TODO:组装特定工具的历史步骤执行结果提示词
-    def get_history_tools_result_prompt(self, step_id, agent_state, tool_name):
+    # 组装指定长尾工具的历史调用信息
+    def get_tool_history_prompt(self, step_id, agent_state, tool_name):
         '''
-        接收tool_name，向前查找当前stage_id下所有该工具的执行信息，并将其结构化组装。
-        本方法应用于tool_decision中用于获取 工具历史调用的执行结果 以辅佐决策。
+        接收tool_name，向前提取当前stage_id下最新的长尾工具连续调用步骤链
+        根据筛选的连续调用步骤链，结构化组装其提示信息：
+            - 该工具的历次调用结果
+            - 该工具的历次工具决策
+            - 该工具最初的执行意图
+
+        本方法应用于tool_decision中用于获取该工具的历史执行结果、历史调用决策与最初执行意图
+
+        执行步骤如下：
+
+        1 获取当前阶段的所有步骤
+        2 从后向前遍历所有步骤获取executor来比较，为了避免获取到该阶段下前一段长尾工具的调用：
+            从最近一次 [Tool] 开始，尝试向前“恢复”出成对的 [Tool] -> [ToolDecision]，直到不能再恢复。
+            2.1 从末尾倒序遍历 steps 找到第一个 Tool（匹配工具名），作为起点
+            2.2 从该 Tool 向前寻找最近的 ToolDecision
+                （中间允许跳过 InstructionGeneration 和 SendMessage，但如果存在其他步骤则视为非法，终止这轮）
+            2.3 一旦找到了 ToolDecision，说明前面是一个完整调用：
+                一定会存在 Tool -> ToolDecision 成对的步骤。
+                继续寻找 ToolDecision 前的 Tool ，把这一对 Tool -> ToolDecision 都加入结果，
+                随后以这一对调用的开头 Tool 为新的起点。
+            2.4 在新的 Tool 作为起点，继续重复2.2向前查找，直到中途出现非法步骤（如遇到不是 tool_decision 又不是 gap 的步骤）
+            2.5 如果向前找 [Tool] 的前一个有效步骤（排除[InstructionGeneration]和[SendMessage]）非[ToolDecision]
+                则终止查找。
+        3 获取最初工具调用步骤意图
+        4 将恢复的历史 Tool / ToolDecision 步骤组装为结构化提示词（Markdown格式）
         '''
+        # 1 获取当前阶段的所有步骤
+        agent_step = agent_state["agent_step"]
+        current_step = agent_step.get_step(step_id)[0]
+        history_steps = agent_step.get_step(stage_id=current_step.stage_id)  # 根据当前步骤的stage_id查找所有步骤
+
+        # 2 提取当前阶段最近一段连续的 Tool -> ToolDecision 调用链
+        valid_steps = []
+        i = len(history_steps) - 1
+
+        while i >= 0:
+            step = history_steps[i]
+
+            # 2.1 从最近的 Tool 开始（匹配工具名t ool_name）
+            if step.type == "tool" and step.executor == tool_name:
+                valid_steps.insert(0, step)
+                j = i - 1
+
+                # 2.2 向前寻找 ToolDecision
+                # （跳过允许的 gap 步骤）
+                while j >= 0:
+                    td_candidate = history_steps[j]
+                    if td_candidate.executor == "tool_decision":
+                        valid_steps.insert(0, td_candidate)
+
+                        # 2.3 ToolDecision 前面一定存在配对的 Tool，直接向前找到最近的一个 Tool 并加入
+                        k = j - 1
+                        while k >= 0:
+                            maybe_tool = history_steps[k]
+                            if maybe_tool.type == "tool" and maybe_tool.executor == tool_name:
+                                valid_steps.insert(0, maybe_tool)
+                                i = k - 1  # 在外循环中继续向前查找下一个 Tool -> ToolDecision 配对
+                                break
+                            else:
+                                k -= 1
+                        else:
+                            # 理论上不该触发：ToolDecision 前没找到 Tool
+                            i = -1
+                        break
+
+                    elif td_candidate.executor in ["instruction_generation", "send_message"]:
+                        j -= 1  # 跳过 gap 步骤继续找 ToolDecision
+                    else:
+                        # 2.4 遇到非法步骤，说明该工具的连续调用被打断，终止
+                        i = -1
+                        break
+                else:
+                    # 2.5 没有找到更早的 ToolDecision，终止
+                    i = -1
+            else:
+                # 继续往前找最近一个 Tool 步骤
+                i -= 1
+
+        # 4 将找到的工具链结构化组装成提示词
+        md_output = []
+        for i, step in enumerate(valid_steps):
+            # 3 获取工具最初调用意图
+            if i == 0:
+                md_output.append(
+                    f"---------工具最初调用意图--------\n"
+                    f"- 步骤意图：{step.step_intention}\n"
+                    f"- 详细说明：{step.text_content}\n"
+                )
+            # 获取工具和工具决策的步骤执行结果
+            if step.executor in ["tool", "tool_decision"]:
+                md_output.append(
+                    f"-------------step-------------\n"
+                    f"- 步骤名: [{step.type}]{step.executor}\n"
+                    f"- 执行结果: {json.dumps(step.execute_result, ensure_ascii=False) if step.execute_result else '无'}\n"
+                )
+
+        return "\n".join(md_output)
+
 
     # 组装为tool_step执行指令生成时的提示词
     def get_tool_instruction_generation_step_prompt(self, step_id, agent_state):
@@ -294,7 +389,7 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
-
+    # 指令生成技能获取下一个工具step提示词
     def get_next_tool_step(self, current_step_id, agent_state) -> Optional[StepState]:
         '''
         获取当前步骤之后的下一个工具步骤。
@@ -339,7 +434,7 @@ class Executor(ABC):
         ]
         '''
         agent_step = agent_state["agent_step"]
-        current_step = agent_step.get_step(step_id)[0]  # 获取当前Planning step的信息
+        current_step = agent_step.get_step(step_id)[0]  # 获取当前step的信息
         for step in planned_step:
             # 构造新的StepState
             step_state = StepState(
@@ -353,7 +448,42 @@ class Executor(ABC):
             )
             # 添加到AgentStep中
             agent_step.add_step(step_state)
-            # 记录在工作记忆中
-            agent_state["working_memory"][current_step.task_id][current_step.stage_id,].append(step_state.step_id)
 
 
+    # 为tool_decision技能实现通用add_next_step的方法
+    def add_next_step(
+        self,
+        planned_step: List[Dict[str, Any]],
+        step_id: str,
+        agent_state,
+    ):
+        '''
+        为agent_step的列表中插入多个Step (插入在下一个待执行的步骤之前)
+
+        接受planned_step格式为：
+        [
+            {
+                "step_intention": str,
+                "type": str,
+                "executor": str,
+                "text_content": str,
+            },
+            ...
+        ]
+        '''
+        agent_step = agent_state["agent_step"]
+        current_step = agent_step.get_step(step_id)[0]  # 获取当前step的信息
+        # 倒序获取
+        for step in reversed(planned_step):
+            # 构造新的StepState
+            step_state = StepState(
+                task_id=current_step.task_id,
+                stage_id=current_step.stage_id,
+                agent_id=current_step.agent_id,
+                step_intention=step["step_intention"],
+                step_type=step["type"],
+                executor=step["executor"],
+                text_content=step["text_content"]
+            )
+            # 插入到AgentStep中
+            agent_step.add_next_step(step_state)

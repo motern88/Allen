@@ -14,49 +14,53 @@ use_guide:
     （长尾工具是指同一个工具的连续多次调用，需要由LLM不断判断每一步工具使用的方向）
     **tool_decision技能不允许在Planning/Reflection时由Agent主动使用！！**
 
-# 技能实际调用的提示词  TODO：skill_prompt和return_format提示词
+# 技能实际调用的提示词
 use_prompt:  
   skill_name: "tool_decision"  
   skill_prompt: |
-    **你现在正在执行tool_decision技能，你需要分析长尾工具的返回结果（工具返回结果于"history_tools_result"中）并决定下一步该工具的执行（指导指令生成步骤）或是结束长尾工具调用。**
-        
-    结合工具调用的最初意图,该工具的历史长尾调用结果
-
+    **你现在正在执行tool_decision技能，你需要分析长尾工具的返回结果（工具历史执行结果于"tool_history"中）并决定下一步该工具的执行（指导指令生成步骤）或是结束长尾工具调用。**
+    
+    说明：
+      长尾工具指的是同一个工具的连续多次调用，需要由LLM不断判断每一步工具使用的方向。
+      一般以InstructionGeneration开始，以ToolDecision结尾，其中可能包含多次(指令生成-工具执行)的步骤：
+      [I.G.] -> [Tool] -> [T.D.] -> [I.G.] -> [Tool] -> [T.D.] -> ...
+    
+    你需要充分理解该工具历史的历史信息(tool_history)中的内容。
+    其中包含了该长尾工具最初调用意图、该长尾工具历次连续调用的tool执行结果与tool_decision决策
+    
+    你需要贯彻该长尾工具的最初调用意图，结合工具历次调用结果与历次决策，生成新的工具决策以引导工具完成最初调用意图。
+    
     **根据你当前步骤意图，仔细按照return_format中的格式返回具体指令**
 
   return_format: |
-    **输出工具决策指令格式为字典，根据你的决策填充适当的字段：**
+    - 如果你认为该工具调用未能完成其最初意图，你决定继续执行该工具，则你需要生成接下来instruction_generation和具体工具步骤的步骤指令。
     
-    - 如果决定继续调用工具，需要填充以下字段：
-      # 下面是继续调用工具的JSON格式
-      # action：设置为"continue"
-      # tool_name：下一步要调用的工具名称
-      # tool_params：工具参数提示，用于指导InstructionGeneration生成具体参数
-      # previous_result：可选，可以包含对上一个工具结果的简要总结
-      # reason：为什么需要继续调用此工具的原因
-      {
-        "action": "continue",
-        "tool_name": "<tool_name>",
-        "tool_params": {
-          "param1": "value1",
-          "param2": "value2"
+      其中你只需要填充三个字段的内容：
+        工具步骤的 step_intention (str): 步骤的简要意图
+        工具步骤的 executor (str): 从工具历史执行信息 tool_history 中可以看到其工具的具体名称
+        工具步骤的 text_content (str): 你需要工具在下次调用时完成的具体目标的详细提示文本
+    
+      步骤指令具体格式如下：
+      <tool_decision>
+      [
+        {
+          "step_intention": "生成指令",
+          "type": "skill",
+          "executor": "instruction_generation",
+          "text_content": "为下一个工具生成具体工具调用指令",
         },
-        "previous_result": "<previous_result>",
-        "reason": "<reason>"
-      }
+        {
+          "step_intention": <继续调用的简要意图>,
+          "type": "tool",
+          "executor": <工具具体名称>,
+          "text_content": <继续调用具体方向的详细说明>,
+        }
+      ]
+      </tool_decision>
     
-    - 如果决定结束工具调用流程，需要填充以下字段：
-      # 下面是结束工具调用的JSON格式
-      # action：设置为"terminate"
-      # result：最终结果的摘要
-      # reason：结束工具调用的原因
-      {
-        "action": "terminate",
-        "result": "<r>",
-        "reason": "<reason>"
-      }
     
-    **请将你的指令构造结果用<tool_decision>和</tool_decision>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例： 
-     <tool_decision>
-     具体工具调用决策...
-     </tool_decision>
+    - 如果你认为该工具调用已经完成其最初意图，你决定终止该工具的继续调用，则返回用<tool_decision>和</tool_decision>包裹的空指令：
+      <tool_decision>
+      </tool_decision>
+    
+    **请保证你的指令构造结果用<tool_decision>和</tool_decision>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例： 

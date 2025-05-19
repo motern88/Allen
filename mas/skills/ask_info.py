@@ -266,6 +266,9 @@ class AskInfoSkill(Executor):
             # 将等待标识ID添加到ask_instruction中
             ask_instruction["waiting_id"] = waiting_id
 
+            # step状态更新为 finished
+            agent_state["agent_step"].update_step_status(step_id, "finished")
+
             # 6. 构造execute_output，
             # 用于更新task_state.communication_queue和stage_state.every_agent_state
             # 传递查询指令

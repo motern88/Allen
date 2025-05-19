@@ -244,6 +244,9 @@ class TaskManagerSkill(Executor):
             new_persistent_memory = self.extract_persistent_memory(response)
             agent_state["persistent_memory"] += "\n" + new_persistent_memory
 
+            # step状态更新为 finished
+            agent_state["agent_step"].update_step_status(step_id, "finished")
+
             # 5. 构造execute_output，
             # 用于更新task_state.communication_queue和stage_state.every_agent_state
             # 传递任务指令

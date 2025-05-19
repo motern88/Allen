@@ -2,6 +2,7 @@
 技能名称: Tool Decision
 期望作用: Agent通过Tool Decision处理长尾工具的返回结果，并决定下一步该工具的执行或是结束长尾工具调用
     该技能会调用LLM接收并处理长尾工具的返回结果，并决定下一步该工具的调用的方向（指导指令生成步骤）或是结束长尾工具调用。
+    如果该技能不终止继续调用工具，则该技能能够为Agent追加一个Instruction Generation和一个该工具步骤
 
 如果工具返回结果需要向LLM确认，并反复多次调用该工具的，这种情况为工具的长尾调用。
 同一个工具的连续多次调用，需要由LLM不断判断每一步工具使用的方向。
@@ -16,7 +17,8 @@
 
 
 LLM需要获取足够进行决策判断的条件:
-1. 工具最初调用的意图  TODO（未确定获取来源）
+1. 工具最初调用的意图
+    工具最初的调用意图放在和工具的历史调用结果一并获取，executor_base.get_tool_history_prompt
 
 2. 工具当次调用的执行结果
     由长尾工具在执行后将工具返回结果通过execute_output传出，使用"need_tool_decision"字段，SyncState会捕获该字段内容。
@@ -27,9 +29,10 @@ LLM需要获取足够进行决策判断的条件:
         "tool_name" 指导Agent接收到消息后，追加ToolDecision技能步骤的决策结果应当使用哪个工具
     注：工具当次调用结果不需要单独传出，由Tool Decision执行时，获取该工具的历史调用结果一并获取即可。
 
-3. 工具历史调用的执行结果  TODO（未确定获取来源）
+3. 该长尾工具的历史调用的执行结果和每次调用之间的历史决策
+    executor_base.get_tool_history_prompt获取。
 
-4. 由工具定义的不同决策对应不同格式指令的说明  TODO
+4. 由工具定义的不同决策对应不同格式指令的说明
     Tool Decision不需要知道具体工具指令调用方式，Tool Decision只需要给出下一步工具调用的执行方向，
     由Instruction Generation根据工具具体提示生成具体工具调用指令
 
@@ -38,14 +41,12 @@ LLM需要获取足够进行决策判断的条件:
     该Tool Decision是MAS中的一个经典循环，执行该技能前有：
         Step（具体工具Tool执行）-> SyncState（生成指令消息）-> MessageDispatcher（分发消息给对应Agent）->
         Agent（receive_message处理消息）-> Step（插入一个ToolDecision步骤）
-    
-    TODO：ToolDecision执行暂未实现
-    执行该技能后，如果Tool Decision继续工具调用则有： TODO：追加step还需要经过SyncState吗？
-        Step（ToolDecision技能执行）-> SyncState（生成指令消息）-> MessageDispatcher（分发消息给对应Agent）->
-        Agent（receive_message处理消息）-> Step（插入一个InstructionGeneration步骤和对应的Tool步骤）
+
+    执行该技能后，如果Tool Decision继续工具调用则有：
+        Step（ToolDecision技能确认工具继续调用，追加接下来的工具调用步骤）-> Step（InstructionGeneration）-> Step（对应Tool）
 
     执行该技能后，如果Tool Decision终止工具继续调用则有：
-        Step（ToolDecision技能执行）
+        Step（ToolDecision技能终止工具继续调用）
 
 
 提示词顺序（系统 → 角色 → (目标 → 规则) → 记忆）
@@ -60,14 +61,14 @@ LLM需要获取足够进行决策判断的条件:
             1.3.1 step.step_intention 当前步骤的简要意图
             1.3.2 step.text_content 长尾工具提供的返回结果
             1.3.3 技能规则提示(tool_decision_config["use_prompt"])
-        1.4 该工具历史执行结果（# 一级标题） TODO未实现
+        1.4 该工具的历史执行结果（# 一级标题）
         1.5 持续性记忆:（# 一级标题）
             1.5.1 Agent持续性记忆说明提示词（## 二级标题）
             1.5.2 Agent持续性记忆内容提示词（## 二级标题）
 
-    2. llm调用获取决策
-    3. 解析llm返回的决策指令（工具继续/终止）
-    4. 提取llm返回的持续性记忆信息，追加到Agent的持续性记忆中
+    2. llm调用
+    3. 解析llm返回的步骤信息，更新AgentStep中的步骤列表
+    4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
     5. 返回用于指导状态同步的execute_output
 '''
 import re
@@ -84,37 +85,30 @@ class ToolDecisionSkill(Executor):
     def __init__(self):
         super().__init__()
 
-    def extract_tool_decision(self, text: str) -> Optional[Dict[str, Any]]:
+    def extract_tool_decision_step(self, text: str) -> Optional[Dict[str, Any]]:
         '''
-        从文本中提取工具决策指令
+        从文本中提取工具决策步骤
         '''
         # 使用正则表达式提取<tool_decision>和</tool_decision>之间的内容
         matches = re.findall(r"<tool_decision>\s*(.*?)\s*</tool_decision>", text, re.DOTALL)
 
         if matches:
-            tool_decision = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
+            step_content = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
+
+            if not step_content:
+                # 内容为空，视为无决策，返回空列表
+                return []
 
             try:
-                tool_decision_dict = json.loads(tool_decision)
-                return tool_decision_dict
+                # 将字符串解析为 Python 列表
+                tool_decision_step = json.loads(step_content)
+                return tool_decision_step
             except json.JSONDecodeError:
-                print("JSON解析错误:", tool_decision)
+                print("解析 JSON 失败，请检查格式")
                 return None
         else:
-            print("没有找到<tool_decision>标签")
+            print("没有找到 <tool_decision> 标记")
             return None
-
-    def extract_persistent_memory(self, text: str) -> str:
-        '''
-        从文本中提取持续性记忆内容
-        '''
-        # 使用正则表达式提取<persistent_memory>和</persistent_memory>之间的内容
-        matches = re.findall(r"<persistent_memory>\s*(.*?)\s*</persistent_memory>", text, re.DOTALL)
-        
-        if matches:
-            return matches[-1].strip()  # 获取最后一个匹配的持续性记忆
-        else:
-            return ""  # 如果没有匹配，返回空字符串
 
     def get_tool_decision_prompt(self, step_id: str, agent_state: Dict[str, Any]):
         '''
@@ -127,7 +121,7 @@ class ToolDecisionSkill(Executor):
             3.1 step.step_intention 当前步骤的简要意图
             3.2 step.text_content 长尾工具提供的返回结果
             3.3 技能规则提示(tool_decision_config["use_prompt"])
-        4 该工具历史执行结果（# 一级标题） TODO未实现
+        4 该工具历史执行结果（# 一级标题）
         5 持续性记忆:（# 一级标题）
             5.1 Agent持续性记忆说明提示词（## 二级标题）
             5.2 Agent持续性记忆内容提示词（## 二级标题）
@@ -166,10 +160,10 @@ class ToolDecisionSkill(Executor):
 
 
         # 4. 获取该工具历史执行结果
-        md_output.append(f"# 工具历史执行结果 history_tools_result\n")
-        history_tools_result = self.get_history_tools_result_prompt(step_id, agent_state, tool_name)  # TODO 未实现
+        md_output.append(f"# 该工具历史的历史信息 tool_history\n")
+        history_tools_result = self.get_tool_history_prompt(step_id, agent_state, tool_name)  # 不包含标题的md格式文本
         md_output.append(f"{history_tools_result}\n")
-
+        print(history_tools_result)
 
         # 5. 持续性记忆提示词
         md_output.append("# 持续性记忆persistent_memory\n")
@@ -190,142 +184,125 @@ class ToolDecisionSkill(Executor):
         agent_state: Dict[str, Any],
         update_agent_situation: str,
         shared_step_situation: str,
-        tool_decision: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         '''
         构造Tool Decision技能的execute_output
-        1. update_agent_situation: "working" | "finished" | "failed"
-        2. shared_step_situation: 在任务共享消息池中显示的状态
-        3. tool_decision: 工具决策指令，可选
+        1. update_agent_situation:
+            通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态
+            (一般情况下，只有Summary技能完成时，该字段传入finished，其他步骤完成时，该字段都传入working)
+        2. shared_step_situation:
+            添加步骤信息到task共享消息池
         '''
-        # 获取步骤中的任务ID和阶段ID
-        step = agent_state["agent_step"].get_step(step_id)[0]
-        task_id = step.task_id
-        stage_id = step.stage_id
-        
-        # 构造基本的execute_output
-        execute_output = {
-            "update_stage_agent_state": {
-                "task_id": task_id,
-                "stage_id": stage_id,
-                "agent_id": agent_state["agent_id"],
-                "state": update_agent_situation,
-            },
-            "send_shared_message": {
-                "agent_id": agent_state["agent_id"],
-                "role": agent_state["role"],
-                "stage_id": stage_id,
-                "content": f"执行Tool Decision步骤: {shared_step_situation}"
-            }
+        execute_output = {}
+
+        # 1. 通过update_stage_agent_state字段指导sync_state更新stage_state.every_agent_state中自己的状态
+        # 获取当前步骤的task_id与stage_id
+        step_state = agent_state["agent_step"].get_step(step_id)[0]
+        task_id = step_state.task_id
+        stage_id = step_state.stage_id
+        # 构造execute_output
+        execute_output["update_stage_agent_state"] = {
+            "task_id": task_id,
+            "stage_id": stage_id,
+            "agent_id": agent_state["agent_id"],
+            "state": update_agent_situation,
         }
-        
-        # 如果有工具决策指令，添加到execute_output中
-        if tool_decision:
-            execute_output["tool_decision"] = tool_decision
-        
+
+        # 2. 添加步骤信息到task共享消息池
+        execute_output["send_shared_message"] = {
+            "agent_id": agent_state["agent_id"],
+            "role": agent_state["role"],
+            "stage_id": stage_id,
+            "content": f"执行Tool Decision步骤: {shared_step_situation}，"
+        }
+
         return execute_output
 
-    def execute(self, step_id: str, agent_state: Dict[str, Any]) -> Dict[str, Any]:
+    def execute(self, step_id: str, agent_state: Dict[str, Any]):
         '''
         Tool Decision技能的具体执行方法:
+        (如果继续工具调用，则要追加指令生成和工具step在execute内完成追加)
+
         1. 组装 LLM Tool Decision 提示词
         2. llm调用
-        3. 解析llm返回的决策指令
-        4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
-        5. 返回用于指导状态同步的execute_output
+        3. 记录规划结果到execute_result，并更新AgentStep中的步骤列表
+        4. 解析persistent_memory并追加到Agent持续性记忆中
+        5. 构造execute_output用于指导sync_state更新stage_state.every_agent_state中自己的状态
         '''
-        # 1. 更新步骤状态为运行中
+
+        # step状态更新为 running
         agent_state["agent_step"].update_step_status(step_id, "running")
         
-        # 2. 组装Tool Decision提示词
-        tool_decision_prompt = self.get_tool_decision_prompt(step_id, agent_state)
+        # 1. 组装Tool Decision提示词
+        tool_decision_prompt = self.get_tool_decision_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
+        # print(tool_decision_prompt)
         
-        # 3. 创建LLM上下文
+        # 2. LLM调用
         llm_config = agent_state["llm_config"]
-        llm_client = LLMClient(llm_config)
-        chat_context = LLMContext()
-        
-        # 4. 调用LLM
-        response = llm_client.chat_completion(
+        llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
+        chat_context = LLMContext(context_size=15)  # 创建一个对话上下文, 限制上下文轮数 15
+
+        chat_context.add_message("assistant", "好的，我会作为你提供的Agent角色，执行tool_decision操作，"
+                                              "根据工具历史调用信息 tool_history 进行准确的工具决策。"
+                                              "并在<tool_decision>和</tool_decision>之间输出我的工具决策结果，"
+                                              "(如果我认为需要继续调用工具，则输出的工具决策结果是要追加的指令生成和工具步骤；"
+                                              "如果我认为不需要继续调用工具，则输出的工具决策结果是空。)"
+                                              "在<persistent_memory>和</persistent_memory>之间输出我要追加的持续性记忆(如果我认为不需要追加我会空着)，")
+
+        response = llm_client.call(
             tool_decision_prompt,
             context=chat_context
         )
-        
-        # 5. 解析LLM返回的决策指令
-        tool_decision = self.extract_tool_decision(response)
-        
-        # 如果无法解析到决策指令，说明LLM没有返回规定格式的决策指令
-        if not tool_decision:
-            # 步骤状态更新为失败
+
+        # 打印LLM返回结果
+        print(response)
+
+        # 解析tool_decision_step
+        tool_decision_step = self.extract_tool_decision_step(response)
+
+        # 如果无法解析到工具决策步骤，说明LLM没有返回<tool_decision>包裹的决策
+        if not tool_decision_step:
+            # step状态更新为 failed
             agent_state["agent_step"].update_step_status(step_id, "failed")
             # 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
-            execute_output = self.get_execute_output(
-                step_id, 
-                agent_state, 
-                update_agent_situation="failed",
-                shared_step_situation="决策失败，无法解析决策指令"
-            )
+            execute_output = self.get_execute_output(step_id, agent_state, update_agent_situation="failed",
+                                                     shared_step_situation="failed")
             return execute_output
-        
-        # 6. 记录决策结果到execute_result
-        step = agent_state["agent_step"].get_step(step_id)[0]
-        execute_result = {"tool_decision": tool_decision}  # 构造符合execute_result格式的执行结果
-        step.update_execute_result(execute_result)
-        
-        # 7. 解析LLM返回的持续性记忆信息，追加到Agent的持续性记忆中
-        new_persistent_memory = self.extract_persistent_memory(response)
-        if new_persistent_memory:
+
+        else: # 解析到工具决策步骤
+            # LLM认为不需要继续调用工具，返回空的tool_decision_step
+            if len(tool_decision_step) == 0:
+                # 3. 记录tool_decision决策结果到execute_result
+                step = agent_state["agent_step"].get_step(step_id)[0]
+                execute_result = {"tool_decision": "结束该长尾工具的继续调用"}  # 构造符合execute_result格式的执行结果
+                step.update_execute_result(execute_result)
+
+            else:
+                # 3. 记录tool_decision决策结果到execute_result，并更新AgentStep中的步骤列表
+                step = agent_state["agent_step"].get_step(step_id)[0]
+                execute_result = {"tool_decision": tool_decision_step}  # 构造符合execute_result格式的执行结果
+                step.update_execute_result(execute_result)
+                # 更新AgentStep中的步骤列表
+                self.add_next_step(tool_decision_step, step_id, agent_state)
+
+            # 4. 解析persistent_memory并追加到Agent持续性记忆中
+            new_persistent_memory = self.extract_persistent_memory(response)
             agent_state["persistent_memory"] += "\n" + new_persistent_memory
-        
-        # 8. 步骤状态更新为已完成
-        agent_state["agent_step"].update_step_status(step_id, "finished")
-        
-        # 9. 构造execute_output
-        if tool_decision["action"] == "continue":
-            # 确保 tool_decision 中包含必要的字段
-            if "tool_name" not in tool_decision:
-                tool_decision["tool_name"] = "" # 防止缺失需要的字段
-                
-            if "tool_params" not in tool_decision or not isinstance(tool_decision["tool_params"], dict):
-                tool_decision["tool_params"] = {} # 防止缺失需要的字段
-                
-            if "reason" not in tool_decision:
-                tool_decision["reason"] = "需要继续执行以完成任务"
-                    
-            # 生成决策信息用于共享消息
-            shared_message = f"决定继续调用工具: {tool_decision['tool_name']}, 原因: {tool_decision['reason']}"
-            print(f"[ToolDecisionSkill] 决定继续执行工具 {tool_decision['tool_name']}")
-            
-            # 记录日志
-            print(f"[ToolDecisionSkill] Tool decision (continue): {json.dumps(tool_decision, ensure_ascii=False)}")
-            
-        else:  # action == "terminate"
-            # 确保 tool_decision 中包含必要的字段
-            if "result" not in tool_decision:
-                tool_decision["result"] = "没有返回明确的结果"
-                
-            if "reason" not in tool_decision:
-                tool_decision["reason"] = "任务已完成或无法继续"
-            
-            # 生成决策信息用于共享消息
-            shared_message = f"决定结束工具调用流程, 结果: {tool_decision['result']}, 原因: {tool_decision['reason']}"
-            print(f"[ToolDecisionSkill] 决定结束工具调用流程")
-            
-            # 记录日志
-            print(f"[ToolDecisionSkill] Tool decision (terminate): {json.dumps(tool_decision, ensure_ascii=False)}")
-            
-        
-        execute_output = self.get_execute_output(
-            step_id,
-            agent_state,
-            update_agent_situation="finished",
-            shared_step_situation=shared_message,
-            tool_decision=tool_decision
-        )
-        
-        # 清空对话历史
-        chat_context.clear()
-        return execute_output
+
+            # step状态更新为 finished
+            agent_state["agent_step"].update_step_status(step_id, "finished")
+
+            # 5. 构造execute_output用于指导sync_state更新stage_state.every_agent_state中自己的状态
+            execute_output = self.get_execute_output(
+                step_id,
+                agent_state,
+                update_agent_situation="working",
+                shared_step_situation="finished"
+            )
+
+            # 清空对话历史
+            chat_context.clear()
+            return execute_output
 
 
 # Debug
@@ -340,56 +317,149 @@ if __name__ == "__main__":
     agent_state = {  
         "agent_id": "0001",  
         "name": "灰风/小灰",
-        "role": "任务管理者",
-        "profile": "我是一名任务管理者，负责协调和管理任务的执行。",
-        "working_state": "Assigned tasks",  
+        "role": "网页操作员",
+        "profile": "负责操作网页",
+        "working_state": "idle",
         "llm_config": LLMConfig.from_yaml("mas/role_config/qwen235b.yaml"),  
         "working_memory": {},  
-        "persistent_memory": "之前我曾成功调用搜索工具获取信息",  
+        "persistent_memory": "",
         "agent_step": AgentStep("0001"),  
         "skills": ["planning", "reflection", "summary",  
-                   "instruction_generation", "quick_think", "think",  
-                   "send_message", "process_message", "task_manager",
-                   "tool_decision"],
-        "tools": ["search", "code_interpreter", "file_operation"],  
+                   "instruction_generation", "quick_think", "think", "tool_decision",
+                   "send_message", "process_message"],
+        "tools": ["browser_use",],
     }
 
     # 构造虚假的历史步骤
-    # 模拟前一个工具执行步骤
-    tool_step = StepState(
-        task_id="0001",
-        stage_id="0001",
-        agent_id="0001",
-        step_intention="执行搜索工具",
-        step_type="tool",
-        executor="search",
-        text_content="搜索关键词：人工智能应用",
-        execute_result={"status": "success", "results": ["文章1", "文章2", "文章3"]},
-    )
-    
-    # 模拟工具决策步骤
     step1 = StepState(
-        task_id="0001",
-        stage_id="0001",
-        agent_id="0001",
-        step_intention="处理搜索工具返回结果并决定下一步",
+        task_id="0001",stage_id="0001",agent_id="0001",
+        step_intention="指令生成",
+        step_type="skill",
+        executor="instruction_generation",
+        text_content="为下一个工具生成指令",
+        execute_result={"instruction_generation": "<错误获取！！！>"},
+    )
+    step2 = StepState(
+        task_id="0001",stage_id="0001",agent_id="0001",
+        step_intention="获取候选人简历",
+        step_type="skill",
+        executor="browser_use",
+        text_content="打开Boss直聘网站获取候选人简历",
+        execute_result={"browser_use":
+            {
+                "执行意图": "打开小弟直聘网站",
+                "执行命令": "<执行命令>",
+                "执行结果": "<执行错误！！！>",
+            }
+        },
+    )
+    step3 = StepState(
+        task_id="0001",stage_id="0001",agent_id="0001",
+        step_intention="反思",
+        step_type="skill",
+        executor="reflection",
+        text_content="进行反思",
+        execute_result={"reflection": "<工具步骤失败，重新执行工具步骤>"
+        },
+    )
+    step4 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="指令生成",
+        step_type="skill",
+        executor="instruction_generation",
+        text_content="为下一个工具生成指令",
+        execute_result={"instruction_generation": "<正确工具指令>"},
+    )
+    step5 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="获取候选人简历",
+        step_type="skill",
+        executor="browser_use",
+        text_content="打开Boss直聘网站获取候选人简历",
+        execute_result={"browser_use":
+            {
+                "执行意图": "打开小弟直聘网站",
+                "执行命令": "<执行命令>",
+                "执行结果": "<已经打开网站,呈现一些页面元素：1.候选人简历下载;2.简历上传;3.重置账号密码>",
+            }
+        },
+    )
+    step6 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="进行工具决策",
         step_type="skill",
         executor="tool_decision",
-        text_content="搜索工具返回结果：\n找到3篇关于人工智能应用的文章，但内容不够详细。需要决定是否继续搜索或使用其他工具获取更多信息。",
+        text_content="进行工具决策<tool_name>browser_use</tool_name>",
+        execute_result={"tool_decision":
+            [
+                {
+                    "step_intention": "生成指令",
+                    "type": "skill",
+                    "executor": "instruction_generation",
+                    "text_content": "为下一个工具生成具体工具调用指令",
+                },
+                {
+                    "step_intention": "下载候选人简历",
+                    "type": "tool",
+                    "executor": "browser_use",
+                    "text_content": "在当前页面上点击候选人简历下载按钮",
+                }
+            ]
+        },
+    )
+    step7 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="紧急处理消息恢复",
+        step_type="skill",
+        executor="send_message",
+        text_content="紧急处理消息恢复",
+        execute_result={"send_message": "<发送消息>"},
+    )
+    step8 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="指令生成",
+        step_type="skill",
+        executor="instruction_generation",
+        text_content="为下一个工具生成指令",
+        execute_result={"instruction_generation": "<正确工具指令>"},
+    )
+    step9 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="下载候选人简历",
+        step_type="skill",
+        executor="browser_use",
+        text_content="在当前页面上点击候选人简历下载按钮",
+        execute_result={"browser_use":
+            {
+                "执行意图": "下载候选人简历",
+                "执行命令": "<执行命令>",
+                "执行结果": "<点击候选人简历下载按钮,呈现一些页面元素：请先输入账号密码>",
+            }
+        },
+    )
+    step10 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="进行工具决策",
+        step_type="skill",
+        executor="tool_decision",
+        text_content="进行工具决策<tool_name>browser_use</tool_name>",
         execute_result={},
     )
 
-    agent_state["agent_step"].add_step(tool_step)
     agent_state["agent_step"].add_step(step1)
+    agent_state["agent_step"].add_step(step2)
+    agent_state["agent_step"].add_step(step3)
+    agent_state["agent_step"].add_step(step4)
+    agent_state["agent_step"].add_step(step5)
+    agent_state["agent_step"].add_step(step6)
+    agent_state["agent_step"].add_step(step7)
+    agent_state["agent_step"].add_step(step8)
+    agent_state["agent_step"].add_step(step9)
+    agent_state["agent_step"].add_step(step10)
 
-    step_id = agent_state["agent_step"].step_list[0].step_id  # 当前为第一个step
+    step_id = agent_state["agent_step"].step_list[9].step_id  # 当前为第十个step
 
     tool_decision_skill = ToolDecisionSkill()  # 实例化Tool Decision技能
     execute_output = tool_decision_skill.execute(step_id, agent_state)
-
-    # 打印执行结果
-    print("\n执行结果：")
-    print(json.dumps(execute_output, indent=2, ensure_ascii=False))
-
     # 打印step信息
     agent_state["agent_step"].print_all_steps()

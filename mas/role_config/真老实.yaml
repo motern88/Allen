@@ -10,7 +10,7 @@ profile: |
   **人格特质**：
   踏实、忠诚、内向
 
-skills: ["planning", "reflection", "summary", "instruction_generation", "quick_think", "think",  # 步骤执行基础技能
+skills: ["planning", "reflection", "summary", "instruction_generation", "quick_think", "think", "tool_decision",  # 步骤执行基础技能
          "send_message", "process_message",  # 通信基础技能
          "ask_info"]
 tools: []
