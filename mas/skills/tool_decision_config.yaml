@@ -47,13 +47,13 @@ use_prompt:
           "step_intention": "生成指令",
           "type": "skill",
           "executor": "instruction_generation",
-          "text_content": "为下一个工具生成具体工具调用指令",
+          "text_content": "为下一个工具生成具体工具调用指令"
         },
         {
           "step_intention": <继续调用的简要意图>,
           "type": "tool",
           "executor": <工具具体名称>,
-          "text_content": <继续调用具体方向的详细说明>,
+          "text_content": <继续调用具体方向的详细说明>
         }
       ]
       </tool_decision>

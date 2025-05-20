@@ -94,7 +94,6 @@ class ToolDecisionSkill(Executor):
 
         if matches:
             step_content = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
-
             if not step_content:
                 # 内容为空，视为无决策，返回空列表
                 return []
