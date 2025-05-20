@@ -280,7 +280,7 @@ class ToolDecisionSkill(Executor):
                 step = agent_state["agent_step"].get_step(step_id)[0]
                 execute_result = {"tool_decision": tool_decision_step}  # 构造符合execute_result格式的执行结果
                 step.update_execute_result(execute_result)
-                # 更新AgentStep中的步骤列表
+                # 更新AgentStep中的步骤列表，插入在下一个待执行步骤之前
                 self.add_next_step(tool_decision_step, step_id, agent_state)
 
             # 4. 解析persistent_memory并追加到Agent持续性记忆中

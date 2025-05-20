@@ -40,7 +40,7 @@ use_prompt:
         工具步骤的 executor (str): 从工具历史执行信息 tool_history 中可以看到其工具的具体名称
         工具步骤的 text_content (str): 你需要工具在下次调用时完成的具体目标的详细提示文本
     
-      步骤指令具体格式如下：
+      步骤指令具体格式如下，List[Dict[str:str]]：
       <tool_decision>
       [
         {

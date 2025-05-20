@@ -462,7 +462,8 @@ class Executor(ABC):
             )
             # 添加到AgentStep中
             agent_step.add_step(step_state)
-
+            # 记录在工作记忆中
+            agent_state["working_memory"][current_step.task_id][current_step.stage_id,].append(step_state.step_id)
 
     # 为tool_decision技能实现通用add_next_step的方法
     def add_next_step(
@@ -501,3 +502,5 @@ class Executor(ABC):
             )
             # 插入到AgentStep中
             agent_step.add_next_step(step_state)
+            # 记录在工作记忆中
+            agent_state["working_memory"][current_step.task_id][current_step.stage_id,].append(step_state.step_id)
