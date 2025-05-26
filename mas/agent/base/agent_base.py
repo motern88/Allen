@@ -49,7 +49,7 @@ class AgentBase():
         config,  # Agent配置文件,接收已经从yaml解析后的字典
         sync_state: SyncState,  # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给Agent)，由外部实例化后传给所有Agent
     ):
-        self.agent_id =  str(uuid.uuid4())# 生成唯一ID
+        self.agent_id =  str(uuid.uuid4())  # 生成唯一ID
         self.router = Router()  # 在action中用于分发具体executor的路由器，用于同步stage_state与task_state
 
         self.sync_state = sync_state  # 状态同步器
@@ -359,7 +359,7 @@ class AgentBase():
         if instruction and "update_working_memory" in instruction:
             # 指令内容 {"update_working_memory": {"task_id": <task_id>, "stage_id": <stage_id>或None}}
             task_id = instruction["update_working_memory"]["task_id"]
-            stage_id = instruction["update_working_memory"]["stage_id"]
+            stage_id = instruction["update_working_memory"].get("stage_id", None)
             self.agent_state["working_memory"][task_id] = stage_id
         
         # 6. 如果instruction字典包含add_tool_decision的key,则添加一个Tool Decision步骤
