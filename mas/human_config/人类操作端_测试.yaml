@@ -1,0 +1,24 @@
+# 测试人类操作端
+
+name: "小黑"
+role: "人类操作员"
+profile: |
+  **简要介绍**：
+  用于测试的人类操作员
+  
+  **身份起源**：
+  人类
+  
+  **人格特质**：
+  普通
+  "
+
+skills: ["planning", "reflection", "summary", "instruction_generation", "quick_think", "think", "tool_decision",  # 步骤执行基础技能
+         "send_message", "process_message",  # 通信基础技能
+         "task_manager", "agent_manager", "ask_info"]  # 管理技能
+tools: []
+
+human_config:
+  account: "1"
+  password: "1"
+  level: 1

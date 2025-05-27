@@ -25,6 +25,7 @@ from mas.agent.state.stage_state import StageState
 from mas.agent.state.task_state import TaskState
 from mas.agent.state.sync_state import SyncState
 from mas.agent.base.agent_base import AgentBase
+from mas.agent.human_agent import HumanAgent  # 人类操作端Agent
 from mas.utils.message_dispatcher import MessageDispatcher  # 消息分发器
 
 from mas.utils.web.server import start_monitor_web  # 监控器网页服务
@@ -32,6 +33,7 @@ from mas.utils.web.server import start_monitor_web  # 监控器网页服务
 import time
 import yaml
 import threading
+
 
 class MultiAgentSystem:
     '''
@@ -48,9 +50,10 @@ class MultiAgentSystem:
         self.agents_list = []  # 存储所有Agent实例的列表
         self.message_dispatcher = MessageDispatcher(self.sync_state)  # 实例化消息分发器
 
-    def add_agent(self, agent_config):
+
+    def add_llm_agent(self, agent_config):
         '''
-        添加新的Agent到系统中。（如果未解析yaml则解析）
+        添加新的LLM-Agent到系统中。（如果未解析yaml则解析）
 
         agent_config 是一个包含 Agent 配置的字典，包含 name、role、profile 等信息。
         所有Agent共享同一个状态同步器 SyncState。
@@ -61,15 +64,36 @@ class MultiAgentSystem:
         else:
             config_data = agent_config
 
-        self.agents_list.append(
-            AgentBase(config=config_data, sync_state=self.sync_state)
-        )  # 实例化AgentBase对象，并添加到agents_list中。在Agent实例化的同时就启动了Agent自己的任务执行线程。
+        # 实例化AgentBase对象，并添加到agents_list中。在Agent实例化的同时就启动了Agent自己的任务执行线程。
+        llm_agent = AgentBase(config=config_data, sync_state=self.sync_state)
+        self.agents_list.append(llm_agent)
+
+        return llm_agent.agent_id  # 返回新添加的Agent的ID，方便后续引用
+
+
+    def add_human_agent(self, agent_config):
+        '''
+        添加新的人类操作端 Human-Agent到系统中。
+        '''
+        if isinstance(agent_config, str):  # 如果传进来是一个路径
+            with open(agent_config, 'r', encoding='utf-8') as f:
+                config_data = yaml.safe_load(f)  # 解析成字典
+        else:
+            config_data = agent_config
+
+        # 实例化AgentBase对象，并添加到agents_list中。
+        human_agent = HumanAgent(config=config_data, sync_state=self.sync_state)
+        self.agents_list.append(human_agent)
+
+        return human_agent.agent_id  # 返回新添加的Human-Agent的ID，方便后续引用
+
 
     def get_agent_dict(self):
         '''
         提供Agent ID -> AgentBase实例的映射字典
         '''
         return {agent.agent_id: agent for agent in self.agents_list}
+
 
     def run_message_dispatch_loop(self):
         '''
@@ -121,6 +145,18 @@ class MultiAgentSystem:
         )
         print(f"[SyncState] 任务{task_state.task_id}的阶段{stage_state.stage_id}已开启")
 
+        return task_state.task_id  # 返回新创建的任务ID，方便后续引用
+
+
+    def get_agent_from_id(self, agent_id: str):
+        '''
+        根据agent_id获取AgentBase实例。
+        '''
+        for agent in self.agents_list:
+            if agent.agent_id == agent_id:
+                return agent
+        return None  # 没找到就返回 None，也可以抛出异常
+
 
 if __name__ == "__main__":
     '''
@@ -152,9 +188,8 @@ if __name__ == "__main__":
     print(f"[MAS] 消息分发循环已启动。")
 
     # 3. 初始任务启动
-    mas.add_agent("mas/role_config/管理者_灰风.yaml")
-    agent = mas.agents_list[0]
-    mas.init_and_start_first_task(mas.agents_list[0].agent_id)  # 传入第一个agent（管理者）的ID
+    llm_agent_id = mas.add_llm_agent("mas/role_config/管理者_灰风.yaml")  # 添加第一个Agent（管理者）
+    first_task_id = mas.init_and_start_first_task(llm_agent_id)  # 传入第一个agent（管理者）的ID
 
     # 4. 启动状态监控网页服务（可视化 + 热更新）
     threading.Thread(target=start_monitor_web, daemon=True).start()
@@ -162,7 +197,10 @@ if __name__ == "__main__":
 
     from mas.utils.monitor import StateMonitor  # Debug：查看监控器捕获信息时需要导入
 
-    # 5. 主线程可以执行其他逻辑，接受来自人类操作段的输入 TODO：人类操作端未实现，接受人类操作端输入未实现
+
+    # 5. 主线程可以执行其他逻辑，接受来自人类操作段的输入
+    human_agent_id = mas.add_human_agent("mas/human_config/人类操作端_测试.yaml")  # 添加一个HumanAgent
+    human_agent = mas.get_agent_from_id(human_agent_id)  # 获取HumanAgent实例
     while True:
         # # Debug:打印系统任务状态，MAS是否正确创建任务
         # all_tasks = mas.sync_state.all_tasks
@@ -171,5 +209,20 @@ if __name__ == "__main__":
         # # Debug:打印监控状态，监控器是否成功捕获MAS的各种状态
         # print(f"monitor.get_all_states：\n{StateMonitor().get_all_states()}")
 
-        print(".")
-        time.sleep(60)  # 主线程保持活跃
+        user_input = input("[DEBUG][HumanAgent] 请输入指令 (输入 'send' 来向当前任务管理者发送消息)：")
+
+        if user_input.strip() == "send":
+            print("[DEBUG][HumanAgent] 请输入要发送的消息内容：")
+            message_content = input("[DEBUG][HumanAgent] 消息内容：")
+            # 调用 HumanAgent 的 send_message 方法发送消息
+            human_agent.send_message(
+                task_id=first_task_id,
+                receiver=[llm_agent_id],  # 发送给管理者Agent
+                context=message_content,
+                stage_relative="no_relative",  # 与任务阶段无关
+                need_reply=True,  # 需要回复
+                waiting=None,  # 不等待回复
+            )
+
+        # print(".")
+        time.sleep(1)  # 主线程保持活跃

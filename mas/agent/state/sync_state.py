@@ -275,7 +275,7 @@ class SyncState:
             # 将消息添加到任务的通讯队列中
             task_state.communication_queue.put(info)
             print(f"[SyncState] 已更新任务{info['task_id']}的通讯队列，"
-                  f"添加了来自 agent{info['sender']} 的消息")
+                  f"添加了来自 agent{info['sender_id']} 的消息")
 
 
         # 如果字典的key是"task_instruction",则解析并执行具体任务管理操作

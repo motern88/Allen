@@ -16,7 +16,7 @@ class StepState:
 
     属性:
         task_id (str): 任务ID，用于标识一个任务的唯一ID
-        stage_id (str): 阶段ID，用于标识一个阶段的唯一ID
+        stage_id (Optional[str]): 阶段ID，用于标识一个阶段的唯一ID
         agent_id (str): Agent ID，用于标识一个Agent的唯一ID
         step_id (str): 步骤ID，用于标识一个步骤的唯一ID，自动生成
         step_intention (str): 步骤的意图, 由创建Agent填写(仅作参考并不需要匹配特定格式)。例如：'ask a question', 'provide an answer', 'use tool to check...'

@@ -204,8 +204,8 @@ class StateMonitor:
             }
 
         # 4. AgentBase.agent_state
-        # 如果是AgentBase实例，且AgentBase.agent_state是字典
-        elif type(obj).__name__ == "AgentBase":  # 不依赖导入类而通过名字判断
+        # 如果是AgentBase实例(或人类操作端HumanAgent实例)，且AgentBase.agent_state是字典
+        elif type(obj).__name__ == "AgentBase" or type(obj).__name__ == "HumanAgent":  # 不依赖导入类而通过名字判断
             '''
             只保留AgentBase.agent_state （Dict[str,any]）的特殊字段
             agent_state 中 LLM Config 与 step_lock 不展示

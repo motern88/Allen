@@ -12,7 +12,7 @@ HumanAgent 的核心行为：
     1.1 发起与维护会话组：
     1.2 接收到来自其他Agent的消息反馈展示给人类操作员：
         - 如果是系统消息，则加入到AgentState["conversation_pool"]["global_messages"]来展示
-        - 如果是其他Human-Agent的消息，则加入到AgentState["conversation_pool"]["conversation_groups"]中
+        - 如果是其他Human-Agent的消息，则加入到AgentState["conversation_pool"]["conversation_groups"]中 TODO:暂未实现多人对话群组
             群聊对话组中只允许Human-Agent出现，不允许LLM-Agent出现（TODO:技术受限，目前无法解决LLM-Agent在群聊中判断等待回复等情况）
         - 如果是来自其他LLM-Agent的消息，则加入到AgentState["conversation_pool"]["conversation_privates"]中
             私聊对话组中只有Human-Agent和另一个Agent（可以是LLM-Agent或Human-Agent）
@@ -23,18 +23,37 @@ HumanAgent 的核心行为：
 1. receive_message方法被覆写：
     HumanAgent的receive_message方法被覆写，其中收到来自其他Agent的消息均会添加到
     agent_state["conversation_pool"]["conversation_privates"]单独私聊对话中
-    （群聊实现有可能从私聊对话数据中整合??）
-2. send_message方法实现
+    （TODO：群聊实现有可能从私聊对话数据中整合??）
+    目前被动接听到的消息均会被作为私聊呼叫添加到一对一的私聊对话记录中(conversation_privates)
+2. send_message方法实现：
+    HumanAgent向其他Agent发送消息默认记录在一对一的私聊对话记录中(conversation_privates)
 
 
-TODO：实现send_message方法，想其他Agent发送消息
-
+TODO：human_config中人类操作员账号密码登录实现
 
 TODO：人类操作端展示文本时需要自动为以下格式生成黄字超链接,(其中会包裹对应ID)
     <task_id></task_id>
     <stage_id></stage_id>
     <agent_id></agent_id>
     <step_id></step_id>
+
+NEWS：
+    目前HumanAgent已经实现关于通讯消息的：
+    - 接收通知消息并添加到全局消息(global_messages)记录中
+    - 接收消息并添加到私人对话(conversation_privates)记录中
+    - 主动发起对多消息并一一添加到私人对话(conversation_privates)记录中
+
+    未实现：
+    - 基于私人对话记录(conversation_privates)实现群聊对话记录(conversation_groups)
+    - 基于私人对话发起与接收，整合成群聊对话发起与接收
+
+    - 各种工具在HumanAgent中的的直接手动操作
+
+    TODO：需要注意或修复的特性
+        因为Message中return_waiting_id只考虑返回单个唯一等待标识ID，
+        因此Message无法面对同时回复多个Agent时区分每个Agent是否等待的情况，即当前反而无法实现一条消息回复多个Agent
+        需要考虑将Message中的return_waiting_id改为List[str]类型，和receiver一一对应？这样就有一些地方需要改的
+
 
 '''
 
@@ -44,6 +63,7 @@ from mas.agent.state.step_state import StepState, AgentStep
 from mas.agent.state.sync_state import SyncState
 from mas.utils.monitor import StateMonitor
 
+from mas.agent.base.message import Message
 
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from datetime import datetime
@@ -64,7 +84,7 @@ class HumanAgent(AgentBase):
             "conversation_privates": {"agent_id":<conversation_private>, ...},  # Dict 所有私聊对话组
             "global_messages": [str, ...],  # 全局消息, 用于提醒该人类操作员自己的信息
         }
-    每个 <conversation_group> 是一个字典，包含与其他Agent的对话信息：
+    每个 <conversation_group> 是一个字典，包含与其他Agent的对话信息：  TODO:暂未实现群聊对话
         {
             "group_id": str,  # 对话组的唯一标识符
             "participants": List[str],  # 参与群聊对话的Agent ID列表，群聊中只允许Human-Agent出现，不允许LLM-Agent出现
@@ -82,7 +102,7 @@ class HumanAgent(AgentBase):
             {
                 "sender_id": str,  # 发送者Agent ID
                 "content": str,  # 消息内容
-                "stage_id": Optional[str],  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为None
+                "stage_relative": str,  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为"no_relative"
                 "timestamp": str,  # 消息发送时间戳
                 "need_reply": bool,  # 是否需要回复
                 "waiting": bool,  # 如果需要回复，发起方是否正在等待该消息回复
@@ -199,6 +219,9 @@ class HumanAgent(AgentBase):
             "return_waiting_id": <str>,  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
         }
         '''
+
+        print(f"[DEBUG]receive_message: {message}")
+
         # 1. 判断消息是否需要回复
         if message["need_reply"]:
             return_waiting_id = None
@@ -207,18 +230,12 @@ class HumanAgent(AgentBase):
                 # 解析出自己对应的唯一等待ID
                 return_waiting_id = message["waiting"][message["receiver"].index(self.agent_state["agent_id"])]
 
-
-            if message["stage_relative"] == "no_relative":
-                stage_id = None  # 如果消息与任务阶段无关，则stage_relative为no_relative
-            else:
-                stage_id = message["stage_relative"]  # 如果消息与任务阶段相关，则填写对应阶段Stage ID
-
             # 将消息添加到 conversation_pool中私聊对话组中
             self.agent_state["conversation_pool"]["conversation_privates"][message["sender_id"]].append(
                 {
                     "sender_id": message["sender_id"],  # 发送者Agent ID
                     "content": message["message"],  # 消息内容
-                    "stage_id": stage_id,  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为None
+                    "stage_relative": message["stage_relative"],  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则填写"no_relative"
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 消息接收到的时间戳
                     "need_reply": True,  # 是否需要回复
                     "waiting": True if return_waiting_id else False,  # 如果需要回复，发起方是否正在等待该消息回复
@@ -263,16 +280,12 @@ class HumanAgent(AgentBase):
 
         # 1. 对于需要人类理解并消化的消息，添加到 agent_state["conversation_pool"] 中
         if text:
-            if message["stage_relative"] == "no_relative":
-                stage_id = None  # 如果消息与任务阶段无关，则stage_relative为no_relative
-            else:
-                stage_id = message["stage_relative"]  # 如果消息与任务阶段相关，则填写对应阶段Stage ID
             # 将消息添加到 conversation_pool中私聊对话组中
             self.agent_state["conversation_pool"]["conversation_privates"][message["sender_id"]].append(
                 {
                     "sender_id": message["sender_id"],  # 发送者Agent ID
                     "content": text,  # 消息内容
-                    "stage_id": stage_id,  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为None
+                    "stage_relative": message["stage_relative"],
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # 消息接收到的时间戳
                     "need_reply": False,  # 是否需要回复
                     "waiting": False,  # 如果需要回复，发起方是否正在等待该消息回复
@@ -335,32 +348,147 @@ class HumanAgent(AgentBase):
                     f"被分配任务情况更新：任务[<task_id>{task_id}</task_id>]的阶段[<stage_id>{stage_id}</stage_id>]。"
                 )
             # 更新工作记忆
-            self.agent_state["working_memory"][task_id] = stage_id
+            self.agent_state["working_memory"].setdefault(task_id, {}).setdefault(stage_id, [])
 
 
     # 人类操作端Agent的 send_message 方法
     def send_message(
+        self,
+        task_id: str,  # 任务ID
+        receiver: List[str],  # 包含接收者Agent ID的列表
+        context: str,  # 消息内容文本
+        stage_relative: Optional[str] = None,  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为None
+        need_reply: bool = True,  # 是否需要回复
+        waiting: bool = True, # message中的步骤锁等待机制，但在Human-Agent中作为是否需要对方立即回复的功能，如果是则True
+    ):
+        '''
+        这是人类操作端发送消息的方法，不是LLM-Agent的send_message技能
+
+        1. 构造 message 消息格式
+        2. 如果在 conversation_pool 的 conversation_privates 中发现该消息是回复上一条等待消息的，
+            则追加 return_waiting_id 到构造好的 message 消息体中
+        3. 将消息添加到 conversation_pool 中
+        4. 构造execute_output将消息传递给 SyncState 进行后续分发
+            注：如果人类向多个Agent发/回消息，其中只有一些Agent需要返回唯一等待ID，则不能使用SyncState进行群发，只能一条一条地单独发送。
+            因为每一条消息在return_waiting_id中都是独一无二的
+        5. 生成 AgentStep 来记录发送的消息操作
+
+        '''
+        # 如果需要等待，则为每个接收者生成一个唯一等待ID
+        if waiting:
+            waiting_ids = [str(uuid.uuid4()) for _ in receiver]
+            # 与LLM-Agent的send_message中不同的是，这里Human-Agent没必要给自己上步骤锁
+            # Human-Agent只是利用这个机制约束对方立即回复，而不用约束自己，自己不依赖步骤操作
+        else:
+            waiting_ids = None
+
+        for receiver_id in receiver:
+            # 1. 构造 message 消息格式
+            message: Message = {
+                "task_id": task_id,
+                "sender_id": self.agent_state["agent_id"],
+                "receiver": [receiver_id],  # 接收者Agent ID列表
+                "message": context,  # 消息内容文本
+                "stage_relative": stage_relative if stage_relative else "no_relative",  # 是否与任务阶段相关
+                "need_reply": need_reply,  # 是否需要回复
+                "waiting": waiting_ids,  # 如果发送者需要等待回复，则为所有发送对象填写唯一等待ID。不等待则为 None
+                "return_waiting_id": None,  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
+            }
+
+            # 2. 如果在 conversation_pool 的 conversation_privates 中发现该消息是回复上一条等待消息的，
+            # 则追加 return_waiting_id 到构造好的 message 消息体中
+            if self.agent_state["conversation_pool"]["conversation_privates"].get(receiver_id, []):
+                # 获取最新的消息
+                last_message = self.agent_state["conversation_pool"]["conversation_privates"][receiver_id][-1]
+                # 如果最后一条消息是需要回复的，并且发起方正在等待该消息回复
+                if last_message["need_reply"] and last_message["waiting"]:
+                    # 追加 return_waiting_id 到构造好的 message 消息体中
+                    message["return_waiting_id"] = last_message["return_waiting_id"]
+
+            # 3. 将消息添加到 conversation_pool 中，如果没有则创建。
+            if receiver_id not in self.agent_state["conversation_pool"]["conversation_privates"]:
+                self.agent_state["conversation_pool"]["conversation_privates"][receiver_id] = []
+
+            self.agent_state["conversation_pool"]["conversation_privates"][receiver_id].append(
+                {
+                    "sender_id": message["sender_id"],
+                    "content": message["message"],
+                    "stage_relative": message["stage_relative"],
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "need_reply": message["need_reply"],
+                    "waiting": waiting_ids,
+                    "return_waiting_id": message["return_waiting_id"],
+                }
+            )
+
+            # 4. 将消息传递给 SyncState 进行后续分发
+            execute_output = {}
+            execute_output["send_message"] = message
+            self.sync_state.sync_state(execute_output)
+
+        if stage_relative == "no_relative":
+            stage_id = None  # 如果没有阶段相关，则为None
+        else:
+            stage_id = stage_relative
+
+        # 5. 生成 AgentStep 来记录发送的消息操作
+        self.add_step(
+            task_id=task_id,  # 任务ID
+            step_intention="人类操作员发送消息",  # Step的目的
+            step_type="skill",
+            executor="send_message",  # Step的执行模块
+            stage_id=stage_id,  # 阶段ID，如果没有则为None
+            text_content="人类操作员发送消息",  # Step的文本内容
+            instruction_content=None,  # Step的指令内容
+            execute_result={"send_message":{
+                "task_id": task_id,
+                "sender_id": self.agent_state["agent_id"],
+                "receiver": receiver,
+                "message": context,
+                "stage_relative": stage_relative if stage_relative else "no_relative",
+                "need_reply": need_reply,
+                "waiting": waiting_ids
+            }},  # 这里记录发送的消息内容但是不包含return_waiting_id字段
+        )
 
 
-    #
+    # 上：人类操作端消息输入输出接口
+    # ---------------------------------------------------------------------------------------------
+    # 下：人类操作端其他工具方法
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # 添加一个已经完成的用于记录的步骤到AgentStep中
+    def add_step(
+        self,
+        task_id: str,  # 任务ID
+        step_intention: str,  # Step的目的
+        step_type: str,  # Step的类型 'skill', 'tool'
+        executor: str,  # Step的执行模块
+        stage_id: Optional[str] = None,  # 阶段ID，如果没有则为None
+        text_content: Optional[str] = None,  # Step的文本内容
+        instruction_content: Optional[Dict[str, Any]] = None,  # Step的指令内容
+        execute_result: Optional[Dict[str, Any]] = None,  # Step的执行结果
+    ):
+        # 构造一个完整的StepState
+        step_state = StepState(
+            task_id=task_id,
+            stage_id=stage_id,
+            agent_id=self.agent_state["agent_id"],
+            step_intention=step_intention,
+            step_type=step_type,
+            executor=executor,
+            execution_state="finished",  # 人类操作记录的step均为 'finished' 状态
+            text_content=text_content,  # Optional[str]
+            instruction_content=instruction_content,  # Optional[Dict[str, Any]]
+            execute_result=execute_result,  # Optional[Dict[str, Any]]
+        )
+        # 添加到agent_state["agent_step"]中
+        self.agent_state["agent_step"].add_step(step_state)
+        # 返回添加的step_id, 记录在工作记忆中
+        if not stage_id: # 如果没有阶段ID，则使用默认的"no_stage",保证能够正常添加工作记忆
+            stage_id = "no_stage"
+        # 使用setdefault级联初始化，如果不存在字段则自动创建
+        self.agent_state["working_memory"].setdefault(task_id, {}).setdefault(stage_id, []).append(step_state.step_id)
 
 
 

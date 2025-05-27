@@ -360,7 +360,7 @@ class AgentBase():
             # 指令内容 {"update_working_memory": {"task_id": <task_id>, "stage_id": <stage_id>或None}}
             task_id = instruction["update_working_memory"]["task_id"]
             stage_id = instruction["update_working_memory"].get("stage_id", None)
-            self.agent_state["working_memory"][task_id] = stage_id
+            self.agent_state["working_memory"].setdefault(task_id, {}).setdefault(stage_id, [])
         
         # 6. 如果instruction字典包含add_tool_decision的key,则添加一个Tool Decision步骤
         if instruction and "add_tool_decision" in instruction:
@@ -508,7 +508,7 @@ class AgentBase():
             text_content = text_content,  # Optional[str]
             instruction_content = instruction_content,  # Optional[Dict[str, Any]]
             execute_result = None,  # Optional[Dict[str, Any]]
-            )
+        )
 
         if step_type == "tool" and instruction_content is None:
             # 如果是工具调用且没有具体指令，则状态为待填充 pending
@@ -518,7 +518,7 @@ class AgentBase():
             self.agent_state["agent_step"].add_step(step_state)
 
             # 3. 返回添加的step_id, 记录在工作记忆中
-            self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
+            self.agent_state["working_memory"].setdefault(task_id, {}).setdefault(stage_id, []).append(step_state.step_id)
 
 
     def add_next_step(
