@@ -42,6 +42,8 @@ HumanAgent 的核心行为：
       群聊消息根本不发送给Human-Agent的ReceiveMessage方法，而是有Human-Agent主动去获取？
       这样Human-Agent就不需要在ReceiveMessage中判断消息来自私聊还是群聊了，只会来自私聊。
       但是这样还是得区分LLM-Agent发送的消息是发送给群聊还是发送给私聊。如果把这个判定转给Agent的send_message的话，那应该还是要改动一样比较多
+      TODO： 或者直接在TaskState的共享消息池中HumanAgent自由发送消息算了，但此中消息不主动打扰LLM-Agent。LLM-Agent也能主动访问到。
+      TODO：同时如果要私聊的话还是一样可以走当前实现的私聊路径
 
 
 
