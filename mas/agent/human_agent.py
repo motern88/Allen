@@ -12,10 +12,9 @@ HumanAgent 的核心行为：
     1.1 发起与维护会话组：
     1.2 接收到来自其他Agent的消息反馈展示给人类操作员：
         - 如果是系统消息，则加入到AgentState["conversation_pool"]["global_messages"]来展示
-        - 如果是其他Human-Agent的消息，则加入到AgentState["conversation_pool"]["conversation_groups"]中 TODO:暂未实现多人对话群组
-            群聊对话组中只允许Human-Agent出现，不允许LLM-Agent出现（TODO:技术受限，目前无法解决LLM-Agent在群聊中判断等待回复等情况）
-        - 如果是来自其他LLM-Agent的消息，则加入到AgentState["conversation_pool"]["conversation_privates"]中
+        - 如果是来自其他Agent的消息，则默认加入到AgentState["conversation_pool"]["conversation_privates"]中
             私聊对话组中只有Human-Agent和另一个Agent（可以是LLM-Agent或Human-Agent）
+
 
 2. 执行操作，能够手动调用工具。同时会在AgentStep中记录工具执行调用结果（绑定在相应stage中）。
 
@@ -23,10 +22,27 @@ HumanAgent 的核心行为：
 1. receive_message方法被覆写：
     HumanAgent的receive_message方法被覆写，其中收到来自其他Agent的消息均会添加到
     agent_state["conversation_pool"]["conversation_privates"]单独私聊对话中
-    （TODO：群聊实现有可能从私聊对话数据中整合??）
     目前被动接听到的消息均会被作为私聊呼叫添加到一对一的私聊对话记录中(conversation_privates)
 2. send_message方法实现：
     HumanAgent向其他Agent发送消息默认记录在一对一的私聊对话记录中(conversation_privates)
+
+3. 群聊对话记录(conversation_groups)暂未实现：
+    - 如果群聊中任何信息都插队让LLM-Agent立即处理
+      那么群聊中Human-Agent的发言将会极大程度影响LLM-Agent的工作进程。
+      我们认为至少不应该在群聊中的任何消息都触发LLM-Agent的立即处理，
+      但是私聊中的任何信息都应当让LLM-Agent立即处理。
+
+    - 如果群聊中任何信息都排队等LLM-Agent处理
+      那么群聊中和LLM-Agent相关的任何消息都无法即使得到回复，且长期来看，
+      这些消息依然会减缓LLM-Agent本身工作的执行过程。
+
+    - 群聊中的消息默认均不通知LLM-Agent，只有主动选择指定LLM-Agent，才会向LLM-Agent发送消息
+      那么这个消息一定是需要及时性地立即处理（在LLM-Agent的下一个step执行前插队处理）。
+      TODO：那么如何区分收到的消息是来自群聊消息还是来自私聊消息呢？或许群聊消息池不应当在Human-Agent中建立，而应当在TaskState中建立？
+      群聊消息根本不发送给Human-Agent的ReceiveMessage方法，而是有Human-Agent主动去获取？
+      这样Human-Agent就不需要在ReceiveMessage中判断消息来自私聊还是群聊了，只会来自私聊。
+      但是这样还是得区分LLM-Agent发送的消息是发送给群聊还是发送给私聊。如果把这个判定转给Agent的send_message的话，那应该还是要改动一样比较多
+
 
 
 TODO：human_config中人类操作员账号密码登录实现
@@ -54,7 +70,6 @@ NEWS：
         因此Message无法面对同时回复多个Agent时区分每个Agent是否等待的情况，即当前反而无法实现一条消息回复多个Agent
         需要考虑将Message中的return_waiting_id改为List[str]类型，和receiver一一对应？这样就有一些地方需要改的
 
-
 '''
 
 
@@ -81,10 +96,10 @@ class HumanAgent(AgentBase):
     其中：
         agent_state["conversation_pool"] = {
             "conversation_groups": [<conversation_group>, ...],  # List[Dict] 所有群聊对话组
-            "conversation_privates": {"agent_id":<conversation_private>, ...},  # Dict 所有私聊对话组
+            "conversation_privates": {"agent_id":<conversation_private>, ...},  # Dict[str,Dict] 所有私聊对话组
             "global_messages": [str, ...],  # 全局消息, 用于提醒该人类操作员自己的信息
         }
-    每个 <conversation_group> 是一个字典，包含与其他Agent的对话信息：  TODO:暂未实现群聊对话
+    每个 <conversation_group> 是一个字典，包含与其他Agent的对话信息：  TODO:暂未实现群聊对话，群聊对话是否在HumanAgent中实现？
         {
             "group_id": str,  # 对话组的唯一标识符
             "participants": List[str],  # 参与群聊对话的Agent ID列表，群聊中只允许Human-Agent出现，不允许LLM-Agent出现
@@ -159,6 +174,7 @@ class HumanAgent(AgentBase):
         - agent_step: 人类操作端不执行AgentStep
         - tools: 人类操作端可用的技能与工具库
         - skills: 人类操作端可用的技能与工具库
+        - conversation_pool: 人类操作端的对话池，存储与其他Agent的对话
         '''
         agent_state = {}
         agent_state["agent_id"] = agent_id  # Agent的唯一标识符
@@ -187,9 +203,9 @@ class HumanAgent(AgentBase):
 
         # 人类操作端的对话池，存储与其他Agent的对话
         agent_state["conversation_pool"] = {
-            "conversation_groups": [],  # 记录该人类操作员和其他Human-Agent的所有对话组
-            "conversation_privates": {},  # 记录该人类操作员和其他Agent的私聊对话组
-            "global_messages": [],  # 用于通知人类操作员的全局重要消息
+            "conversation_groups": [],  # List[Dict] 记录所有群聊对话组 TODO:暂未确定如何实现群聊对话
+            "conversation_privates": {},  # Dict[str,Dict]  记录所有私聊对话组
+            "global_messages": [],  # List[str] 用于通知人类操作员的全局重要消息
         }
 
         return agent_state
@@ -220,7 +236,7 @@ class HumanAgent(AgentBase):
         }
         '''
 
-        print(f"[DEBUG]receive_message: {message}")
+        print(f"[DEBUG]receive_message: {message}")  # TODO：Debug测试用
 
         # 1. 判断消息是否需要回复
         if message["need_reply"]:
@@ -359,7 +375,7 @@ class HumanAgent(AgentBase):
         context: str,  # 消息内容文本
         stage_relative: Optional[str] = None,  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为None
         need_reply: bool = True,  # 是否需要回复
-        waiting: bool = True, # message中的步骤锁等待机制，但在Human-Agent中作为是否需要对方立即回复的功能，如果是则True
+        waiting: bool = True, # message中的步骤锁等待机制，但在Human-Agent中仅用作是否需要对方立即回复的功能，不用作步骤锁约束自身。如果是则True
     ):
         '''
         这是人类操作端发送消息的方法，不是LLM-Agent的send_message技能
