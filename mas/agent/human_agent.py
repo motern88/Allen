@@ -84,7 +84,7 @@ from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from datetime import datetime
 import uuid
 
-@StateMonitor.track  # 注册状态监控器，主要监控agent_state
+@StateMonitor.track  # 注册状态监控器，主要监控agent_state  # TODO:监控器目前无法监控HumanAgent的AgentState
 class HumanAgent(AgentBase):
     '''
     人类操作端，继承AgentBase基础接口
