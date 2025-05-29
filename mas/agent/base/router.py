@@ -12,6 +12,7 @@ class Router:
     @staticmethod
     def get_executor(type: str, executor: str) -> Executor:
         """根据 type 和 executor 返回对应的excutor实例"""
+        # print("[DEBUG][Router] 注册表：", Executor._registry)
         executor_class = Executor._registry.get((type, executor))
         if not executor_class:
             raise ValueError(f"未找到对应的执行器: type={type}, executor={executor}")

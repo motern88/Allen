@@ -30,6 +30,9 @@ from mas.utils.message_dispatcher import MessageDispatcher  # 消息分发器
 
 from mas.utils.web.server import start_monitor_web  # 监控器网页服务
 
+import mas.skills.__init__  # 会自动触发所有注册器的装饰器调用
+# import mas.tools.__init__  # 会自动触发所有注册器的装饰器调用  TODO:工具注册器暂时注释掉，等工具模块完善后再启用
+
 import time
 import yaml
 import threading

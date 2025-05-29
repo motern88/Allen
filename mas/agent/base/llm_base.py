@@ -61,7 +61,7 @@ class LLMClient:
         """生成 HTTP 头部信息"""
         headers = {"Content-Type": "application/json",}
         # 如果有 API 密钥，则添加 Authorization 头
-        if self.config.api_key:
+        if hasattr(self.config, "api_key") and self.config.api_key:
             headers["Authorization"] = f"Bearer {self.config.api_key}"
 
         return headers

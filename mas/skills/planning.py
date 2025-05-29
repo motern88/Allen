@@ -57,10 +57,10 @@ class PlanningSkill(Executor):
                 planned_step = json.loads(step_content)
                 return planned_step
             except json.JSONDecodeError:
-                print("解析 JSON 失败，请检查格式")
+                print("[Planning] 解析 JSON 失败，请检查格式")
                 return None
         else:
-            print("未找到 <planned_step> 标记")
+            print("[Planning] 未找到 <planned_step> 标记")
             return None
 
     def get_planning_prompt(self, step_id: str, agent_state: Dict[str, Any]):
@@ -177,7 +177,7 @@ class PlanningSkill(Executor):
 
         # 1. 组装 LLM Planning 提示词 (基础提示词与技能提示词)
         planning_step_prompt = self.get_planning_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
-        print(planning_step_prompt)
+        # print(planning_step_prompt)
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
@@ -207,7 +207,7 @@ class PlanningSkill(Executor):
             )
 
         # 打印LLM返回结果
-        print(response)
+        # print(response)
 
         # 解析Planning_step
         planned_step = self.extract_planned_step(response)
@@ -230,7 +230,7 @@ class PlanningSkill(Executor):
                 or (step["type"] == "tool" and step["executor"] not in agent_state["tools"])
             ]
             if len(not_allowed_executors) != 0:  # 如果超出，给出提示并重新 <2. LLM调用> 进行规划
-                print("planning技能规划的步骤中包含不在使用权限内的技能与工具，正在重新规划...")
+                print("[Planning] 技能规划的步骤中包含不在使用权限内的技能与工具，正在重新规划...")
                 response = llm_client.call(
                     f"以下技能与工具不在使用权限内:{not_allowed_executors}。请确保只使用 available_skills_and_tools 小节中提示的可用技能与工具来完成当前阶段Stage目标。**规划结果放在<planned_step>和</planned_step>之间。**",
                     context=chat_context

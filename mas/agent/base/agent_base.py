@@ -16,6 +16,8 @@ import re
 import json
 import uuid
 
+from types import SimpleNamespace  # 用于将字典转换为对象，便于访问配置文件中的属性
+
 @StateMonitor.track  # 注册状态监控器，主要监控agent_state
 class AgentBase():
     '''
@@ -106,7 +108,7 @@ class AgentBase():
         agent_state["working_state"] = "idle"  # Agent的当前工作状态
 
         # 从配置文件中获取 LLM 配置
-        agent_state["llm_config"] = llm_config
+        agent_state["llm_config"] = SimpleNamespace(**llm_config)  # LLM配置，使用SimpleNamespace将字典转换为对象，便于llm_base访问
 
         # Agent工作记忆
         # Agent工作记忆 {<task_id>: {<stage_id>: [<step_id>,...],...},...} 记录Agent还未完成的属于自己的任务

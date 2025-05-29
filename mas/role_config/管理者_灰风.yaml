@@ -26,7 +26,7 @@ tools: []
 llm_config:
   api_type: "ollama"
   base_url: "http://192.168.30.16:11434/api"
-  model: "qwq:32b"
+  model: "qwen3:235b"
   max_tokens: 8192
   temperature: 0.1
   timeout: 600
