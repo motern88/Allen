@@ -182,7 +182,6 @@ class AgentBase():
         对 todo_list.popleft() 到的每个step执行step_action()
         """
         agent_step = self.agent_state["agent_step"]
-
         while True:
             if len(self.agent_state["step_lock"]) > 0:
                 # 如果有步骤锁，则等待
@@ -200,7 +199,7 @@ class AgentBase():
 
             # 2. 根据step_id获取step_state
             step_state = agent_step.get_step(step_id)[0]
-            step_type = step_state.step_type
+            step_type = step_state.type
             step_executor = step_state.executor
 
             # 3. 执行step_action
@@ -246,7 +245,7 @@ class AgentBase():
                     task_id=message["task_id"],
                     stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
                     step_intention=f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
-                    step_type="skill",
+                    type="skill",
                     executor="send_message",
                     text_content=message["message"] + f"\n\n<return_waiting_id>{return_waiting_id}</return_waiting_id>"  # 将消息内容和回应等待ID一起填充
                 )
@@ -257,7 +256,7 @@ class AgentBase():
                     task_id = message["task_id"],
                     stage_id = message["stage_relative"],  # 可能是no_relative 与阶段无关
                     step_intention = f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
-                    step_type = "skill",
+                    type = "skill",
                     executor = "send_message",
                     text_content = message["message"]
                 )
@@ -308,7 +307,7 @@ class AgentBase():
                     stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
                     step_intention=f"处理来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**。"
                                    f"你需要理解并消化该消息的内容，必要的时候需要将重要信息记录在你的persistent_memory中",
-                    step_type="skill",
+                    type="skill",
                     executor="process_message",
                     text_content=message["message"]
                 )
@@ -319,7 +318,7 @@ class AgentBase():
                     stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
                     step_intention=f"处理来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**。"
                                    f"你需要理解并消化该消息的内容，必要的时候需要将重要信息记录在你的persistent_memory中",
-                    step_type="skill",
+                    type="skill",
                     executor="process_message",
                     text_content=message["message"]
                 )
@@ -383,7 +382,7 @@ class AgentBase():
                 task_id=task_id,
                 stage_id=stage_id,
                 step_intention=step_intention,
-                step_type="skill",
+                type="skill",
                 executor="tool_decision",
                 text_content=text_content  # text_content中包含 <tool_name></tool_name> 包裹的工具名称，用于指示技能执行时获取哪些工具历史结果
             )
@@ -391,19 +390,13 @@ class AgentBase():
             print(f"[AgentBase] 已为长尾工具 {tool_name} 添加Tool Decision步骤")
 
 
-
-    def start_stage(
-        self,
-        task_id: str,
-        stage_id: str,
-    ):
+    def start_stage(self, task_id: str, stage_id: str):
         '''
         用于开始一个任务阶段:一个stage的第一个step必定是planning方法
 
         1. 构造Agent规划当前阶段的提示词
         2. 如果当前stage没有任何step，则增加一个规划step
         '''
-
         stage_state = self.sync_state.get_stage_state(task_id=task_id, stage_id=stage_id)
         # Agent从当前StageState来获取信息明确目标
         agent_id = self.agent_state["agent_id"]
@@ -419,7 +412,7 @@ class AgentBase():
                 task_id=task_id,
                 stage_id=stage_id,
                 step_intention=f"规划Agent执行当前阶段需要哪些具体step",
-                step_type="skill",
+                type="skill",
                 executor="planning",
                 text_content=agent_stage_prompt
             )
@@ -483,12 +476,13 @@ class AgentBase():
 
         return "\n".join(md_output)
 
+
     def add_step(
         self,
         task_id: str,
         stage_id: str,
         step_intention: str,  # Step的目的
-        step_type: str,  # Step的类型 'skill', 'tool'
+        type: str,  # Step的类型 'skill', 'tool'
         executor: str,  # Step的执行模块
         text_content: Optional[str] = None,  # Step的文本内容
         instruction_content: Optional[Dict[str, Any]] = None,  # Step的指令内容
@@ -496,13 +490,15 @@ class AgentBase():
         '''
         为agent_step的列表中添加一个Step
         '''
+        # print(f"[DEBUG][Agent] add_step")
+
         # 1. 构造一个完整的StepState
         step_state = StepState(
             task_id = task_id,
             stage_id = stage_id,
             agent_id = self.agent_state["agent_id"],
             step_intention = step_intention,
-            step_type = step_type,
+            type = type,
             executor = executor,
             execution_state = "init",  # 'init', 'pending', 'running', 'finished', 'failed'
             text_content = text_content,  # Optional[str]
@@ -510,13 +506,18 @@ class AgentBase():
             execute_result = None,  # Optional[Dict[str, Any]]
         )
 
-        if step_type == "tool" and instruction_content is None:
+        if type == "tool" and instruction_content is None:
             # 如果是工具调用且没有具体指令，则状态为待填充 pending
             step_state.update_execution_state("pending")
 
             # 2. 添加一个该Step到agent_step中
             self.agent_state["agent_step"].add_step(step_state)
+            # 3. 返回添加的step_id, 记录在工作记忆中
+            self.agent_state["working_memory"].setdefault(task_id, {}).setdefault(stage_id, []).append(step_state.step_id)
 
+        else:
+            # 2. 添加一个该Step到agent_step中
+            self.agent_state["agent_step"].add_step(step_state)
             # 3. 返回添加的step_id, 记录在工作记忆中
             self.agent_state["working_memory"].setdefault(task_id, {}).setdefault(stage_id, []).append(step_state.step_id)
 
@@ -526,7 +527,7 @@ class AgentBase():
         task_id: str,
         stage_id: str,
         step_intention: str,  # Step的目的
-        step_type: str,  # Step的类型 'skill', 'tool'
+        type: str,  # Step的类型 'skill', 'tool'
         executor: str,  # Step的执行模块
         text_content: Optional[str] = None,  # Step的文本内容
         instruction_content: Optional[Dict[str, Any]] = None,  # Step的指令内容
@@ -540,7 +541,7 @@ class AgentBase():
                 stage_id=stage_id,
                 agent_id=self.agent_state["agent_id"],
                 step_intention=step_intention,
-                step_type=step_type,
+                type=type,
                 executor=executor,
                 execution_state="init",  # 'init', 'pending', 'running', 'finished', 'failed'
                 text_content=text_content,  # Optional[str]
@@ -548,16 +549,20 @@ class AgentBase():
                 execute_result=None,  # Optional[Dict[str, Any]]
             )
 
-        if step_type == "tool" and instruction_content is None:
+        if type == "tool" and instruction_content is None:
             # 如果是工具调用且没有具体指令，则状态为待填充 pending
             step_state.update_execution_state("pending")
 
             # 2. 添加一个该Step到agent_step中,插队到下一个step之前
             self.agent_state["agent_step"].add_next_step(step_state)
-
             # 3. 返回添加的step_id, 记录在工作记忆中
             self.agent_state["working_memory"][task_id][stage_id].append(step_state.step_id)
 
+        else:
+            # 2. 添加一个该Step到agent_step中
+            self.agent_state["agent_step"].add_next_step(step_state)
+            # 3. 返回添加的step_id, 记录在工作记忆中
+            self.agent_state["working_memory"].setdefault(task_id, {}).setdefault(stage_id, []).append(step_state.step_id)
 
 
 

@@ -453,7 +453,7 @@ class HumanAgent(AgentBase):
         self.add_step(
             task_id=task_id,  # 任务ID
             step_intention="人类操作员发送消息",  # Step的目的
-            step_type="skill",
+            type="skill",
             executor="send_message",  # Step的执行模块
             stage_id=stage_id,  # 阶段ID，如果没有则为None
             text_content="人类操作员发送消息",  # Step的文本内容
@@ -480,7 +480,7 @@ class HumanAgent(AgentBase):
         self,
         task_id: str,  # 任务ID
         step_intention: str,  # Step的目的
-        step_type: str,  # Step的类型 'skill', 'tool'
+        type: str,  # Step的类型 'skill', 'tool'
         executor: str,  # Step的执行模块
         stage_id: Optional[str] = None,  # 阶段ID，如果没有则为None
         text_content: Optional[str] = None,  # Step的文本内容
@@ -493,7 +493,7 @@ class HumanAgent(AgentBase):
             stage_id=stage_id,
             agent_id=self.agent_state["agent_id"],
             step_intention=step_intention,
-            step_type=step_type,
+            type=type,
             executor=executor,
             execution_state="finished",  # 人类操作记录的step均为 'finished' 状态
             text_content=text_content,  # Optional[str]

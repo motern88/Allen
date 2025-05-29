@@ -293,7 +293,7 @@ if __name__ == "__main__":
         stage_id="0001",
         agent_id="0001",
         step_intention="创建任务",
-        step_type="skill",
+        type="skill",
         executor="task_manager",
         text_content="你需要创建一个用于合同处理的任务",
         execute_result={},

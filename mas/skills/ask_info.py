@@ -317,7 +317,7 @@ if __name__ == "__main__":
         stage_id="0001",
         agent_id="0001",
         step_intention="查看阶段状态",
-        step_type="skill",
+        type="skill",
         executor="ask_info",
         text_content="task_id: 0001, stage_id: 0001",
         execute_result={},

@@ -279,7 +279,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="将合同提取任务分解为多个步骤",
-        step_type="skill",
+        type="skill",
         executor="planning",
         text_content="分析任务并制定执行计划",
         execute_result={
@@ -304,7 +304,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="获取合同信息",
-        step_type="skill",
+        type="skill",
         executor="contract_extractor",
         text_content="提取合同中的关键信息",
         execute_result={
@@ -316,7 +316,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="判定是否完成任务",
-        step_type="skill",
+        type="skill",
         executor="reflection",
         text_content="如果任务完成，则添加summary，否则追加能够完成任务的step",
         execute_result={
@@ -335,7 +335,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="总结阶段执行结果",
-        step_type="skill",
+        type="skill",
         executor="summary",
         text_content="整理合同关键字段提取结果，并同步至阶段状态完成标记",
         execute_result={},

@@ -288,7 +288,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="将合同提取任务分解为多个步骤",
-        step_type="planning",
+        type="planning",
         executor="planning",
         text_content="分析任务并制定执行计划"
     )

@@ -46,7 +46,7 @@ class StepState:
         stage_id: Optional[str],  # TODO:确保process_message与阶段无关的step能顺利执行
         agent_id: str,
         step_intention: str,
-        step_type: str,
+        type: str,
         executor: str,
         execution_state: str = "init",  # 'init', 'pending', 'running', 'finished', 'failed'
         text_content: Optional[str] = None,
@@ -63,7 +63,7 @@ class StepState:
         self.step_intention = step_intention
 
         # step执行属性（具体执行模块，执行状态）
-        self.type = step_type  # 'skill' or 'tool'
+        self.type = type  # 'skill' or 'tool'
         self.executor = executor  # 执行该步骤的对象
         self.execution_state = execution_state  # 'init', 'pending', 'running', 'finished', 'failed'
 
@@ -112,7 +112,7 @@ class AgentStep:
         # 如果step未被执行过，则添加到待执行队列
         if step.execution_state not in ["finished", "failed"]:
             self.todo_list.append(step.step_id)
-            print(f"step {step.step_id} 已添加到todo_list")
+            # print(f"[AgentStep] step {step.step_id} 已添加到todo_list")
 
     def add_next_step(self, step: StepState):
         """
@@ -122,7 +122,7 @@ class AgentStep:
         self.step_list.append(step)
         if step.execution_state not in ["finished", "failed"]:
             self.todo_list.appendleft(step.step_id)  # 插入队首
-            print(f"step {step.step_id} 已插入todo_list队首（插队）")
+            # print(f"[AgentStep] step {step.step_id} 已插入todo_list队首（插队）")
         return step.step_id
 
     # 移除step

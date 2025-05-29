@@ -281,7 +281,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="提取合同的信息",
-        step_type="tool",
+        type="tool",
         executor="contract_extract",
         text_content="根据工具提取合同的重要信息，查明合同金额是否有误，是否涉嫌诈骗",
         execute_result={
@@ -293,7 +293,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="审查合同",
-        step_type="skill",
+        type="skill",
         executor="think",
         text_content="审查合同金额是否有误，是否涉嫌诈骗",
         execute_result={
@@ -305,7 +305,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="接收并处理来自其他Agent的消息",
-        step_type="skill",
+        type="skill",
         executor="process_message",
         text_content="你好，我是合同提取专员，我向你发送消息是想提醒你，合同金额有误，其中合同款本应是3000RMB却被写成了3000美金，请知悉",
         execute_result={},

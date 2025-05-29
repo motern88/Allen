@@ -332,7 +332,7 @@ if __name__ == "__main__":
     step1 = StepState(
         task_id="0001",stage_id="0001",agent_id="0001",
         step_intention="指令生成",
-        step_type="skill",
+        type="skill",
         executor="instruction_generation",
         text_content="为下一个工具生成指令",
         execute_result={"instruction_generation": "<错误获取！！！>"},
@@ -340,7 +340,7 @@ if __name__ == "__main__":
     step2 = StepState(
         task_id="0001",stage_id="0001",agent_id="0001",
         step_intention="获取候选人简历",
-        step_type="tool",
+        type="tool",
         executor="browser_use",
         text_content="打开Boss直聘网站获取候选人简历",
         execute_result={"browser_use":
@@ -354,7 +354,7 @@ if __name__ == "__main__":
     step3 = StepState(
         task_id="0001",stage_id="0001",agent_id="0001",
         step_intention="反思",
-        step_type="skill",
+        type="skill",
         executor="reflection",
         text_content="进行反思",
         execute_result={"reflection": "<工具步骤失败，重新执行工具步骤>"
@@ -363,7 +363,7 @@ if __name__ == "__main__":
     step4 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="指令生成",
-        step_type="skill",
+        type="skill",
         executor="instruction_generation",
         text_content="为下一个工具生成指令",
         execute_result={"instruction_generation": "<正确工具指令>"},
@@ -371,7 +371,7 @@ if __name__ == "__main__":
     step5 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="获取候选人简历",
-        step_type="tool",
+        type="tool",
         executor="browser_use",
         text_content="打开Boss直聘网站获取候选人简历",
         execute_result={"browser_use":
@@ -385,7 +385,7 @@ if __name__ == "__main__":
     step6 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="进行工具决策",
-        step_type="skill",
+        type="skill",
         executor="tool_decision",
         text_content="进行工具决策<tool_name>browser_use</tool_name>",
         execute_result={"tool_decision":
@@ -408,7 +408,7 @@ if __name__ == "__main__":
     step7 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="紧急处理消息恢复",
-        step_type="skill",
+        type="skill",
         executor="send_message",
         text_content="紧急处理消息恢复",
         execute_result={"send_message": "<发送消息>"},
@@ -416,7 +416,7 @@ if __name__ == "__main__":
     step8 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="指令生成",
-        step_type="skill",
+        type="skill",
         executor="instruction_generation",
         text_content="为下一个工具生成指令",
         execute_result={"instruction_generation": "<正确工具指令>"},
@@ -424,7 +424,7 @@ if __name__ == "__main__":
     step9 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="下载候选人简历",
-        step_type="tool",
+        type="tool",
         executor="browser_use",
         text_content="在当前页面上点击候选人简历下载按钮",
         execute_result={"browser_use":
@@ -438,7 +438,7 @@ if __name__ == "__main__":
     step10 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="进行工具决策",
-        step_type="skill",
+        type="skill",
         executor="tool_decision",
         text_content="进行工具决策<tool_name>browser_use</tool_name>",
         execute_result={},

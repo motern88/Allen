@@ -247,7 +247,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="提供人生建议",
-        step_type="skill",
+        type="skill",
         executor="quick_think",
         text_content="我在考虑学文科好还是学理科好",
         execute_result={},

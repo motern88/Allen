@@ -285,7 +285,7 @@ if __name__ == "__main__":
         stage_id="0001",
         agent_id="0001",
         step_intention="创建一个新Agent",
-        step_type="skill",
+        type="skill",
         executor="agent_manager",
         text_content="为你自己创建一个助手",
         execute_result={},

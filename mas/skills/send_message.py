@@ -390,7 +390,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="询问并了解其他Agent心理状况",
-        step_type="skill",
+        type="skill",
         executor="planning",
         text_content="询问其他Agent心理状况",
         execute_result={
@@ -409,7 +409,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="询问协作Agent的心理状况",
-        step_type="skill",
+        type="skill",
         executor="send_message",
         text_content="当前任务的Agent ID有: 0001,0005,0098",
         execute_result={},

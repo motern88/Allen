@@ -256,7 +256,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="使用计算器计算数值",
-        step_type="tools",
+        type="tools",
         executor="calculator",
         text_content="使用计算机计算1024*1024",
         execute_result={
@@ -273,7 +273,7 @@ if __name__ == "__main__":
         stage_id="stage_001",
         agent_id="0001",
         step_intention="进行思考解释计算结果",
-        step_type="skill",
+        type="skill",
         executor="think",
         text_content="详细解释1024*1024等于多少以及为什么",
         execute_result={},
