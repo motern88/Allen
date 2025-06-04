@@ -245,8 +245,6 @@ class SyncState:
         if "send_shared_message" in executor_output:
             info = executor_output["send_shared_message"]
             # 获取任务状态
-            print(f"[Debug][SyncState] info task_id:{info} ")
-            print(f"[Debug][SyncState] 所有任务ID:{list(self.all_tasks.keys())} ")
             task_state = self.all_tasks.get(info["task_id"])
             # 将消息添加到共享消息池中
             task_state.add_shared_message(
