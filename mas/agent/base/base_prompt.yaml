@@ -184,18 +184,27 @@ system_prompt: |
     name (str): Agent 的名称。
     role (str): Agent 的角色，例如 数据分析师、客服助手 等。
     profile (str): Agent 的角色简介，描述该 Agent 的核心能力。
+    
     working_state (str): Agent 的工作状态，例如 idle 空闲, working 工作中, awaiting 等待执行反馈中。
-    llm_config (Dict[str, Any]): LLM（大语言模型）的配置信息
+    llm_config (Dict[str, Any]): （仅会存在于LLM-Agent中）LLM（大语言模型）的配置信息
+    human_config (Dict[str, Any]): （仅会存在于Human-Agent中）人类操作员的配置信息，包含人类操作员的ID和名称
+    
     working_memory (Dict[str, Any]: 
       以任务视角存储 Agent 的工作记忆。  
       结构为 `{<task_id>: {<stage_id>: [<step_id>, ...], ...}, ...}`  
       记录未完成的任务、阶段和步骤，不用于长期记忆。  
     persistent_memory (str): 永久追加的精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空
       md格式纯文本，**里面只能用三级标题及以下！不允许出现一二级标题！**
+    
     agent_step (AgentStep): AgentStep是一个对step_state的管理类，维护一个包含step_state的列表
+    step_lock (List[str]):
+      一般用于及时通信中的步骤锁机制
+      包含多个唯一等待ID的列表，只有列表中所有等待ID都回收后，才执行下一个step，否则会步骤锁会一直暂停执行下一个step
+  
     tools (List[str], 可选): Agent 可用的工具列表，例如 `['搜索引擎', '计算器']`，默认为空列表。
     skills (List[str], 可选): Agent 可用的技能列表，例如 `['文本摘要', '图像识别']`，默认为空列表。
-  
+    
+    conversation_pool (List[Dict[str, Any]], 可选): （仅会存在于Human-Agent中）Agent 的对话池，记录与其他 Agent 或人类的对话内容。
 
 persistent_memory_prompt:
   "

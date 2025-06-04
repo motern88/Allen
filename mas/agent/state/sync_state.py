@@ -110,6 +110,7 @@ class SyncState:
         '''
         添加任务状态到SyncState任务字典中中
         '''
+        # print(f"[Debug][SyncState] 添加任务 {task_state.task_id} 到 SyncState")
         self.all_tasks[task_state.task_id] = task_state
 
     def add_agents_2_task_group(self, task_id: str, agents: list[str]):
@@ -244,6 +245,8 @@ class SyncState:
         if "send_shared_message" in executor_output:
             info = executor_output["send_shared_message"]
             # 获取任务状态
+            print(f"[Debug][SyncState] info task_id:{info} ")
+            print(f"[Debug][SyncState] 所有任务ID:{list(self.all_tasks.keys())} ")
             task_state = self.all_tasks.get(info["task_id"])
             # 将消息添加到共享消息池中
             task_state.add_shared_message(

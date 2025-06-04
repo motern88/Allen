@@ -52,8 +52,8 @@ class StateMonitor:
         def new_init(instance, *args, **kwargs):
             # 替代构造方法：初始化原始类内容
             original_init(instance, *args, **kwargs)
-            # 生成唯一 state_id（由类名和 UUID组成）
-            state_id = f"{cls.__name__}_{uuid.uuid4()}"
+            # 生成唯一 state_id（由类名和 该类属性中的id组成）
+            state_id = generate_state_id(instance)
             instance._state_id = state_id
             # 将该实例注册到监控器的注册表中
             with self._lock:
@@ -71,6 +71,22 @@ class StateMonitor:
                 k: v for k, v in instance.__dict__.items()
                 if not k.startswith("_")
             }
+
+        # 生成状态 ID 的方法
+        def generate_state_id(cls_instance):
+            cls_name = cls_instance.__class__.__name__
+            if cls_name == 'TaskState' and hasattr(cls_instance, 'task_id'):
+                return f"{cls_name}_{cls_instance.task_id}"
+            elif cls_name == 'StageState' and hasattr(cls_instance, 'stage_id'):
+                return f"{cls_name}_{cls_instance.stage_id}"
+            elif cls_name == 'StepState' and hasattr(cls_instance, 'step_id'):
+                return f"{cls_name}_{cls_instance.step_id}"
+            elif cls_name == 'AgentBase' and hasattr(cls_instance, 'agent_id'):
+                return f"{cls_name}_{cls_instance.agent_id}"
+            elif cls_name == 'HumanAgent' and hasattr(cls_instance, 'agent_id'):
+                return f"{cls_name}_{cls_instance.agent_id}"
+            else:
+                raise AttributeError(f"{cls_name} 未定义合适的 ID 属性")
 
         # 注入新的方法和属性
         cls.__init__ = new_init

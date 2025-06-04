@@ -167,9 +167,10 @@ class AgentManagerSkill(Executor):
 
         # 2. 添加步骤信息到task共享消息池
         execute_output["send_shared_message"] = {
+            "task_id": task_id,
+            "stage_id": stage_id,
             "agent_id": agent_state["agent_id"],
             "role": agent_state["role"],
-            "stage_id": stage_id,
             "content": f"执行Agent Manager步骤:{shared_step_situation}，"
         }
 

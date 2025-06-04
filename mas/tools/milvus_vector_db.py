@@ -165,9 +165,10 @@ class MilvusTool(Executor):
         operation = execute_result.get("operation", "unknown")  
         status = execute_result.get("status", "unknown")  
         execute_output["send_shared_message"] = {  
-            "agent_id": agent_state["agent_id"],  
-            "role": agent_state["role"],  
-            "stage_id": stage_id,  
+            "task_id": task_id,
+            "stage_id": stage_id,
+            "agent_id": agent_state["agent_id"],
+            "role": agent_state["role"],
             "content": f"执行Milvus{operation}操作:{shared_step_situation}，状态:{status}"  
         }  
 
