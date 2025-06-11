@@ -456,14 +456,14 @@ class Executor(ABC):
                 stage_id=current_step.stage_id,
                 agent_id=current_step.agent_id,
                 step_intention=step["step_intention"],
-                step_type=step["type"],
+                type=step["type"],
                 executor=step["executor"],
                 text_content=step["text_content"]
             )
             # 添加到AgentStep中
             agent_step.add_step(step_state)
             # 记录在工作记忆中
-            agent_state["working_memory"][current_step.task_id][current_step.stage_id,].append(step_state.step_id)
+            agent_state["working_memory"].setdefault(current_step.task_id, {}).setdefault(current_step.stage_id, []).append(step_state.step_id)
 
     # 为tool_decision技能实现通用add_next_step的方法
     def add_next_step(
@@ -496,11 +496,11 @@ class Executor(ABC):
                 stage_id=current_step.stage_id,
                 agent_id=current_step.agent_id,
                 step_intention=step["step_intention"],
-                step_type=step["type"],
+                type=step["type"],
                 executor=step["executor"],
                 text_content=step["text_content"]
             )
             # 插入到AgentStep中
             agent_step.add_next_step(step_state)
             # 记录在工作记忆中
-            agent_state["working_memory"][current_step.task_id][current_step.stage_id,].append(step_state.step_id)
+            agent_state["working_memory"].setdefault(current_step.task_id, {}).setdefault(current_step.stage_id, []).append(step_state.step_id)

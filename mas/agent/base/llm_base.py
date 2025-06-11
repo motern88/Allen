@@ -161,7 +161,7 @@ if __name__ == "__main__":
     '''
 
     print("尝试初始化llm并调用")
-    config = LLMConfig.from_yaml("mas/role_config/qwq32b.yaml")  # 创建 LLM 配置  # mas/role_config/qwq32b.yaml mas/role_config/openai.yaml
+    config = LLMConfig.from_yaml("mas/role_config/doubao.yaml")  # 创建 LLM 配置  # mas/role_config/qwq32b.yaml mas/role_config/openai.yaml
     llm_client = LLMClient(config)  # 创建 LLM 客户端
     chat_context = LLMContext(context_size=3)  # 创建一个对话上下文
 

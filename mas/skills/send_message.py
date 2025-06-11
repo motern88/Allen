@@ -127,7 +127,7 @@ class SendMessageSkill(Executor):
             return_waiting_id = matches[-1]  # 获取最后一个匹配内容 排除其他干扰内容
             return return_waiting_id
         else:
-            print("没有找到<return_waiting_id>标签")
+            print("[Skill][send_message] 没有找到<return_waiting_id>标签")
             return None
 
     def get_send_message_prompt(self, step_id: str, agent_state: Dict[str, Any]):
@@ -293,7 +293,7 @@ class SendMessageSkill(Executor):
 
         # 1. 组装 LLM Send Message 提示词 (基础提示词与技能提示词)
         send_message_step_prompt = self.get_send_message_prompt(step_id, agent_state)
-        print(send_message_step_prompt)
+        # print(send_message_step_prompt)
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端

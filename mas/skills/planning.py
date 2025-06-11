@@ -192,14 +192,14 @@ class PlanningSkill(Executor):
             planning_step_prompt,
             context=chat_context
         )
-        print(f"[Debug][Planning] LLM返回结果:\n{response}\n")
+        # print(f"[Debug][Planning] LLM返回结果:\n{response}\n")
 
         # 3. 规则判定
         # 结构化输出判定，保证规划结果位于<planned_step>和</planned_step>之间，
         # 持续性记忆位于<persistent_memory>和</persistent_memory>之间
         if "<planned_step>" not in response or "</planned_step>" not in response:
             response = llm_client.call(
-                f"**规划结果首尾用<planned_step>和</planned_step>标记，不要将其放在代码块或其他地方，否则将无法被系统识别。**",
+                f"**规划步骤首尾用<planned_step>和</planned_step>标记，不要将其放在代码块或其他地方，否则将无法被系统识别。**",
                 context=chat_context
             )
         if "<persistent_memory>" not in response or "</persistent_memory>" not in response:
@@ -209,7 +209,7 @@ class PlanningSkill(Executor):
             )
 
         # 打印LLM返回结果
-        # print(response)
+        # print(f"[Debug][Planning] LLM返回结果:\n{response}\n")
 
         # 解析Planning_step
         planned_step = self.extract_planned_step(response)

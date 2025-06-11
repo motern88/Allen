@@ -228,7 +228,7 @@ class SyncState:
         一般情况下只有 任务管理Agent 会变更任务状态与阶段状态。
         普通Agent完成自己所处阶段的任务目标后会更新stage_state.every_agent_state中自己的状态
         '''
-
+        # print(f"[Debug][executor_output] \n{executor_output}")
         # 如果字典的key是"update_stage_agent_state",则更新Agent在stage中的状态
         if "update_stage_agent_state" in executor_output:
             info = executor_output["update_stage_agent_state"]
@@ -236,10 +236,11 @@ class SyncState:
             task_state = self.all_tasks.get(info["task_id"])
             # 获取对应阶段状态
             stage_state = task_state.get_stage(info["stage_id"])
-            # 更新阶段中agent状态
-            stage_state.update_agent_state(info["agent_id"], info["state"])
-            print(f"[SyncState] 已更新 stage{info['stage_id']}"
-                  f" 中 agent{info['agent_id']} 的状态为 {info['state']}")
+            # 更新阶段中agent状态，如果不与任何阶段相关，则跳过
+            if stage_state is not None:
+                stage_state.update_agent_state(info["agent_id"], info["state"])
+                print(f"[SyncState] 已更新 stage{info['stage_id']}"
+                      f" 中 agent{info['agent_id']} 的状态为 {info['state']}")
 
         # 如果字典的key是"send_shared_message",则添加共享消息到任务共享消息池
         if "send_shared_message" in executor_output:
