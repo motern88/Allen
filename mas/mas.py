@@ -131,7 +131,8 @@ class MultiAgentSystem:
             task_id=task_state.task_id,
             stage_intention="（MAS中第一个任务的第一个阶段）"
                             "在MAS刚刚初始化，尚未分配任何实际任务时，此阶段将等待或主动向人类询问指令。"
-                            "根据人类的指示，管理者Agent将创建相应的新任务，确保系统开始有序地执行具体任务。",
+                            "根据人类的指示，管理者Agent将创建相应的新任务，确保系统开始有序地执行具体任务。\n"
+                            "**请预先明确MAS系统中HumanAgent的Agent ID**",
             agent_allocation={task_manager_id: "向人类询问具体需求，并根据需求创建相应的新任务，确保系统按需运作。"},
             execution_state="init",
         )

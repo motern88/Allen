@@ -61,7 +61,7 @@ from mas.agent.state.step_state import StepState, AgentStep
 import uuid
 
 
-@Executor.register(executor_type="skill", executor_name="ask_info_skill")
+@Executor.register(executor_type="skill", executor_name="ask_info")
 class AskInfoSkill(Executor):
     def __init__(self):
         super().__init__()
@@ -221,7 +221,7 @@ class AskInfoSkill(Executor):
 
         # 1. 组装 LLM Ask Info 提示词 (基础提示词与技能提示词)
         ask_info_step_prompt = self.get_ask_info_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
-        print(ask_info_step_prompt)
+        # print(ask_info_step_prompt)
         # 2. llm调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端

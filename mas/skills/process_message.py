@@ -57,13 +57,9 @@ class ProcessMessageSkill(Executor):
 
         if matches:
             message = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
+            # process_message结果一般不是json，不需要解析。直接返回原内容即可
+            return message
 
-            try:
-                message_dict = json.loads(message)
-                return message_dict
-            except json.JSONDecodeError:
-                print("JSON解析错误:", message)
-                return None
         else:
             print("没有找到<process_message>标签")
             return None
@@ -193,11 +189,11 @@ class ProcessMessageSkill(Executor):
 
         # 1. 组装 LLM 系统预提示词 (这里将当前步骤的提示和其他提示分开，以防止消息中包含md标题冲突)
         pre_process_message_step_prompt = self.get_pre_process_message_prompt(step_id, agent_state)
-        print(pre_process_message_step_prompt)
+        # print(pre_process_message_step_prompt)
 
         # 2. 组装 Process Message 步骤提示词
         process_message_step_prompt = self.get_process_message_prompt(step_id, agent_state)
-        print(process_message_step_prompt)
+        # print(process_message_step_prompt)
 
         # 3. LLM调用 (这里将当前步骤的提示和其他提示分开，以防止消息中包含md标题冲突)
         llm_config = agent_state["llm_config"]

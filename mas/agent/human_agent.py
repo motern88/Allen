@@ -249,7 +249,7 @@ class HumanAgent(AgentBase):
                 return_waiting_id = message["waiting"][message["receiver"].index(self.agent_state["agent_id"])]
 
             # 将消息添加到 conversation_pool中私聊对话组中
-            self.agent_state["conversation_pool"]["conversation_privates"][message["sender_id"]].append(
+            self.agent_state["conversation_pool"]["conversation_privates"].setdefault(message["sender_id"], []).append(
                 {
                     "sender_id": message["sender_id"],  # 发送者Agent ID
                     "content": message["message"],  # 消息内容
