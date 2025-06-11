@@ -238,7 +238,7 @@ class HumanAgent(AgentBase):
         }
         '''
 
-        print(f"[DEBUG]receive_message: {message}")  # TODO：Debug测试用
+        print(f"[DEBUG][HumanAgent]receive_message: {message}")
 
         # 1. 判断消息是否需要回复
         if message["need_reply"]:

@@ -208,7 +208,7 @@ class TaskManagerSkill(Executor):
 
         # 1. 组装 LLM Task Manager 提示词 (基础提示词与技能提示词)
         task_manager_step_prompt = self.get_task_manager_prompt(step_id, agent_state)
-        print(task_manager_step_prompt)
+        # print(task_manager_step_prompt)
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端

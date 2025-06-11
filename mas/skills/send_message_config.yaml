@@ -52,7 +52,7 @@ use_prompt:
 
   return_format: |
     - 输出格式用字典表示，字段中包含以下字段：
-      receiver (List[str]): 接收者的Agent ID列表，表示你要发送消息的对象
+      receiver (List[str]): 接收者的Agent ID列表，表示你要发送消息的对象，你应当填入接收对象的实际ID
       message (str): 发送的实际消息内容
       stage_relative (str): 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为"no_relative"的字符串
       need_reply (bool): 表示是否需要回复，如果需要回复则为True，否则为False

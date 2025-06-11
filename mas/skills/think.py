@@ -119,7 +119,6 @@ class ThinkSkill(Executor):
         agent_state: Dict[str, Any],
         update_agent_situation: str,
         shared_step_situation: str,
-        agent_completion_summary: str,
     ) -> Dict[str, Any]:
         '''
         构造Summary技能的execute_output。这部分使用代码固定构造，不由LLM输出构造。
@@ -172,7 +171,7 @@ class ThinkSkill(Executor):
 
         # 1. 组装 LLM Think 提示词 (基础提示词与技能提示词)
         think_step_prompt = self.get_think_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
-        print(think_step_prompt)
+        # print(think_step_prompt)
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端

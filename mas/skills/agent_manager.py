@@ -199,7 +199,7 @@ class AgentManagerSkill(Executor):
 
         # 1. 组装 LLM Agent Manager 提示词 (基础提示词与技能提示词)
         agent_manager_step_prompt = self.get_agent_manager_prompt(step_id, agent_state)
-        print(agent_manager_step_prompt)
+        # print(agent_manager_step_prompt)
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端

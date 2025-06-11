@@ -163,7 +163,7 @@ class QuickThinkSkill(Executor):
 
         # 1. 组装 LLM Quick Think 提示词 (基础提示词与技能提示词)
         quick_think_step_prompt = self.get_quick_think_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
-        print(quick_think_step_prompt)
+        # print(quick_think_step_prompt)
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端

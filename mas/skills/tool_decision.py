@@ -234,7 +234,7 @@ class ToolDecisionSkill(Executor):
         
         # 1. 组装Tool Decision提示词
         tool_decision_prompt = self.get_tool_decision_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
-        print(tool_decision_prompt)
+        # print(tool_decision_prompt)
         
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
@@ -254,7 +254,7 @@ class ToolDecisionSkill(Executor):
         )
 
         # 打印LLM返回结果
-        print(response)
+        # print(response)
 
         # 解析tool_decision_step
         tool_decision_step = self.extract_tool_decision_step(response)

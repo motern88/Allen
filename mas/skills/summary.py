@@ -193,7 +193,7 @@ class SummarySkill(Executor):
 
         # 1. 组装 LLM Summary 提示词 (基础提示词与技能提示词)
         summary_step_prompt = self.get_summary_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
-        print(summary_step_prompt)
+        # print(summary_step_prompt)
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
