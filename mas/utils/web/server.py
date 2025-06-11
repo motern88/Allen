@@ -88,7 +88,7 @@ def get_states():
 
     # 统一获取全部状态（统一结构：{state_id: 内容dict}）
     all_states: Dict[str, dict] = monitor.get_all_states()
-    print("[DEBUG] all state ids:", list(all_states.keys()))  # Debug: 打印所有状态 ID
+    # print("[DEBUG] all state ids:", list(all_states.keys()))  # Debug: 打印所有状态 ID
     # print("[DEBUG] all state ", all_states)
 
     # 过滤匹配类型:通过状态 ID 前缀匹配（如 TaskState_）

@@ -221,7 +221,7 @@ class StateMonitor:
 
         # 4. AgentBase.agent_state
         # 如果是AgentBase实例(或人类操作端HumanAgent实例)，且AgentBase.agent_state是字典
-        elif type(obj).__name__ == "AgentBase" or type(obj).__name__ == "HumanAgent":  # 不依赖导入类而通过名字判断
+        elif type(obj).__name__ == "AgentBase": # 不依赖导入类而通过名字判断
             '''
             只保留AgentBase.agent_state （Dict[str,any]）的特殊字段
             agent_state 中 LLM Config 与 step_lock 不展示
@@ -245,6 +245,31 @@ class StateMonitor:
                 } if isinstance(agent_state, dict) else None,
                 "tools": self._safe_serialize(agent_state.get("tools")),
                 "skills": self._safe_serialize(agent_state.get("skills")),
+            }
+        # 5. HumanAgent.agent_state
+        # 如果是人类操作端HumanAgent实例
+        elif type(obj).__name__ == "HumanAgent": # 不依赖导入类而通过名字判断
+            '''
+            只保留HumanAgent.agent_state （Dict[str,any]）的特殊字段
+            agent_state 中 Human Config不展示
+            '''
+            agent_state = getattr(obj, "agent_state", None)
+
+            return {
+                "agent_id": getattr(obj, "agent_id", None),
+                "name": agent_state.get("name"),
+                "role": agent_state.get("role"),
+                "profile": agent_state.get("profile"),
+                "working_state": agent_state.get("working_state"),
+                "working_memory": self._safe_serialize(agent_state.get("working_memory")),
+                "persistent_memory": agent_state.get("persistent_memory"),
+                "agent_step": {
+                    "step_list": self._safe_serialize(agent_state.get("agent_step").step_list),
+                    "todo_list": self._safe_serialize(agent_state.get("agent_step").todo_list),
+                } if isinstance(agent_state, dict) else None,
+                "tools": self._safe_serialize(agent_state.get("tools")),
+                "skills": self._safe_serialize(agent_state.get("skills")),
+                "conversation_pool": self._safe_serialize(agent_state.get("conversation_pool", {})),
             }
 
         else:
