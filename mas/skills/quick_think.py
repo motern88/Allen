@@ -185,6 +185,10 @@ class QuickThinkSkill(Executor):
         if not quick_think:
             # step状态更新为 failed
             agent_state["agent_step"].update_step_status(step_id, "failed")
+            # 记录失败的LLM输出到execute_result
+            step = agent_state["agent_step"].get_step(step_id)[0]
+            execute_result = {"llm_response": response}  # execute_result记录失败的llm输出
+            step.update_execute_result(execute_result)
             # 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
             execute_output = self.get_execute_output(
                 step_id,

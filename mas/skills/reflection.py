@@ -10,6 +10,8 @@ Reflection需要获取到过去执行步骤的信息，并且具备操作AgentSt
     Planning_step中text_content中记录阶段整体目标和Agent被分配的具体目标。
     由agent_base.py中start_stage方法将Stage信息注入到Planning_step中。
 
+TODO 反思reflection不仅需要获取过去的历史步骤信息，还需要获取未执行的该阶段步骤信息，才能合理的生成欠缺的步骤。
+
 提示词顺序（系统 → 角色 → (目标 → 规则) → 记忆）
 
 具体实现:
@@ -212,18 +214,20 @@ class ReflectionSkill(Executor):
         # 结构化输出判定，保证反思追加的步骤结果位于<reflection_step>和</reflection_step>之间，
         # 持续性记忆位于<persistent_memory>和</persistent_memory>之间
         if "<reflection_step>" not in response or "</reflection_step>" not in response:
+            print("[Skill][reflection] 未返回<reflection_step>，正在重新规划...")
             response = llm_client.call(
                 f"**反思结果首尾用<reflection_step>和</reflection_step>标记，不要将其放在代码块或其他地方，否则将无法被系统识别。**",
                 context=chat_context
             )
         if "<persistent_memory>" not in response or "</persistent_memory>" not in response:
+            print("[Skill][reflection] 未返回<persistent_memory>，正在重新规划...")
             response = llm_client.call(
                 f"**持续性记忆首尾用<persistent_memory>和</persistent_memory>标记。**",
                 context=chat_context
             )
 
         # 打印LLM返回结果
-        # print(response)
+        print(f"[Debug][Skill][reflection] llm输出：\n{response}")
 
         # 解析reflection_step
         reflection_step = self.extract_reflection_step(response)
@@ -232,6 +236,10 @@ class ReflectionSkill(Executor):
         if not reflection_step:
             # step状态更新为 failed
             agent_state["agent_step"].update_step_status(step_id, "failed")
+            # 记录失败的LLM输出到execute_result
+            step = agent_state["agent_step"].get_step(step_id)[0]
+            execute_result = {"llm_response": response}  # execute_result记录失败的llm输出
+            step.update_execute_result(execute_result)
             # 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
             execute_output = self.get_execute_output(step_id, agent_state, update_agent_situation="failed",shared_step_situation="failed")
             return execute_output
@@ -349,10 +357,21 @@ if __name__ == "__main__":
         text_content="如果任务完成，则添加summary，否则追加能够完成任务的step",
         execute_result={},
     )
+    step4 = StepState(
+        task_id="task_001",
+        stage_id="no_relative",
+        agent_id="0001",
+        step_intention="判定是否完成任务",
+        type="skill",
+        executor="send_message",
+        text_content="你好，我是小白，任务终止了，你需要立马结束这个任务。",
+        execute_result={},
+    )
 
     agent_state["agent_step"].add_step(step1)
     agent_state["agent_step"].add_step(step2)
     agent_state["agent_step"].add_step(step3)
+    agent_state["agent_step"].add_step(step4)
 
     step_id = agent_state["agent_step"].step_list[2].step_id  # 当前为第三个step
 

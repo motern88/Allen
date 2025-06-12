@@ -242,6 +242,7 @@ class SyncState:
                 print(f"[SyncState] 已更新 stage{info['stage_id']}"
                       f" 中 agent{info['agent_id']} 的状态为 {info['state']}")
 
+
         # 如果字典的key是"send_shared_message",则添加共享消息到任务共享消息池
         if "send_shared_message" in executor_output:
             info = executor_output["send_shared_message"]
@@ -257,6 +258,7 @@ class SyncState:
             print(f"[SyncState] 已更新任务{info['task_id']}的共享消息池，"
                     f"添加了来自 agent{info['agent_id']} 的消息")
 
+
         # 如果字典的key是"update_stage_agent_completion",则更新阶段中Agent完成情况
         if "update_stage_agent_completion" in executor_output:
             info = executor_output["update_stage_agent_completion"]
@@ -268,6 +270,7 @@ class SyncState:
             stage_state.update_agent_cpmpletion(info["agent_id"], info["completion_summary"])
             print(f"[SyncState] 已更新 stage{info['stage_id']}"
                   f"中 agent{info['agent_id']} 的完成情况")
+
 
         # 如果字典的key是"send_message",则添加消息到任务通讯队列
         if "send_message" in executor_output:
