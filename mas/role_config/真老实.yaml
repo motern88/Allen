@@ -16,9 +16,10 @@ skills: ["planning", "reflection", "summary", "instruction_generation", "quick_t
 tools: []
 
 llm_config:
-  api_type: "ollama"
-  base_url: "http://192.168.30.16:11434/api"
-  model: "qwq:32b"
+  api_type: "openai"
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  model: "doubao-1-5-thinking-pro-250415"
+  api_key: "1bbe3102-3adb-4f8c-abcf-622eee7d0f76"
   max_tokens: 8192
   temperature: 0.1
   timeout: 600
