@@ -98,7 +98,7 @@ class HumanAgent(AgentBase):
     其中：
         agent_state["conversation_pool"] = {
             "conversation_groups": [<conversation_group>, ...],  # List[Dict] 所有群聊对话组
-            "conversation_privates": {"agent_id":<conversation_private>, ...},  # Dict[str,Dict] 所有私聊对话组
+            "conversation_privates": {"agent_id":[<conversation_private>, ...]},  # Dict[str,List] 所有私聊对话组
             "global_messages": [str, ...],  # 全局消息, 用于提醒该人类操作员自己的信息
         }
     每个 <conversation_group> 是一个字典，包含与其他Agent的对话信息：  TODO:暂未实现群聊对话，群聊对话是否在HumanAgent中实现？
