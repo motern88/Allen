@@ -193,7 +193,7 @@ class ReflectionSkill(Executor):
 
         # 1. 组装 LLM Reflection 提示词 (基础提示词与技能提示词)
         reflection_step_prompt = self.get_reflection_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
-        # print(reflection_step_prompt)
+        print(f"[Debug][Skill][reflection] 输入提示词：\n{reflection_step_prompt}")
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
