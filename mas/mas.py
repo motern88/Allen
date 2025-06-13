@@ -29,6 +29,7 @@ from mas.agent.human_agent import HumanAgent  # 人类操作端Agent
 from mas.utils.message_dispatcher import MessageDispatcher  # 消息分发器
 
 from mas.utils.web.server import start_monitor_web  # 监控器网页服务
+from mas.utils.web.human_interface import register_mas_instance, start_human_interface  # 人类操作端接口服务
 
 import mas.skills.__init__  # 会自动触发所有注册器的装饰器调用
 # import mas.tools.__init__  # 会自动触发所有注册器的装饰器调用  TODO:工具注册器暂时注释掉，等工具模块完善后再启用
@@ -175,6 +176,7 @@ if __name__ == "__main__":
     3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
     
     4.启动状态监控网页服务（可视化 + 热更新）
+    4.1 启动人类操作端接口服务
     
     5.主线程保持活跃，接受来自人类操作段的输入
     
@@ -202,8 +204,14 @@ if __name__ == "__main__":
 
     from mas.utils.monitor import StateMonitor  # Debug：查看监控器捕获信息时需要导入
 
+    # 4.1 启动人类操作端接口服务
+    register_mas_instance(mas)  # 注册MAS实例
+    threading.Thread(target=start_human_interface, daemon=True).start()
+    print(f"[MAS] 人类操作端接口服务已启动，访问 http://localhost:5001 发送消息。")
+
 
     # 5. 主线程可以执行其他逻辑，接受来自人类操作段的输入
+    # TODO: 这里是临时的调试代码，写死人类操作端agent_id，写死发送对象为灰风，后续可以改为更友好的人类操作端交互方式
     human_agent_id = mas.add_human_agent("mas/human_config/人类操作端_测试.yaml")  # 添加一个HumanAgent
     human_agent = mas.get_agent_from_id(human_agent_id)  # 获取HumanAgent实例
     while True:
