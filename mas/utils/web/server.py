@@ -115,8 +115,7 @@ def get_state_detail(state_id):
 
     返回：
     {
-        "state_id": "...",
-        "data": { ... }
+        "StateID_1": { "task_id": "...", "task_name": "...", ... }
     }
     """
     all_states: Dict[str, dict] = monitor.get_all_states()
@@ -125,6 +124,5 @@ def get_state_detail(state_id):
         return jsonify({"error": f"State ID '{state_id}' not found"}), 404
 
     return jsonify({
-        "state_id": state_id,
-        "data": all_states[state_id]
+        state_id: all_states[state_id]
     })
