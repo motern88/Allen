@@ -39,7 +39,7 @@ use_prompt:
       - 如果不需要回复：
         need_reply字段设置为False，每个接收方的step中会追加一个process_message步骤，用于处理消息。
     
-    2.然后，你需要根据历史步骤信息完善精确你要发送的消息内容，已执行的历史step信息在**history_step**章节中给出。
+    2.然后，你需要根据历史步骤信息完善精确你要发送的消息内容，已执行的历史step信息在**history_step**章节中给出（未执行的step也在**history_step**中）。
     
     3.你的消息发送内容需要包含：
       - 简短的自我介绍

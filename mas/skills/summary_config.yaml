@@ -20,6 +20,7 @@ use_prompt:
     "
     **你现在正在执行总结技能，你需要根据Agent已执行的多个step信息，来总结Agent对当前阶段stage目标的完成情况。**
     你需要总结的已执行的历史step信息在**history_step**章节中给出。当前阶段的目标在**history_step**中的第一个planning step的text_context中记录。
+    同时**history_step**中也会包含当前阶段待执行的step。
     
     在你执行完summary总结技能后，Agent记录当前stage的所有step都会被释放，
     只有你的总结信息会被同步到上级状态stage_state与task_state中，为后续工作流程及其他Agent提供信息参考。

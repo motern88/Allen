@@ -15,11 +15,11 @@ use_guide:
 # 技能实际调用的提示词
 use_prompt:
   skill_name: "reflection"
-  skill_prompt:
-    "
+  skill_prompt: |
     **你现在正在执行反思技能，你需要根据Agent已执行的多个step信息，来判定Agent是否符合预期(能够顺利完成其被分配的stage目标)。**
     你需要反思的已执行的历史step信息在**history_step**章节中给出，你需要对齐的stage目标在**history_step**中的第一个planning step的text_context中记录。
     - 如果你认为Agent没有完成stage目标，你需要规划多个新的step以完成该目标（规划的最后一个step应当是一个reflection step）。
+      注：该Stage下待执行还未执行的step信息也在**history_step**章节中给出。**请避免规划重复目标的step**！
     - 如果你认为Agent已经完成stage目标，你需要添加一个总结步骤(summary step)。
     
     **添加step的方式：**
@@ -27,7 +27,7 @@ use_prompt:
     请根据当前stage目标，规划多个step以完成该目标。
     你将按照 return_format 中提供的返回格式信息，将规划好的step信息按照 return_format 指导的形式给出。
     通过 return_format 中的方式来具为Agent添加新的step
-    "
+
   return_format: |
     - 输出格式为完成多个的step顺序组成的列表 List[Dict[str,str]]，列表中的每个字典表示你规划的一个step。你生成的每个step要包含以下字段并填充具体值：
       step_intention (str): 步骤的简要意图

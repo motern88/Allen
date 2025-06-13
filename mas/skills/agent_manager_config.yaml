@@ -27,7 +27,7 @@ use_prompt:
     **你现在正在执行agent_manager技能，你正在履行管理者的职能，对相关agent进行操作。**
     
     你需要根据前面步骤的get_info中获取的系统中相关Agent信息，结合自身历史步骤信息
-    （已执行的历史step信息在**history_step**章节中给出），生成用于操作其他Agent的指令。
+    （已执行的历史step信息和待执行的step信息在**history_step**章节中给出），生成用于操作其他Agent的指令。
     
     该技能允许以下操作，请根据实际情况选择其中的操作：
     

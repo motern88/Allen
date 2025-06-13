@@ -12,6 +12,8 @@ import json
 import os
 import re
 
+from setuptools.package_index import fix_sf_url
+
 
 class Executor(ABC):
     '''
@@ -224,10 +226,12 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
-    # 组装历史步骤信息提示词
+    # 组装历史步骤（已执行和待执行的step）信息提示词
     def get_history_steps_prompt(self, step_id, agent_state):
         '''
         获取当前stage_id下所有step信息，并将其结构化组装。
+        分别组装已执行与未执行的步骤信息，返回Markdown格式的提示词
+
         通常本方法应用于reflection，summary技能中
         这里读取step的信息一般都会以str呈现，使用json.dumps()来处理步骤中execute_result与instruction_content
         '''
@@ -237,8 +241,10 @@ class Executor(ABC):
         history_steps = agent_step.get_step(stage_id=current_step.stage_id) # 根据当前步骤的stage_id查找所有步骤
 
         # 结构化组装历史step信息
-        md_output = [f"当前阶段的历史step信息如下:\n"]
+        history_step_md_output = [f"当前阶段的已执行的历史step信息如下:\n"]
+        future_step_md_output = [f"当前阶段的未执行step信息如下:\n"]
         for idx, step in enumerate(history_steps, 1):
+            # print("[DEBUG] get_history_steps_prompt 步骤状态: ", step.execution_state)
             step_info = [
                 f"[step {idx}]**\n",
                 f"- 属性: {step.type}-{step.step_intention}\n",
@@ -248,9 +254,19 @@ class Executor(ABC):
                 f"- 执行结果: {json.dumps(step.execute_result, ensure_ascii=False) if step.execute_result else '无'}\n",
                 f"- 执行状态: {step.execution_state}\n",
             ]
-            md_output.append(f"{step_info}")
-        md_output.append(f"\n以上是已执行step信息（共 {len(history_steps)} 步）")
+            if step.execution_state in ["finished", "failed"]:
+                # 已执行的步骤
+                history_step_md_output.append("".join(step_info))
+            else:
+                if step.execution_state != "running":  # 过滤掉正在执行的步骤，则剩下的是未执行的步骤
+                    future_step_md_output.append("".join(step_info))
 
+        history_step_md_output.append(f"\n以上是已执行step信息（共 {len(history_step_md_output)-1} 步）")
+        future_step_md_output.append(f"\n以上是未执行step信息（共 {len(future_step_md_output)-1} 步）")
+        # 合并已执行与未执行的步骤信息
+        md_output = history_step_md_output + future_step_md_output
+
+        # print(f"[DEBUG] get_history_steps_prompt ： {md_output}")
         return "\n".join(md_output)
 
     # 组装指定长尾工具的历史调用信息

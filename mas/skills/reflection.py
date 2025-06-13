@@ -114,8 +114,8 @@ class ReflectionSkill(Executor):
         md_output.append(f"{current_step}\n")
 
 
-        # 4. 历史步骤执行结果
-        md_output.append(f"# 历史已执行步骤 history_step\n")
+        # 4. 历史步骤（包括已执行和待执行）执行结果
+        md_output.append(f"# 历史步骤（包括已执行和待执行） history_step\n")
         history_steps = self.get_history_steps_prompt(step_id, agent_state)  # 不包含标题的md格式文本
         md_output.append(f"{history_steps}\n")
 
@@ -193,7 +193,7 @@ class ReflectionSkill(Executor):
 
         # 1. 组装 LLM Reflection 提示词 (基础提示词与技能提示词)
         reflection_step_prompt = self.get_reflection_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
-        print(f"[Debug][Skill][reflection] 输入提示词：\n{reflection_step_prompt}")
+        # print(f"[Debug][Skill][reflection] 输入提示词：\n{reflection_step_prompt}")
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
@@ -227,7 +227,7 @@ class ReflectionSkill(Executor):
             )
 
         # 打印LLM返回结果
-        print(f"[Debug][Skill][reflection] llm输出：\n{response}")
+        # print(f"[Debug][Skill][reflection] llm输出：\n{response}")
 
         # 解析reflection_step
         reflection_step = self.extract_reflection_step(response)
@@ -301,7 +301,7 @@ if __name__ == "__main__":
         "role": "合同提取专员",
         "profile": "负责合同提取，将合同内容按字段提取录入系统",
         "working_state": "idle",
-        "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),
+        "llm_config": LLMConfig.from_yaml("mas/role_config/doubao.yaml"),
         "working_memory": {},
         "persistent_memory": "",
         "agent_step": AgentStep("0001"),
@@ -317,6 +317,7 @@ if __name__ == "__main__":
         step_intention="将合同提取任务分解为多个步骤",
         type="skill",
         executor="planning",
+        execution_state="finished",
         text_content="分析任务并制定执行计划",
         execute_result={
             "planned_step": [
@@ -342,6 +343,7 @@ if __name__ == "__main__":
         step_intention="获取合同信息",
         type="skill",
         executor="contract_extractor",
+        execution_state="finished",
         text_content="提取合同中的关键信息",
         execute_result={
             "contract_key_word": "<测试文本（假设能满足阶段要求）>"
@@ -354,17 +356,19 @@ if __name__ == "__main__":
         step_intention="判定是否完成任务",
         type="skill",
         executor="reflection",
+        execution_state="running",
         text_content="如果任务完成，则添加summary，否则追加能够完成任务的step",
         execute_result={},
     )
     step4 = StepState(
         task_id="task_001",
-        stage_id="no_relative",
+        stage_id="stage_001",
         agent_id="0001",
         step_intention="判定是否完成任务",
         type="skill",
         executor="send_message",
-        text_content="你好，我是小白，任务终止了，你需要立马结束这个任务。",
+        execution_state="init",
+        text_content="你好，我是小白，该阶段终止了，你需要立马结束这个任务。",
         execute_result={},
     )
 
@@ -378,6 +382,7 @@ if __name__ == "__main__":
     reflection_skill = ReflectionSkill()
     reflection_skill.execute(step_id, agent_state)
     # 打印step信息
+    print("\n[Debug] Reflection技能执行后，AgentStep中的步骤信息:\n")
     agent_state["agent_step"].print_all_steps()
 
 

@@ -124,8 +124,8 @@ class TaskManagerSkill(Executor):
         current_step = self.get_current_skill_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
         md_output.append(f"{current_step}\n")
 
-        # 4. 历史步骤执行结果
-        md_output.append(f"# 历史已执行步骤 history_step\n")
+        # 4. 历史步骤（包括已执行和待执行）执行结果
+        md_output.append(f"# 历史步骤（包括已执行和待执行） history_step\n")
         history_steps = self.get_history_steps_prompt(step_id, agent_state)  # 不包含标题的md格式文本
         md_output.append(f"{history_steps}\n")
 
