@@ -13,6 +13,7 @@ use_guide:
     instruction_generation会获取下一个step工具的实际调用提示词use_prompt，并根据工具调用提示词中的内容，生成具体的调用指令。
     工具本身并不会使用Agent的LLM能力，因此instruction_generation是生成工具调用指令的途径，
     也是实现Agent自主且动态地使用工具进行任意操作的重要实现方式
+    
 
 # 技能实际调用的提示词
 use_prompt:
