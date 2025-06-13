@@ -103,5 +103,28 @@ def get_states():
     # 返回 JSON 格式的结果
     return result
 
+# 实现指定 ID 的状态详情查询接口
+@app.route("/api/state/<state_id>", methods=['GET'])
+def get_state_detail(state_id):
+    """
+    查询指定 ID 的状态详情（不校验类型）
 
+    示例：
+    - GET /api/state/TaskState_123d352a5d5
+    - GET /api/state/AgentState_4f14f41a2k4
 
+    返回：
+    {
+        "state_id": "...",
+        "data": { ... }
+    }
+    """
+    all_states: Dict[str, dict] = monitor.get_all_states()
+
+    if state_id not in all_states:
+        return jsonify({"error": f"State ID '{state_id}' not found"}), 404
+
+    return jsonify({
+        "state_id": state_id,
+        "data": all_states[state_id]
+    })
