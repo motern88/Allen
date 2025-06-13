@@ -329,9 +329,9 @@ class SendMessageSkill(Executor):
             execute_result = {"send_message": message}  # 构造符合execute_result格式的执行结果
             step.update_execute_result(execute_result)
 
-            # 4. 解析persistent_memory并追加到Agent持续性记忆中
-            new_persistent_memory = self.extract_persistent_memory(response)
-            agent_state["persistent_memory"] += "\n" + new_persistent_memory
+            # 4. 解析persistent_memory指令内容并应用到Agent持续性记忆中
+            instructions = self.extract_persistent_memory(response)  # 提取<persistent_memory>和</persistent_memory>之间的指令内容
+            self.apply_persistent_memory(agent_state, instructions)  # 将指令内容应用到Agent的持续性记忆中
 
             # step状态更新为 finished
             agent_state["agent_step"].update_step_status(step_id, "finished")

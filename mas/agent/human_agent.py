@@ -193,8 +193,8 @@ class HumanAgent(AgentBase):
         # 工作记忆，存储Agent在任务中的临时信息
         agent_state["working_memory"] = working_memory if working_memory else {}
 
-        # 永久追加精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空
-        agent_state["persistent_memory"] = ""  # md格式纯文本，里面只能用三级标题 ### 及以下！不允许出现一二级标题！
+        # 永久追加精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空  TODO：人类操作端需不需要持续性记忆？应该不需要
+        agent_state["persistent_memory"] = {}  # Key为时间戳 %Y%m%dT%H%M%S ，值为md格式纯文本（里面只能用三级标题 ### 及以下！不允许出现一二级标题！）
 
         # 人类操作端不自动执行AgentStep，仅为了通过AgentStep来追踪人类操作员的操作步骤
         agent_state["agent_step"] = AgentStep(agent_id)

@@ -193,8 +193,8 @@ system_prompt: |
       以任务视角存储 Agent 的工作记忆。  
       结构为 `{<task_id>: {<stage_id>: [<step_id>, ...], ...}, ...}`  
       记录未完成的任务、阶段和步骤，不用于长期记忆。  
-    persistent_memory (str): 永久追加的精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空
-      md格式纯文本，**里面只能用三级标题及以下！不允许出现一二级标题！**
+    persistent_memory (str): 永久追加的精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空。
+	  其中key为记录的时间戳，value为对应的文本内容。（md格式纯文本，**里面只能用三级标题及以下！不允许出现一二级标题！**）
     
     agent_step (AgentStep): AgentStep是一个对step_state的管理类，维护一个包含step_state的列表
     step_lock (List[str]):
@@ -206,18 +206,42 @@ system_prompt: |
     
     conversation_pool (List[Dict[str, Any]], 可选): （仅会存在于Human-Agent中）Agent 的对话池，记录与其他 Agent 或人类的对话内容。
 
-persistent_memory_prompt:
-  "
-  **管理永久持续性记忆**:
+persistent_memory_prompt: |
+  **永久持续性记忆的格式**:
   persistent_memory 是存储在Agent_state['persistent_memory']中的永久持续性记忆。
+  Dict[str, str]，其中key为记录的时间戳，value为对应的文本内容。
+  
+  **管理永久持续性记忆**:
   你可以通过追加永久持续性记忆的方式，将一些重要的信息永久保存在你的Agent中，这些信息不会因为任务的结束而被清空。
-  **你需要自主的在每次技能/工具使用时关注或修改永久持续性记忆的信息**。
+  你需要自主的在每次技能/工具使用时关注或修改永久持续性记忆的信息。
   这很关键，因为永久持续性记忆persistent_memory可以跨越不同step的执行，帮助你在多个step中保持一致，就像LLM的上下文一样。
   
-  你可以通过在输出结果中添加以下格式的文本来追加永久持续性记忆：
+  管理指令使用<persistent_memory>List[Dict]</persistent_memory>的形式：
+  - 追加永久持续性记忆指令：
+    使用add指令和你要添加的新记忆内容。
+    你可以通过在输出结果中添加以下格式的文本来追加永久持续性记忆：
+    <persistent_memory>
+    [{"add":"你要追加的永久持续性记忆内容"}]
+    </persistent_memory>
+  
+  - 删除已有的记忆内容：
+    通过使用delete指令和对应的时间戳，删除对应时间戳下的记忆内容。
+    你可以通过在输出结果中添加以下格式的文本来替换/修改已有的永久持续性记忆内容：
+    <persistent_memory>
+    [{"delete":"你要删除的永久持续性记忆的时间戳"}]
+    </persistent_memory>
+  
+  你用于管理永久持续性记忆的指令可以有多条，放在<persistent_memory></persistent_memory>标签中以列表List的形式存放。
+  输出示例：
+  如果我想要替换20250613T103022时间戳下的记忆内容为"ABC网站网址是XXXX"我可以先删除再追加，输出以下内容：
   <persistent_memory>
-  中间是你要追加的永久持续性记忆内容
+  [
+    {"delete":"20250613T103022"},
+    {"add":"ABC网站网址是XXXX"}
+  ]
   </persistent_memory>
   
-  **记住在必要的时候主动以这种方式为自己记录一些精简的重要信息！！**
-  "
+  **记住在必要的时候主动以这种方式为自己记录一些精简的重要信息。时刻保持记忆是精简的，经常清除过时的记忆**
+  
+  
+  

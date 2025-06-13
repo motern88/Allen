@@ -259,10 +259,9 @@ class AskInfoSkill(Executor):
             execute_result = {"ask_instruction": ask_instruction}  # 构造符合execute_result格式的执行结果
             step.update_execute_result(execute_result)
 
-
-            # 4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
-            new_persistent_memory = self.extract_persistent_memory(response)
-            agent_state["persistent_memory"] += "\n" + new_persistent_memory
+            # 4. 解析persistent_memory指令内容并应用到Agent持续性记忆中
+            instructions = self.extract_persistent_memory(response)  # 提取<persistent_memory>和</persistent_memory>之间的指令内容
+            self.apply_persistent_memory(agent_state, instructions)  # 将指令内容应用到Agent的持续性记忆中
 
             # 5. 添加通信等待机制的步骤锁
             # 生成唯一等待标识ID，直到SyncState回复消息中包含该ID（Agent回收步骤锁后），Agent才可进行后续step执行。

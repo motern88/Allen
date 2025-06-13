@@ -7,6 +7,7 @@ from mas.agent.state.step_state import StepState
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
+import datetime
 import yaml
 import json
 import os
@@ -159,16 +160,62 @@ class Executor(ABC):
     def extract_persistent_memory(self, response):
         '''
         从文本中解析持续性记忆，该方法供子类使用
-        TODO:是否修改为获取最后一个匹配内容 排除是在<think></think>思考期间的内容，使用re.findall
+        持续性记忆是<persistent_memory>List[Dict]</persistent_memory>的形式
         '''
-        # 使用正则表达式提取 <persistent_memory> ... </persistent_memory> 之间的内容
-        match = re.search(r"<persistent_memory>\s*(.*?)\s*</persistent_memory>", response, re.DOTALL)
+        # 找到所有 <persistent_memory>...</persistent_memory> 块
+        memory_matches = list(re.finditer(r"<persistent_memory>\s*(.*?)\s*</persistent_memory>", response, re.DOTALL))
 
-        if match:
-            persistent_memory = match.group(1)  # 获取匹配内容
-            return persistent_memory
-        else:
-            return ""
+        if not memory_matches:
+            return []
+
+        # 找到所有 <think>...</think> 的范围
+        think_spans = [(m.start(), m.end()) for m in re.finditer(r"<think>.*?</think>", response, re.DOTALL)]
+
+        def is_within_think(pos: int) -> bool:
+            return any(start <= pos <= end for start, end in think_spans)
+
+        # 倒序遍历，取最后一个不在<think>内的
+        for match in reversed(memory_matches):
+            if not is_within_think(match.start()):
+                content = match.group(1).strip()
+                try:
+                    parsed = json.loads(content)
+                    if isinstance(parsed, list) and all(isinstance(item, dict) for item in parsed):
+                        return parsed
+                except json.JSONDecodeError:
+                    print(f"[extract_persistent_memory] JSON解析失败: {content}")
+                    return []
+
+        return []  # 如果都在<think>中或格式非法
+
+    # 应用解析出来的持续性记忆指令到Agent状态中
+    def apply_persistent_memory(self, agent_state, persistent_memory):
+        '''
+        将解析出来的持续性记忆应用到Agent状态中，该方法供子类使用
+
+        支持指令：
+            - {"add": "你要追加的内容"}   → 自动生成时间戳为 key
+            - {"delete": "时间戳"}       → 删除对应 key 的内容
+        '''
+        memory_dict = agent_state['persistent_memory']
+        for cmd in persistent_memory:
+            if "add" in cmd:
+                content = cmd["add"]
+                timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+                # 避免 key 冲突（如在 1 秒内多次添加）
+                while timestamp in memory_dict:
+                    timestamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S%f")[:-3]  # 精度提高到毫秒
+                memory_dict[timestamp] = content
+
+            elif "delete" in cmd:
+                del_key = cmd["delete"]
+                if del_key in memory_dict:
+                    del memory_dict[del_key]
+                else:
+                    print(f"[Executor][apply_persistent_memory] 警告：试图删除不存在的时间戳: {del_key}")
+
+            else:
+                print(f"[Executor][apply_persistent_memory] 警告：无法识别的指令格式: {cmd}")
 
     # 组装Agent当前执行的skill_step的提示词
     def get_current_skill_step_prompt(self, step_id, agent_state):
