@@ -193,7 +193,7 @@ class InstructionGenerationSkill(Executor):
 
         # 1. 组装 LLM Instruction Generation 提示词 (基础提示词、技能提示词与工具提示词)
         instruction_generation_prompt = self.get_instruction_generation_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
-        
+
         # 2. LLM调用
         llm_config = agent_state["llm_config"]
         llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
