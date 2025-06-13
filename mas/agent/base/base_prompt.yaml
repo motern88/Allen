@@ -205,7 +205,7 @@ system_prompt: |
     skills (List[str], 可选): Agent 可用的技能列表，例如 `['文本摘要', '图像识别']`，默认为空列表。
     
     conversation_pool (List[Dict[str, Any]], 可选): （仅会存在于Human-Agent中）Agent 的对话池，记录与其他 Agent 或人类的对话内容。
-
+  
 persistent_memory_prompt: |
   **永久持续性记忆的格式**:
   persistent_memory 是存储在Agent_state['persistent_memory']中的永久持续性记忆。
