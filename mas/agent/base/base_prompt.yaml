@@ -217,7 +217,7 @@ persistent_memory_prompt: |
   这很关键，因为永久持续性记忆persistent_memory可以跨越不同step的执行，帮助你在多个step中保持一致，就像LLM的上下文一样。
   
   管理指令使用<persistent_memory>List[Dict]</persistent_memory>的形式：
-  - 追加永久持续性记忆指令：
+  - 追加永久持续性记忆：
     使用add指令和你要添加的新记忆内容。
     你可以通过在输出结果中添加以下格式的文本来追加永久持续性记忆：
     <persistent_memory>
