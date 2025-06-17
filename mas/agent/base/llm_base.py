@@ -60,10 +60,9 @@ class LLMClient:
     def _get_headers(self) -> Dict[str, str]:
         """生成 HTTP 头部信息"""
         headers = {"Content-Type": "application/json",}
-        # 如果有 API 密钥，则添加 Authorization 头
-        if hasattr(self.config, "api_key") and self.config.api_key:
+        # 仅为非 Gemini API 添加 Authorization 头
+        if self.config.api_type != "gemini" and hasattr(self.config, "api_key") and self.config.api_key:
             headers["Authorization"] = f"Bearer {self.config.api_key}"
-
         return headers
 
     def _get_payload(
@@ -76,15 +75,35 @@ class LLMClient:
         """生成 API 请求的 JSON 载荷，使用传入的上下文"""
         context.add_message("user", prompt)  # 追加新的 user 消息
 
-        payload = {
-            "model": self.config.model,
-            "messages": context.get_history(),  # 使用上下文中的对话历史
-            "stream": stream,  # 使用流模式参数
-            "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
-            "temperature": kwargs.get("temperature", self.config.temperature),
-        }
+        if self.config.api_type == "gemini":
+            # Gemini API 格式
+            gemini_messages = []
+            for msg in context.get_history():
+                role = "user" if msg["role"] == "user" else "model"
+                gemini_messages.append({
+                    "role": role,
+                    "parts": [{"text": msg["content"]}]
+                })
+            
+            payload = {
+                "contents": gemini_messages,
+                "generationConfig": {
+                    "temperature": kwargs.get("temperature", self.config.temperature),
+                    "maxOutputTokens": kwargs.get("max_tokens", self.config.max_tokens),
+                }
+            }
+            return payload
+        else:
+            # OpenAI/Ollama 格式
+            payload = {
+                "model": self.config.model,
+                "messages": context.get_history(),  # 使用上下文中的对话历史
+                "stream": stream,  # 使用流模式参数
+                "max_tokens": kwargs.get("max_tokens", self.config.max_tokens),
+                "temperature": kwargs.get("temperature", self.config.temperature),
+            }
 
-        return payload
+            return payload
 
     def call(
         self,
@@ -111,6 +130,9 @@ class LLMClient:
             url = self.config.base_url + "/chat"  # 使用生成对话模式
         elif self.config.api_type == "openai":
             url = self.config.base_url + "/chat/completions"  # 使用生成对话模式
+        elif self.config.api_type == "gemini":
+            # Gemini API 需要在 URL 中添加模型名称和 API 密钥
+            url = f"{self.config.base_url}/models/{self.config.model}:generateContent?key={self.config.api_key}"
         else:
             raise ValueError(f"不支持的 API 类型: {self.config.api_type}")
 
@@ -141,6 +163,13 @@ class LLMClient:
                 else:
                     print("OpenAI API 响应中没有预期的字段")
                     return None
+            elif self.config.api_type == "gemini":
+                # Gemini API 响应格式
+                if "candidates" in data and len(data["candidates"]) > 0:
+                    reply = data["candidates"][0]["content"]["parts"][0]["text"]
+                else:
+                    print("Gemini API 响应中没有预期的字段")
+                    return None
             else:
                 raise ValueError(f"不支持的 API 类型: {self.config.api_type}")
 
@@ -161,7 +190,7 @@ if __name__ == "__main__":
     '''
 
     print("尝试初始化llm并调用")
-    config = LLMConfig.from_yaml("mas/role_config/doubao.yaml")  # 创建 LLM 配置  # mas/role_config/qwq32b.yaml mas/role_config/openai.yaml
+    config = LLMConfig.from_yaml("mas/role_config/gemini.yaml")  # 创建 LLM 配置  mas/role_config/doubao.yaml  mas/role_config/qwq32b.yaml mas/role_config/openai.yaml
     llm_client = LLMClient(config)  # 创建 LLM 客户端
     chat_context = LLMContext(context_size=3)  # 创建一个对话上下文
 

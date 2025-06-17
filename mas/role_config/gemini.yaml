@@ -1,0 +1,9 @@
+# 测试GEMINI API
+
+api_type: "gemini"
+base_url: "https://generativelanguage.googleapis.com/v1beta"
+model: "gemini-2.0-flash"
+api_key: "AIzaSyCB5gjtj2fQZZn1qy7sPi1zAoNHTjTjPlE"
+max_tokens: 8192
+temperature: 0.1
+timeout: 600
