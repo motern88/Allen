@@ -6,8 +6,9 @@ use_guide:
   skill_name: "process_message"
   description:
     "
+    **process_message技能禁止由任何决策规划技能主动添加！！！**
     该技能主要用读取其他Agent发送的不需要回复的消息。
-    **该技能不应主动添加！！** 一般由其他Agent向你发送消息后系统帮你自动添加该步骤用于确保读取消息。
+    process_message不应当由决策技能主动规划，而一般由其他Agent向你发送消息后系统帮你自动添加该步骤用于确保读取消息。
     在该技能中，Agent会调用LLM总结并消化来自其他Agent的文本消息，并且将消化结果添加在持续性记忆中。
     
     在MAS中Agent间通讯的类型有两种实现方式：
