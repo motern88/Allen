@@ -104,8 +104,8 @@ Send Message首先会判断当前Agent已有的信息是否满足发送消息的
         6. 返回用于指导状态同步的execute_output
 
     如果进入获取更多信息分支：
-        4. 解析llm返回的获取更多信息指令，追加到Agent的步骤列表中
-        5. 构造插入的Decision Step与Send Message Step
+        4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
+        5. 构造插入的Decision Step与Send Message Step，插入到Agent的步骤列表中
         6. 返回用于指导状态同步的execute_output
 '''
 import re
@@ -379,8 +379,8 @@ class SendMessageSkill(Executor):
                 如果进入直接消息发送分支：
 
         如果进入获取更多信息分支：
-            4. 解析llm返回的获取更多信息指令，追加到Agent的步骤列表中
-            5. 构造插入的Decision Step与Send Message Step
+            4. 解析persistent_memory并追加到Agent持续性记忆中
+            5. 构造插入的Decision Step与Send Message Step，插入到Agent的步骤列表中
             6. 返回用于指导状态同步的execute_output
         '''
 
@@ -422,6 +422,7 @@ class SendMessageSkill(Executor):
             execute_output = self.get_execute_output(step_id, agent_state, update_agent_situation="failed",shared_step_situation="failed")
             return execute_output
 
+        # 直接消息发送分支
         elif message:  # 如果解析到消息体
             # 记录send message结果到execute_result
             step = agent_state["agent_step"].get_step(step_id)[0]
@@ -464,6 +465,7 @@ class SendMessageSkill(Executor):
             chat_context.clear()
             return execute_output
 
+        # 获取更多信息分支
         elif instruction:
             # 记录send message中get_more_info分支结果到execute_result
             step = agent_state["agent_step"].get_step(step_id)[0]
