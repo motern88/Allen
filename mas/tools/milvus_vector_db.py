@@ -326,7 +326,7 @@ if __name__ == "__main__":
         "working_state": "Unassigned tasks",  
         "llm_config": LLMConfig.from_yaml("mas/role_config/qwen235b.yaml"),  
         "working_memory": {},  
-        "persistent_memory": "",  
+        "persistent_memory": {},
         "agent_step": AgentStep("0001"),  
         "skills": ["planning", "reflection", "summary", "instruction_generation"],  # 这里可以添加其他技能  
         "tools": ["milvus_vector_db"],  # 指定使用的工具  

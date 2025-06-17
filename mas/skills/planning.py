@@ -283,7 +283,7 @@ if __name__ == "__main__":
         "working_state": "idle",
         "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),
         "working_memory": {},
-        "persistent_memory": "",
+        "persistent_memory": {},
         "agent_step": AgentStep("0001"),
         "skills": ["planning","reflection","summary"],
         "tools": [],

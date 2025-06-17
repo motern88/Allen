@@ -3,35 +3,55 @@
 期望作用: Agent在MAS系统内部的对另一个Agent实例的单向消息发送。
     Send Message会获取当前stage所有step执行情况的历史信息，使用LLM依据当前send_message_step意图进行汇总后，向指定Agent发送消息。
 
-Send Message 首先需要构建发送对象列表。[<agent_id>, <agent_id>, ...]
-其次需要确定发送的内容，通过 Send Message 技能的提示+LLM调用返回结果的解析可以得到。
-需要根据发送的实际内容，LLM需要返回的信息:
-<send_message>
-{
-    "receiver": ["<agent_id>", "<agent_id>", ...],
-    "message": "<message_content>",  # 消息文本
-    "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
-    "need_reply": <bool>,  # 需要回复则为True，否则为False
-    "waiting": <bool>  # 需要等待则为True，否则为False
-}
-</send_message>
+Send Message首先会判断当前Agent已有的信息是否满足发送消息的条件，即要发送的正确消息内容，当前Agent是否已知。
+- 如果存在未获取的信息，不能支撑当前Agent发送消息内容，则会进入"获取更多信息分支"。
+- 如果当前Agent已有的信息满足发送消息的条件，则会进入"直接消息发送分支"。
 
-消息构造体经过executor处理和sync_state处理，最终在task_state的消息处理队列中的格式应当为：
-{
-    task_id: str  # 任务ID,
-    sender_id: str  # 发送者ID
-    receiver: List[str]  # 用列表包裹的接收者agent_id
-    message: str  # 消息文本
+获取更多信息分支:
+    当前Send Message执行时，Agent已有的信息不满足发送消息的条件（由LLM自行判断），进入获取更多信息分支。
+    该分支的主要目的是将Send Message变为一个长尾技能，通过插入追加一个Decision Step来获取更多信息。
+    LLM会根据当前Agent已有的信息，判断需要获取哪些更多信息，返回:
+    <get_more_info>
+    {
+        "step_intention": "获取系统中XXX文档的XXX内容",
+        "text_content": "我需要获取系统中关于XXX文档的XXX内容，需要精确到具体的XXX信息，以便我可以完成后续的消息发送。",
+    }
+    </get_more_info>
+    我们会根据LLM返回的内容，追插入一个对应属性的Decision Step
+    和与当前Send Message属性相同Send Message Step到当前Agent的步骤列表中。
+    (于construct_decision_step_and_send_message_step方法中构造)
 
-    stage_relative: str  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
-    need_reply: bool  # 需要回复则为True，否则为False
 
-    waiting: Optional[List[str]]  # 如果发送者需要等待回复，则为所有发送对象填写唯一等待ID。不等待则为 None
-        # LLM如果认为需要等待，则由代码为每个接收对象生成唯一等待ID
-    return_waiting_id: Optional[str]  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
-        # 来自上一个发送者消息的唯一等待ID，如果本send_message是为了回复上一个消息，且上一个消息带有唯一等待ID，则需要返回对应的这个唯一等待ID
-        # 一般该return_waiting_id会在agent_base接收到对方正在等待回复的消息时，被包裹在<return_waiting_id>和</return_waiting_id>之间放在回复step.text_content中
-}
+直接消息发送分支:
+    Send Message 首先需要构建发送对象列表。[<agent_id>, <agent_id>, ...]
+    其次需要确定发送的内容，通过 Send Message 技能的提示+LLM调用返回结果的解析可以得到。
+    需要根据发送的实际内容，LLM需要返回的信息:
+    <send_message>
+    {
+        "receiver": ["<agent_id>", "<agent_id>", ...],
+        "message": "<message_content>",  # 消息文本
+        "stage_relative": "<stage_id或no_relative>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
+        "need_reply": <bool>,  # 需要回复则为True，否则为False
+        "waiting": <bool>  # 需要等待则为True，否则为False
+    }
+    </send_message>
+
+    消息构造体经过executor处理和sync_state处理，最终在task_state的消息处理队列中的格式应当为：
+    {
+        task_id: str  # 任务ID,
+        sender_id: str  # 发送者ID
+        receiver: List[str]  # 用列表包裹的接收者agent_id
+        message: str  # 消息文本
+
+        stage_relative: str  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
+        need_reply: bool  # 需要回复则为True，否则为False
+
+        waiting: Optional[List[str]]  # 如果发送者需要等待回复，则为所有发送对象填写唯一等待ID。不等待则为 None
+            # LLM如果认为需要等待，则由代码为每个接收对象生成唯一等待ID
+        return_waiting_id: Optional[str]  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
+            # 来自上一个发送者消息的唯一等待ID，如果本send_message是为了回复上一个消息，且上一个消息带有唯一等待ID，则需要返回对应的这个唯一等待ID
+            # 一般该return_waiting_id会在agent_base接收到对方正在等待回复的消息时，被包裹在<return_waiting_id>和</return_waiting_id>之间放在回复step.text_content中
+    }
 
 说明：
 1.消息如何被发送：
@@ -77,9 +97,16 @@ Send Message 首先需要构建发送对象列表。[<agent_id>, <agent_id>, ...
 
     2. llm调用
     3. 解析llm返回的消息体构造
-    4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
-    5. 如果发送消息需要等待回复，则触发步骤锁机制
-    6. 返回用于指导状态同步的execute_output
+
+    如果进入直接消息发送分支：
+        4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
+        5. 如果发送消息需要等待回复，则触发步骤锁机制
+        6. 返回用于指导状态同步的execute_output
+
+    如果进入获取更多信息分支：
+        4. 解析llm返回的获取更多信息指令，追加到Agent的步骤列表中
+        5. 构造插入的Decision Step与Send Message Step
+        6. 返回用于指导状态同步的execute_output
 '''
 import re
 import json
@@ -100,7 +127,7 @@ class SendMessageSkill(Executor):
 
     def extract_send_message(self, text: str) -> Optional[Dict[str, Any]]:
         '''
-        从文本中提取消息构造体
+        从文本中提取消息构造体(如果Send Message进入直接消息发送分支)
         '''
         # 使用正则表达式提取<send_message>和</send_message>之间的内容
         matches = re.findall(r"<send_message>\s*(.*?)\s*</send_message>", text, re.DOTALL)
@@ -115,7 +142,26 @@ class SendMessageSkill(Executor):
                 print("JSON解析错误:", message)
                 return None
         else:
-            print("没有找到<send_message>标签")
+            # print("没有找到<send_message>标签")
+            return None
+
+    def extract_get_more_info(self, text: str) -> Optional[Dict[str, Any]]:
+        '''
+        从文本中提取获取更多信息的指令(如果Send Message进入获取更多信息分支)
+        '''
+        # 使用正则表达式提取<get_more_info>和</get_more_info>之间的内容
+        matches = re.findall(r"<get_more_info>\s*(.*?)\s*</get_more_info>", text, re.DOTALL)
+
+        if matches:
+            get_more_info = matches[-1] # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
+            try:
+                get_more_info_dict = json.loads(get_more_info)
+                return get_more_info_dict
+            except json.JSONDecodeError:
+                print("JSON解析错误:", get_more_info)
+                return None
+        else:
+            # print("没有找到<get_more_info>标签")
             return None
 
     def extract_return_waiting_id(self,text):
@@ -129,6 +175,48 @@ class SendMessageSkill(Executor):
         else:
             print("[Skill][send_message] 没有找到<return_waiting_id>标签")
             return None
+
+    def construct_decision_step_and_send_message_step(self, instruction, step_id, agent_state):
+        '''
+        根据获取更多信息的指令，构造插入的Decision Step与Send Message Step
+        获得的指令 instruction 如下：
+        {
+            "step_intention": "获取系统中XXX文档的XXX内容",
+            "text_content": "我需要获取系统中关于XXX文档的XXX内容，需要精确到具体的XXX信息，以便我可以完成后续的消息发送。",
+        }
+        需要构造的Decision Step与Send Message Step如下：
+        [
+            {
+                "step_intention": "获取系统中XXX文档的XXX内容",
+                "type": "skill",
+                "executor": "decision",
+                "text_content": "我需要获取系统中关于XXX文档的XXX内容，需要精确到具体的XXX信息，以便我可以完成后续的消息发送。"
+            },
+            {
+                "step_intention": 和当前step的step_intention相同,
+                "type": "skill",
+                "executor": "send_message",
+                "text_content": 和当前step的text_content相同,
+            }
+        ]
+        '''
+        # 获取当前步骤的状态
+        current_step = agent_state["agent_step"].get_step(step_id)[0]
+        # 构造Decision Step与Send Message Step
+        decision_step = {
+            "step_intention": instruction["step_intention"],
+            "type": "skill",
+            "executor": "decision",
+            "text_content": instruction["text_content"]
+        }
+        send_message_step = {
+            "step_intention": current_step.step_intention,
+            "type": "skill",
+            "executor": "send_message",
+            "text_content": current_step.text_content
+        }
+
+        return [decision_step, send_message_step]
 
     def get_send_message_prompt(self, step_id: str, agent_state: Dict[str, Any]):
         '''
@@ -282,10 +370,18 @@ class SendMessageSkill(Executor):
         1. 组装 LLM Send Message 提示词
         2. LLM调用
         3. 解析llm返回的消息体
-        4. 解析persistent_memory并追加到Agent持续性记忆中
-        5. 判定是否添加通信等待机制的步骤锁
-        6. 生成并返回execute_output指令
-            （向task_state.communication_queue追加消息,更新stage_state.every_agent_state中自己的状态）
+
+        如果进入直接消息发送分支：
+            4. 解析persistent_memory并追加到Agent持续性记忆中
+            5. 判定是否添加通信等待机制的步骤锁
+            6. 生成并返回execute_output指令
+                （向task_state.communication_queue追加消息,更新stage_state.every_agent_state中自己的状态）
+                如果进入直接消息发送分支：
+
+        如果进入获取更多信息分支：
+            4. 解析llm返回的获取更多信息指令，追加到Agent的步骤列表中
+            5. 构造插入的Decision Step与Send Message Step
+            6. 返回用于指导状态同步的execute_output
         '''
 
         # step状态更新为 running
@@ -308,11 +404,14 @@ class SendMessageSkill(Executor):
             context=chat_context
         )
 
-        # 3. 解析llm返回的消息体
-        message = self.extract_send_message(response)
+        # print("[Skill][send_message] LLM Response:", response)
 
-        # 如果无法解析到消息体，说明LLM没有返回发送消息
-        if not message:
+        # 3. 解析llm返回的消息体
+        message = self.extract_send_message(response)  # 尝试提取直接消息发送的消息体
+        instruction = self.extract_get_more_info(response)  # 尝试提取获取更多信息的指令
+
+        # 如果无法解析到消息体，也无法解析到指令，说明LLM没有进入到任何一个分支
+        if not message and not instruction:
             # step状态更新为 failed
             agent_state["agent_step"].update_step_status(step_id, "failed")
             # 记录失败的LLM输出到execute_result
@@ -323,15 +422,15 @@ class SendMessageSkill(Executor):
             execute_output = self.get_execute_output(step_id, agent_state, update_agent_situation="failed",shared_step_situation="failed")
             return execute_output
 
-        else:  # 如果解析到消息体
+        elif message:  # 如果解析到消息体
             # 记录send message结果到execute_result
             step = agent_state["agent_step"].get_step(step_id)[0]
             execute_result = {"send_message": message}  # 构造符合execute_result格式的执行结果
             step.update_execute_result(execute_result)
 
             # 4. 解析persistent_memory指令内容并应用到Agent持续性记忆中
-            instructions = self.extract_persistent_memory(response)  # 提取<persistent_memory>和</persistent_memory>之间的指令内容
-            self.apply_persistent_memory(agent_state, instructions)  # 将指令内容应用到Agent的持续性记忆中
+            persistent_memory_instructions = self.extract_persistent_memory(response)  # 提取<persistent_memory>和</persistent_memory>之间的指令内容
+            self.apply_persistent_memory(agent_state, persistent_memory_instructions)  # 将指令内容应用到Agent的持续性记忆中
 
             # step状态更新为 finished
             agent_state["agent_step"].update_step_status(step_id, "finished")
@@ -365,6 +464,36 @@ class SendMessageSkill(Executor):
             chat_context.clear()
             return execute_output
 
+        elif instruction:
+            # 记录send message中get_more_info分支结果到execute_result
+            step = agent_state["agent_step"].get_step(step_id)[0]
+            execute_result = {"get_more_info": instruction}  # 构造符合execute_result格式的执行结果
+            step.update_execute_result(execute_result)
+
+            # 4. 解析persistent_memory指令内容并应用到Agent持续性记忆中
+            persistent_memory_instructions = self.extract_persistent_memory(response)  # 提取<persistent_memory>和</persistent_memory>之间的指令内容
+            self.apply_persistent_memory(agent_state, persistent_memory_instructions)  # 将指令内容应用到Agent的持续性记忆中
+
+            # step状态更新为 finished
+            agent_state["agent_step"].update_step_status(step_id, "finished")
+
+            # 5. 构造插入的Decision Step与Send Message Step
+            step_list = self.construct_decision_step_and_send_message_step(instruction, step_id, agent_state)
+            # 将构造的步骤插入到当前Agent的步骤列表中
+            self.add_next_step(step_list, step_id, agent_state)  # 将规划的步骤列表添加到AgentStep中
+
+            # 6. 构造execute_output
+            execute_output = self.get_execute_output(
+                step_id,
+                agent_state,
+                update_agent_situation="working",
+                shared_step_situation="finished",
+            )  # 获取更多消息分支不发送消息，不传get_execute_output的send_message字段
+            # 清空对话历史
+            chat_context.clear()
+            return execute_output
+
+
 # Debug
 if __name__ == "__main__":
     '''
@@ -379,13 +508,13 @@ if __name__ == "__main__":
         "role": "心理咨询专员",
         "profile": "心理咨询师，擅长倾听与分析。主要帮助同事（其他Agent）疏导心理压力",
         "working_state": "idle",
-        "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),
+        "llm_config": LLMConfig.from_yaml("mas/role_config/doubao.yaml"),
         "working_memory": {},
-        "persistent_memory": "",
+        "persistent_memory": {},
         "agent_step": AgentStep("0001"),
         "skills": ["planning", "reflection", "summary",
                    "instruction_generation", "quick_think", "think",
-                   "send_message"],
+                   "send_message", "process_message", ],
         "tools": [],
     }
 
@@ -413,10 +542,10 @@ if __name__ == "__main__":
         task_id="task_001",
         stage_id="stage_001",
         agent_id="0001",
-        step_intention="询问协作Agent的心理状况",
+        step_intention="根据MAS帮助文档中的询问指南，询问协作Agent的心理状况",
         type="skill",
         executor="send_message",
-        text_content="当前任务的Agent ID有: 0001,0005,0098",
+        text_content="严格按照MAS帮助文档中的'询问指南'章节中的详细询问步骤（需要获取到MAS帮助文档），询协作Agent的心理状况，其中当前任务的Agent ID有: 0001,0005,0098",
         execute_result={},
     )
 

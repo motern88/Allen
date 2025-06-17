@@ -377,7 +377,7 @@ if __name__ == "__main__":
         "working_state": "idle",  
         "llm_config": llm_config,  
         "working_memory": {},  
-        "persistent_memory": "我是一个网络调研专员，帮助用户完成网络任务。",  
+        "persistent_memory": {"20250613T103523":"我是一个网络调研专员，帮助用户完成网络任务。"},
         "agent_step": AgentStep("0001"),  
         "skills": ["planning", "reflection", "summary", "instruction_generation"],  
         "tools": ["browser_use"],  
