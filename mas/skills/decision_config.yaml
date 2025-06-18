@@ -1,0 +1,77 @@
+# Date: 2025/06/18
+# 该文件用于描述技能的使用方法，以及技能包含的提示词。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  skill_name: "decision"
+  description:
+    "
+    该技能用于Agent在执行过程中对突发状况进行决策。
+    相比与planning/reflection/tool_decision技能，decision技能更侧重于对突发状况的应对。
+    decision可以进行与阶段Stage无关的决策步骤规划，更加灵活，decision可以应对反应来自其他Agent消息时的相关决策。
+    decision技能可以规划一系列步骤并插入到下一个step之前来及时应对，能及时反应。
+    通常情况下，decision可以在send_message技能的'获取更多信息'的分支情况下被调用。
+    "
+
+# 技能实际调用的提示词
+use_prompt:
+  skill_name: "decision"
+  skill_prompt: |
+    **你现在正在执行决策技能，你需要遵从当前步骤current_step的text_content中的指令进行规划。**
+    你将规划一系列step以完成当前步骤的决策目标。假如你拆解当前的目标时发现一些子目标不知道如何达到，
+    那么你需要先规划尝试了解如何达到这些子目标的步骤，再添加decision step去按照你了解的方式去完成这些子目标。
+    
+    这里展示一个示例（这里只是举例，不要相信其细节，实际任务根据实际目标的MAS实际构造去规划）：
+      我的Decision目标是将网页密钥发送给有需要的Agent -> 拆分成子目标 (1)获取网页密钥 (2)发送给有需要的Agent:
+      (1) 目标是获取网页密钥 -> 我当前不知道如何获取网页密钥 -> 规划一系列step去了解如何获取网页密钥，后面跟一个Decison step用于在了解方法后规划步骤去实时该获取方法
+      (2) 目标是发送给有需要的Agent -> 我不知道谁是有需要的Agent -> 规划一个ask_info技能去查询谁是'有需要的Agent'。
+    *记住必要时，可以规划末尾使用decision step可以用来延续你的决策过程，直到你完成当前步骤的目标。*
+    
+    **添加step的方式：**
+    step是Agent执行的最小单位，每个step只包含一次skill或tool的调用（可选skill与tool见 available_skills_and_tools）。
+    请根据当前decision步骤的目标，规划多个step以完成该目标。
+    你将按照 return_format 中提供的返回格式信息，将规划好的step信息按照 return_format 指导的形式给出。
+    通过 return_format 中的方式来具为Agent添加新的step
+
+  return_format: |
+    - 输出格式为完成多个的step顺序组成的列表 List[Dict[str,str]]，列表中的每个字典表示你规划的一个step。你生成的每个step要包含以下字段并填充具体值：
+      step_intention (str): 步骤的简要意图
+      type (str): 步骤的类型,例如：'skill', 'tool'
+      executor (str): 执行该步骤的对象，如果是 type 是 'tool' 则填工具名称，如果是 'skill' 则填技能名称
+      text_content (Optional[str]): 如果是使用技能，则必须填入技能调用的提示文本（不是Skill规则的系统提示，而是需要这个skill做什么具体任务的目标提示文本）
+    
+    - 请将你规划的结果(由多个step字典组成的列表)收尾用<decision_step>和</decision_step>标记，不要将其放在代码块中：
+      <decision_step>
+      [
+        <Step_Dict>,
+        <Step_Dict>,
+        ...
+      ]
+      </decision_step>
+    
+    - **规划结果首尾用<decision_step>和</decision_step>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例：
+      <decision_step>
+      [
+        {
+          "step_intention": "查看ID为123的Agent的信息",
+          "type": "skill",
+          "executor": "ask_info",
+          "text_content": "使用ask_info技能，查看指定ID为123的Agent的详细信息，并记录在持续性记忆中。重点关注其当前状态、任务进度和任何可能的障碍。以便为后续消息回复提供必要的内容"
+        },
+        {
+          "step_intention": "查看‘帮助文档’中如何获取网页密钥的方法",
+          "type": "tool",
+          "executor": "milvus_vetor_db",
+          "text_content": "因为不知道如何获取用户询问的网页密钥，所以先使用milvus_vetor_db工具，查询‘帮助文档’中关于如何获取网页密钥的相关信息，并记录在持续性记忆中。以便下一步Decision规划取获取该信息的步骤"
+        },
+        {
+          "step_intention": "规划获取网页密钥的步骤",
+          "type": "skill",
+          "executor": "decision",
+          "text_content": "根据上一步从帮助文档中查看的获取网页密钥的方法，规划获取网页密钥的步骤。确保每个步骤都清晰明确，并且可以被执行。将获取到的网页密钥记录在持续性记忆中，以便为后续消息回复提供必要的内容"
+        },
+      ]
+      </decision_step>
+    
+    
+    

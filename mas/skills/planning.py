@@ -187,7 +187,7 @@ class PlanningSkill(Executor):
         chat_context.add_message("assistant", "好的，我会作为你提供的Agent角色，执行planning操作，"
                                               "根据上文current_step的要求使用available_skills_and_tools中提供的权限规划后续step，"
                                               "并在<planned_step>和</planned_step>之间输出规划结果，"
-                                              "在<persistent_memory>和</persistent_memory>之间输出我要追加的持续性记忆(如果我认为不需要追加我会空着)，")
+                                              "在<persistent_memory>和</persistent_memory>之间输出我要追加或删除的持续性记忆指令(如果我认为不需要变更我会空着)，")
         response = llm_client.call(
             planning_step_prompt,
             context=chat_context

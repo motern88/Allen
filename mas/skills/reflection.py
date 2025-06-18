@@ -204,7 +204,7 @@ class ReflectionSkill(Executor):
                                               "如果不满足，我会根据最早planning_step的初衷，使用available_skills_and_tools中提供的权限规划实现阶段要求需要追加的step，"
                                               "如果满足，我会增加一个总结步骤。"
                                               "并在<reflection_step>和</reflection_step>之间输出规划结果，"
-                                              "在<persistent_memory>和</persistent_memory>之间输出我要追加的持续性记忆(如果我认为不需要追加我会空着)，")
+                                              "在<persistent_memory>和</persistent_memory>之间输出我要追加或删除的持续性记忆指令(如果我认为不需要变更我会空着)，")
         response = llm_client.call(
             reflection_step_prompt,
             context=chat_context
@@ -259,7 +259,7 @@ class ReflectionSkill(Executor):
                     f"以下技能与工具不在使用权限内:{not_allowed_executors}。请确保只使用 available_skills_and_tools 小节中提示的可用技能与工具来追加反思step。**规划结果放在<reflection_step>和</reflection_step>之间。**",
                     context=chat_context
                 )
-                reflection_step = self.extract_planned_step(response)
+                reflection_step = self.extract_reflection_step(response)
 
             # 4. 记录reflection反思结果到execute_result，并更新AgentStep中的步骤列表
             step = agent_state["agent_step"].get_step(step_id)[0]
