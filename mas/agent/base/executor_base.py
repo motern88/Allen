@@ -13,9 +13,6 @@ import json
 import os
 import re
 
-from setuptools.package_index import fix_sf_url
-
-
 class Executor(ABC):
     '''
     抽象基类Executor，所有具体执行器继承此类，并实现execute方法

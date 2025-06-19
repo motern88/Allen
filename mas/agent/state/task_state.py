@@ -5,6 +5,7 @@ MAS系统接收到一个具体任务时，会实例化一个TaskState对象用�
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from mas.agent.state.stage_state import StageState
+from mas.agent.base.message import Message
 import queue
 from mas.utils.monitor import StateMonitor
 
@@ -65,7 +66,37 @@ class TaskState:
     # 添加任务阶段
     def add_stage(self, stage_state: StageState):
         assert stage_state.task_id == self.task_id, "Stage task_id 不一致"
+        # 绑定回调函数到当前任务实例，这里给StageState绑定的回调函数是用于传递阶段完成信息到TaskState的。
+        stage_state.on_stage_complete = self._handle_stage_completion
         self.stage_list.append(stage_state)
+
+    # 处理阶段完成时的回调函数
+    def _handle_stage_completion(self, stage_id: str, completion_data: Dict[str, str], agent_allocation: Dict[str, str]):
+        '''
+        StageState触发阶段完成时的回调函数，在TaskState中整理信息通知管理Agent。
+        以消息发送的方式通知管理Agent，将构造好的消息放入communication_queue消息队列中。
+        '''
+        print(f"[TaskState] 阶段 {stage_id} 已完成，向管理Agent {self.task_manager} 通知完成情况")
+
+        # 构造阶段完成的通知消息
+        message: Message = {
+            "task_id": self.task_id,
+            "sender_id": "[TaskState系统通知]",
+            "receiver": self.task_manager,
+            "message": f"[TaskState] 已侦测到阶段 {stage_id} 下所有Agent均已提交完成总结。\n"
+                       f"**阶段中各个Agent被分配阶段目标**: {agent_allocation} \n"
+                       f"**阶段中各个Agent提交的完成总结**: {completion_data} \n"
+                       f"**现在你作为管理Agent需要对该阶段完成情况进行判断**:\n"
+                       f"- 如果阶段完成情况满足预期，则使用task_manager技能结束该任务阶段\n"
+                       f"- 如果阶段完成情况不满足预期，则使用task_manager和agent_manager技能指导Agent进行相应的调整\n",
+            "stage_relative": stage_id,
+            "need_reply": False,
+            "waiting": None,
+            "return_waiting_id": None
+        }
+
+        # 将构造好的消息放入任务的通信队列中
+        self.communication_queue.put(message)
 
     # 获取当前需要执行/正在执行的阶段
     def get_current_or_next_stage(self) -> Optional[StageState]:

@@ -308,7 +308,7 @@ class AgentBase():
                     task_id=message["task_id"],
                     stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
                     step_intention=f"处理来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**。"
-                                   f"你需要理解并消化该消息的内容，必要的时候需要将重要信息记录在你的persistent_memory中",
+                                   f"你需要理解、消化并在必要的时候反应该消息的内容（反应是指你需要做出与MAS系统交互的行为），必要的时候需要将重要信息记录在你的persistent_memory中",
                     type="skill",
                     executor="process_message",
                     text_content=message["message"]
@@ -319,7 +319,7 @@ class AgentBase():
                     task_id=message["task_id"],
                     stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
                     step_intention=f"处理来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**。"
-                                   f"你需要理解并消化该消息的内容，必要的时候需要将重要信息记录在你的persistent_memory中",
+                                   f"你需要理解、消化并在必要的时候反应该消息的内容（反应是指你需要做出与MAS系统交互的行为），必要的时候需要将重要信息记录在你的persistent_memory中",
                     type="skill",
                     executor="process_message",
                     text_content=message["message"]

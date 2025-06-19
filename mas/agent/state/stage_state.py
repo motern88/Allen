@@ -4,7 +4,7 @@ Agent被分配执行或协作执行一个任务时，任务会由管理Agent拆�
 '''
 
 import uuid
-from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union, Callable
 from mas.utils.monitor import StateMonitor
 
 @StateMonitor.track  # 注册状态监控器
@@ -34,6 +34,9 @@ class StageState:
             这里的状态是指Agent在这个阶段的状态，不是全局状态
 
         completion_summary (Dict[<agent_id>, <completion_summary>]): 阶段中每个Agent的完成情况
+
+    其他:
+        on_stage_complete (Optional[Callable]): 阶段完成时的回调函数，用于向task_state提交阶段完成情况
     '''
 
     def __init__(
@@ -42,6 +45,8 @@ class StageState:
         stage_intention: str,
         agent_allocation: Dict[str, str],
         execution_state: str = "init",
+        # 回调函数参数 用于阶段完成时的传递至task_state的回调函数
+        on_stage_complete: Optional[Callable] = None  # 在TaskState中添加StageState时会自动注册这个回调函数，不需要我们手动传入
     ):
         # 阶段基本信息
         self.task_id = task_id
@@ -58,17 +63,32 @@ class StageState:
         # 完成情况
         self.completion_summary = {}  # Dict[<agent_id>, <completion_summary>] 阶段中每个Agent的完成情况总结
 
+        # 阶段完成时的回调函数
+        self.on_stage_complete = on_stage_complete
+
     def update_agent_state(self, agent_id: str, state: str):
         '''
         更新阶段中某个Agent的状态
         '''
         self.every_agent_state[agent_id] = state
 
-    def update_agent_cpmpletion(self, agent_id: str, completion_summary: str):
+    def update_agent_completion(self, agent_id: str, completion_summary: str):
         '''
         更新阶段中某个Agent的完成情况
+
+        更新完成情况时会触发检查，如果发现此时所有Agent都已经提交了完成情况，则触发向管理Agent提交阶段完成情况的逻辑。
         '''
         self.completion_summary[agent_id] = completion_summary
+
+        # 检查是否所有Agent都完成了,只要提交completion_summary就认为Agent已经结束了阶段目标
+        all_agents = set(self.agent_allocation.keys())
+        reported_completion = set(self.completion_summary.keys())
+
+        if all_agents == reported_completion:
+            # 触发向管理Agent提交阶段完成情况的逻辑
+            if self.on_stage_complete:
+                # 回调通知task_state
+                self.on_stage_complete(self.stage_id, self.completion_summary, self.agent_allocation)
 
 
 

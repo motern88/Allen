@@ -267,7 +267,7 @@ class SyncState:
             # 获取对应阶段状态
             stage_state = task_state.get_stage(info["stage_id"])
             # 更新阶段中agent完成情况
-            stage_state.update_agent_cpmpletion(info["agent_id"], info["completion_summary"])
+            stage_state.update_agent_completion(info["agent_id"], info["completion_summary"])
             print(f"[SyncState] 已更新 stage{info['stage_id']}"
                   f"中 agent{info['agent_id']} 的完成情况")
 

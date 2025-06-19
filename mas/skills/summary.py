@@ -1,6 +1,6 @@
 '''
 技能名称: Summary
-期望作用: Agent通过Summary总结并结束自己的一个stage，标志着一个stage的结束。
+期望作用: Agent通过Summary总结并结束自己的一个stage，标志着一个Agent自身完成这个stage的结束。
     整理该stage内所有step的信息并通过execute_output同步在stage_state.completion_summary(Dict[<agent_id>, <completion_summary>])中
     (Summary只负责Agent执行step的汇总，不负责交付阶段stage结果。
     例如假设阶段目标是输出一段文本，那么输出文本的这个交付过程应当由一个交付工具例如"send_message"执行，而非留给Summary技能来完成。)
@@ -226,7 +226,7 @@ class SummarySkill(Executor):
                 agent_state,
                 update_agent_situation="failed",
                 shared_step_situation="failed",
-                agent_completion_summary="(任务完成情况总结失败)",
+                agent_completion_summary="(试图总结任务完成情况时失败)",
             )
             return execute_output
 
