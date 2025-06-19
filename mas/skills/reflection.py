@@ -10,7 +10,6 @@ Reflection需要获取到过去执行步骤的信息，并且具备操作AgentSt
     Planning_step中text_content中记录阶段整体目标和Agent被分配的具体目标。
     由agent_base.py中start_stage方法将Stage信息注入到Planning_step中。
 
-TODO 反思reflection不仅需要获取过去的历史步骤信息，还需要获取未执行的该阶段步骤信息，才能合理的生成欠缺的步骤。
 
 提示词顺序（系统 → 角色 → (目标 → 规则) → 记忆）
 

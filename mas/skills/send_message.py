@@ -520,29 +520,9 @@ if __name__ == "__main__":
         "tools": [],
     }
 
-    # 构造虚假的历史步骤
     step1 = StepState(
         task_id="task_001",
-        stage_id="stage_001",
-        agent_id="0001",
-        step_intention="询问并了解其他Agent心理状况",
-        type="skill",
-        executor="planning",
-        text_content="询问其他Agent心理状况",
-        execute_result={
-            "planned_step": [
-                {
-                    "step_intention": "询问协作Agent的心理状况",
-                    "type": "skill",
-                    "executor": "send_message",
-                    "text_content": "当前任务的Agent ID有: 0001,0005,0098",
-                },
-            ]
-        },
-    )
-    step2 = StepState(
-        task_id="task_001",
-        stage_id="stage_001",
+        stage_id="no_relative",
         agent_id="0001",
         step_intention="根据MAS帮助文档中的询问指南，询问协作Agent的心理状况",
         type="skill",
@@ -552,9 +532,9 @@ if __name__ == "__main__":
     )
 
     agent_state["agent_step"].add_step(step1)
-    agent_state["agent_step"].add_step(step2)
+    # agent_state["agent_step"].add_step(step2)
 
-    step_id = agent_state["agent_step"].step_list[1].step_id  # 当前为第二个step
+    step_id = agent_state["agent_step"].step_list[0].step_id  # 当前为第二个step
 
     send_message = SendMessageSkill()
     send_message.execute(step_id, agent_state)

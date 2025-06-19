@@ -19,9 +19,10 @@
             1.3.1 step.step_intention 当前步骤的简要意图
             1.3.2 step.text_content 具体目标
             1.3.3 技能规则提示(decision_config["use_prompt"])
-        1.4 持续性记忆:（# 一级标题）
-            1.4.1 Agent持续性记忆说明提示词（## 二级标题）
-            1.4.2 Agent持续性记忆内容提示词（## 二级标题）
+        1.4 历史步骤执行结果（# 一级标题）
+        1.5 持续性记忆:（# 一级标题）
+            1.5.1 Agent持续性记忆说明提示词（## 二级标题）
+            1.5.2 Agent持续性记忆内容提示词（## 二级标题）
 
     2. llm调用
     3. 解析llm返回的步骤信息，更新AgentStep中的步骤列表
@@ -76,9 +77,10 @@ class DecisionSkill(Executor):
             3.1 step.step_intention 当前步骤的简要意图
             3.2 step.text_content 具体目标
             3.3 技能规则提示(decision_config["use_prompt"])
-        4 持续性记忆:（# 一级标题）
-            4.1 Agent持续性记忆说明提示词（## 二级标题）
-            4.2 Agent持续性记忆内容提示词（## 二级标题）
+        4 历史步骤执行结果（# 一级标题）
+        5 持续性记忆:（# 一级标题）
+            5.1 Agent持续性记忆说明提示词（## 二级标题）
+            5.2 Agent持续性记忆内容提示词（## 二级标题）
         '''
         md_output = []
 
@@ -104,7 +106,12 @@ class DecisionSkill(Executor):
         current_step = self.get_current_skill_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
         md_output.append(f"{current_step}\n")
 
-        # 4. 持续性记忆提示词
+        # 4. 历史步骤（包括已执行和待执行）执行结果
+        md_output.append(f"# 历史步骤（包括已执行和待执行） history_step\n")
+        history_steps = self.get_history_steps_prompt(step_id, agent_state)  # 不包含标题的md格式文本
+        md_output.append(f"{history_steps}\n")
+
+        # 5. 持续性记忆提示词
         md_output.append("# 持续性记忆persistent_memory\n")
         # 获取persistent_memory的使用说明
         base_persistent_memory_prompt = self.get_base_prompt(key="persistent_memory_prompt")  # 不包含标题的md格式文本
@@ -191,7 +198,7 @@ class DecisionSkill(Executor):
             decision_step_prompt,
             context=chat_context
         )
-        print(f"[Debug][Decision] LLM返回:\n{response}\n")
+        # print(f"[Debug][Decision] LLM返回:\n{response}\n")
 
         # 3. 规则判定
         # 结构化输出判定，保证决策追加的步骤结果位于<decision_step>和</decision_step>之间，
