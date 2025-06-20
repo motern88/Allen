@@ -7,9 +7,26 @@
 在AgentBase类中的process_message方法主要用于处理message中的指令部分，依照指令进行实际操作。
 在技能库中的ProcessMessageSkill主要用于让LLM理解并消化消息的文本内容。
 
+Process Message会理解并消化不需要回复的消息内容，并在必要时刻能够对消息内容做出与环境交互上的反应:
+- 如果判断不需要对消息内容做出行为反应，则会消化理解消息内容，并记录重要部分到持续性记忆中
+- 如果判断需要对消息内容做出行为反应，则会额外执行"行为反应"分支。
+
+行为反应分支:
+    当Process Message技能执行时，Agent判断需要对消息内容做出行为反应时，会进入到"行为反应"分支。
+    该分支的主要目的是赋予Process Message能够产生与环境交互行为的能力，通过插入追加一个Decision Step来规划接下来的短期反应行为的步骤。
+    LLM会根据自己判断的需要做出交互的行为，返回指令:
+    <react_action>
+    {
+        "step_intention": "规划获取帮助文档指定信息的步骤",
+        "text_content": "接收到来自管理Agent的消息，要求我按照'帮助文档'的内容来执行手中的合同审查任务。我需要规划一些步骤来获取帮助文档中的相关信息。其中帮助文档位于......",
+    }
+    </react_action>
+    我们会根据LLM返回的指令内容，追加插入一个对应属性的Decision Step到当前Agent的步骤列表中。
+
+
 NOTE: Message内容可能包含md标题，为了防止与其他提示的md标题形成标题冲突，因此得调整提示词顺序。见具体实现。
 
-提示词顺序（系统 → 角色 → (目标 → 规则) → 记忆）
+提示词顺序（系统 → 角色 → 目标 → 记忆 → （规则））
 
 具体实现:
     1. 组装预提示词:
@@ -27,10 +44,11 @@ NOTE: Message内容可能包含md标题，为了防止与其他提示的md标题
             2.1.2 step.text_content 接收到的消息内容
             2.1.3 技能规则提示(process_message_config["use_prompt"])
 
-    2. llm调用
-    3. 解析llm返回的消息读后感
-    4. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
-    5. 返回用于指导状态同步的execute_output
+    3. llm调用
+    4. 解析llm返回的消息理解内容和行为反应指令
+    5. 解析llm返回的持续性记忆信息，追加到Agent的持续性记忆中
+    6. 如果解析到行为反应指令，则追加插入一个Decision Step到当前Agent的步骤列表中
+    7. 返回用于指导状态同步的execute_output
 '''
 import re
 import json
@@ -48,9 +66,9 @@ class ProcessMessageSkill(Executor):
     def __init__(self):
         super().__init__()  # 调用父类的构造方法
 
-    def extract_process_message(self, text: str) -> Optional[Dict[str, Any]]:
+    def extract_process_message(self, text: str):
         '''
-        从文本中提取消息构造体
+        从文本中提取<process_message>包裹的内容
         '''
         # 使用正则表达式提取<process_message>和</process_message>之间的内容
         matches = re.findall(r"<process_message>\s*(.*?)\s*</process_message>", text, re.DOTALL)
@@ -64,6 +82,25 @@ class ProcessMessageSkill(Executor):
             print("没有找到<process_message>标签")
             return None
 
+    def extract_react_action(self, text: str) -> Optional[Dict[str, Any]]:
+        '''
+        从文本中提取<react_action>包裹的内容，并解析为字典
+        '''
+        # 使用正则表达式提取<react_action>和</react_action>之间的内容
+        matches = re.findall(r"<react_action>\s*(.*?)\s*</react_action>", text, re.DOTALL)
+
+        if matches:
+            instruction = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
+
+            try:
+                instruction_dict = json.loads(instruction)
+                return instruction_dict
+            except json.JSONDecodeError:
+                print("JSON解析错误:", instruction)
+                return None
+        else:
+            # print("没有找到<send_message>标签")
+            return None
 
     def get_pre_process_message_prompt(self, step_id: str, agent_state: Dict[str, Any]):
         '''
@@ -179,9 +216,10 @@ class ProcessMessageSkill(Executor):
         1. 组装 LLM 系统预提示词 (这里将当前步骤的提示和其他提示分开，以防止消息中包含md标题冲突)
         2. 组装 Process Message 步骤提示词
         3. LLM调用
-        4. 解析llm返回的消息体
+        4. 解析llm返回的消息体（<process_message>和<react_action>）
         5. 解析persistent_memory并追加到Agent持续性记忆中
-        6. 生成并返回execute_output指令
+        6. 如果解析到行为反应指令，则追加插入一个Decision Step到当前Agent的步骤列表中
+        7. 生成并返回execute_output指令
         '''
 
         # step状态更新为 running
@@ -214,8 +252,9 @@ class ProcessMessageSkill(Executor):
 
         # 4. 解析llm返回的对消息的理解信息
         process_message = self.extract_process_message(response)
+        react_action = self.extract_react_action(response)
 
-        # 如果无法解析到消息体，说明LLM没有返回理解的信息
+        # 如果无法解析到消息体<process_message>，说明LLM没有返回理解的信息
         if not process_message:
             # step状态更新为 failed
             agent_state["agent_step"].update_step_status(step_id, "failed")
@@ -228,7 +267,7 @@ class ProcessMessageSkill(Executor):
                                                      shared_step_situation="failed")
             return execute_output
 
-        else:  # 如果解析到LLM返回的理解的消息
+        else:  # 如果解析到LLM返回的理解的消息<process_message>内容
             # 记录process message结果到execute_result
             step = agent_state["agent_step"].get_step(step_id)[0]
             execute_result = {"process_message": process_message}  # 构造符合execute_result格式的执行结果
@@ -238,10 +277,22 @@ class ProcessMessageSkill(Executor):
             instructions = self.extract_persistent_memory(response)  # 提取<persistent_memory>和</persistent_memory>之间的指令内容
             self.apply_persistent_memory(agent_state, instructions)  # 将指令内容应用到Agent的持续性记忆中
 
+            # 6. 如果解析到行为反应指令，则追加插入一个Decision Step到当前Agent的步骤列表中
+            if react_action:
+                # 构造Decision Step
+                decision_step = {
+                    "step_intention": react_action["step_intention"],
+                    "type": "skill",
+                    "executor": "decision",
+                    "text_content": react_action["text_content"]
+                }
+                # 将构造的Decision步骤插入到当前Agent的步骤列表中
+                self.add_next_step([decision_step], step_id, agent_state)
+
             # step状态更新为 finished
             agent_state["agent_step"].update_step_status(step_id, "finished")
 
-            # 6. 构造execute_output，用于更新stage_state.every_agent_state
+            # 7. 构造execute_output，用于更新stage_state.every_agent_state
             execute_output = self.get_execute_output(
                 step_id,
                 agent_state,
@@ -267,11 +318,11 @@ if __name__ == "__main__":
         "role": "合同审查",
         "profile": "审查合同是否有误",
         "working_state": "idle",
-        "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),
+        "llm_config": LLMConfig.from_yaml("mas/role_config/doubao.yaml"),
         "working_memory": {},
         "persistent_memory": {},
         "agent_step": AgentStep("0001"),
-        "skills": ["planning", "reflection", "summary",
+        "skills": ["planning", "reflection", "summary", "decision",
                    "instruction_generation", "quick_think", "think",
                    "send_message", "process_message"],
         "tools": [],
@@ -308,7 +359,7 @@ if __name__ == "__main__":
         step_intention="接收并处理来自其他Agent的消息",
         type="skill",
         executor="process_message",
-        text_content="你好，我是合同提取专员，我向你发送消息是想提醒你，合同金额有误，其中合同款本应是3000RMB却被写成了3000美金，请知悉",
+        text_content="你好，我是合同提取专员，我向你发送消息是想提醒你，合同金额有误，其中合同款本应是3000RMB却被写成了3000美金，你需要向上级汇报",
         execute_result={},
     )
 
