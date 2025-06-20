@@ -250,7 +250,7 @@ class ProcessMessageSkill(Executor):
             context=chat_context
         )
 
-        # 4. 解析llm返回的对消息的理解信息
+        # 4. 解析llm返回的对消息的理解信息和行为反应指令
         process_message = self.extract_process_message(response)
         react_action = self.extract_react_action(response)
 
