@@ -68,7 +68,29 @@ class TaskState:
         assert stage_state.task_id == self.task_id, "Stage task_id 不一致"
         # 绑定回调函数到当前任务实例，这里给StageState绑定的回调函数是用于传递阶段完成信息到TaskState的。
         stage_state.on_stage_complete = self._handle_stage_completion
+        # 添加任务阶段
         self.stage_list.append(stage_state)
+
+    # 插入任务阶段
+    def add_next_stage(self, stage_state: StageState):
+        '''
+        从后向前查找第一个 execution_state 为 "running"、"finished" 或 "failed" 的阶段，
+        并在其后插入新的 StageState。如果都找不到，则追加到末尾。
+        '''
+        assert stage_state.task_id == self.task_id, "Stage task_id 不一致"
+        # 绑定回调函数到当前任务实例，这里给StageState绑定的回调函数是用于传递阶段完成信息到TaskState的。
+        stage_state.on_stage_complete = self._handle_stage_completion
+        # 插入任务阶段为下一个待执行的阶段
+        insert_index = None
+        for i in reversed(range(len(self.stage_list))):
+            state = getattr(self.stage_list[i], "execution_state", None)
+            if state in ("running", "finished", "failed"):
+                insert_index = i + 1
+                break
+        if insert_index is None:
+            self.stage_list.append(stage_state)  # 如果没有找到合适的插入位置，则追加到末尾
+        else:
+            self.stage_list.insert(insert_index, stage_state)  # 在找到的位置插入新的阶段
 
     # 处理阶段完成时的回调函数
     def _handle_stage_completion(self, stage_id: str, completion_data: Dict[str, str], agent_allocation: Dict[str, str]):
@@ -87,8 +109,8 @@ class TaskState:
                        f"**阶段中各个Agent被分配阶段目标**: {agent_allocation} \n"
                        f"**阶段中各个Agent提交的完成总结**: {completion_data} \n"
                        f"**现在你作为管理Agent需要对该阶段完成情况进行判断**:\n"
-                       f"- 如果阶段完成情况满足预期，则使用task_manager技能结束该任务阶段\n"
-                       f"- 如果阶段完成情况不满足预期，则使用task_manager和agent_manager技能指导Agent进行相应的调整\n",
+                       f"- 如果阶段完成情况满足预期，则使用task_manager技能的finish_stage结束该任务阶段\n"
+                       f"- 如果阶段完成情况不满足预期，则使用task_manager技能的retry_stage重试该任务阶段\n",
             "stage_relative": stage_id,
             "need_reply": False,
             "waiting": None,

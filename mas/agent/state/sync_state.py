@@ -287,7 +287,7 @@ class SyncState:
         if "task_instruction" in executor_output:
             task_instruction = executor_output["task_instruction"]
 
-            # 创建任务 add_task
+            # 1.创建任务 add_task
             if task_instruction["action"] == "add_task":
                 '''
                 {
@@ -326,7 +326,7 @@ class SyncState:
                 print(f"[SyncState] 已添加任务{task_state.task_id}，"
                       f"任务管理者{task_state.task_manager}")
 
-            # 为任务创建阶段 add_stage
+            # 2.为任务创建阶段 add_stage
             if task_instruction["action"] == "add_stage":
                 '''
                 {
@@ -381,7 +381,7 @@ class SyncState:
                     print(f"[SyncState] 已添加阶段{stage_state.stage_id}，"
                           f"到任务{task_instruction['task_id']}中")
 
-            # 结束任务 finish_task
+            # 3.结束任务 finish_task
             if task_instruction["action"] == "finish_task":
                 '''
                 {
@@ -398,7 +398,7 @@ class SyncState:
                 self.finish_task(task_instruction["task_id"], task_instruction["agent_id"])
                 print(f"[SyncState] 任务{task_instruction['task_id']}已结束")
 
-            # 结束阶段 finish_stage
+            # 4.结束阶段 finish_stage
             if task_instruction["action"] == "finish_stage":
                 '''
                 {
@@ -427,6 +427,80 @@ class SyncState:
                     print(f"[SyncState] 任务{task_instruction['task_id']}的阶段{next_stage.stage_id}已开启")
                 else:
                     print(f"[SyncState] 任务{task_instruction['task_id']}的所有阶段已结束")
+
+            # 5.重试阶段 retry_stage
+            if task_instruction["action"] == "retry_stage":
+                '''
+                {
+                    "action": "retry_stage",
+                    "task_id": "<task_id>",  # 任务ID
+                    "old_stage_id": "<stage_id>",  # 旧的执行失败的阶段ID
+                    "new_stage_intention": "<new_stage_intention>",  # 新阶段意图, 较为详细的阶段目标说明
+                    "new_agent_allocation": Dict[<agent_id>, <agent_stage_goal>],  # 新阶段中Agent的分配情况，key为Agent ID，value为Agent在这个阶段职责的详细说明
+                }
+                重试阶段 retry_stage 会创建一个新的相同目标的阶段去执行，达到重试的效果：
+                1.插入新的阶段到任务状态中
+                    1.1 实例化一个新的StageState
+                    1.2 插入新的阶段状态到任务状态中
+                    1.3 如果stage中的agent不在task群组中，则添加到task群组中
+                    1.4 同步工作记忆到任务参与者
+                2.将旧阶段的状态设置为"failed"
+                    2.1 获取旧阶段状态并设置为"failed"
+                    2.2 向Agent发送结束当前阶段的指令
+                3.开启新的阶段
+                '''
+                # 获取任务id的task_state
+                task_state = self.all_tasks.get(task_instruction["task_id"])
+
+                # 1.插入新的阶段到任务状态中
+                # 1.1 实例化一个新的StageState
+                stage_state = StageState(
+                    task_id=task_instruction["task_id"],
+                    stage_intention=task_instruction["new_stage_intention"],
+                    agent_allocation=task_instruction["new_agent_allocation"],
+                    execution_state="init",
+                )
+                # 1.2 插入新的阶段状态到任务状态中
+                task_state.add_next_stage(stage_state)
+                # 1.3 如果stage中的agent不在task群组中，则添加到task群组中
+                for agent_id in task_instruction["new_agent_allocation"].keys():
+                    self.add_agents_2_task_group(task_instruction["task_id"], [agent_id])
+
+                # 1.4 同步工作记忆到任务参与者
+                instruction = {
+                    "update_working_memory": {"task_id": task_state.task_id, "stage_id": stage_state.stage_id}}
+                message: Message = {
+                    "task_id": task_state.task_id,
+                    "sender_id": task_instruction["agent_id"],
+                    "receiver": [agent_id for agent_id in task_instruction["new_agent_allocation"].keys()],
+                    "message": "<instruction>" + json.dumps(instruction) + "</instruction>",
+                    "stage_relative": "no_relative",
+                    "need_reply": False,
+                    "waiting": None,
+                    "return_waiting_id": None
+                }
+                # 将消息添加到任务的通讯队列中
+                task_state.communication_queue.put(message)
+                print(f"[SyncState] 已插入阶段{stage_state.stage_id}，"
+                      f"到任务{task_instruction['task_id']}中")
+
+                # 2.将旧阶段的状态设置为"failed"
+                # 2.1 获取旧阶段状态并设置为"failed"
+                old_stage_state = self.get_stage_state(task_instruction["task_id"], task_instruction["stage_id"])
+                if old_stage_state:
+                    old_stage_state.execution_state = "failed"
+                # 2.2 向Agent发送结束当前阶段的指令
+                self.finish_stage(task_instruction["task_id"], task_instruction["stage_id"],
+                                  task_instruction["agent_id"])
+                print(f"[SyncState] 任务{task_instruction['task_id']}的阶段{task_instruction['stage_id']}已结束")
+
+                # 3.开启新的阶段
+                next_stage = task_state.get_current_or_next_stage()
+                if next_stage:
+                    next_stage.execution_state = "running"
+                    # 向Agent发送开启下一个阶段的指令
+                    self.start_stage(task_instruction["task_id"], next_stage.stage_id, task_instruction["agent_id"])
+                    print(f"[SyncState] 任务{task_instruction['task_id']}的阶段{next_stage.stage_id}已开启")
 
 
         # 如果字典的key是"agent_instruction",则解析并执行具体agent管理操作
