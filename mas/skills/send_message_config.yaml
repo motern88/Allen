@@ -74,7 +74,7 @@ use_prompt:
   return_format: |
     一.如果"直接消息发送"：
     - 输出格式用字典表示，字段中包含以下字段：
-      receiver (List[str]): 接收者的Agent ID列表，表示你要发送消息的对象，你应当填入接收对象的实际ID
+      receiver (List[str]): 接收者的Agent ID列表，表示你要发送消息的对象，你应当填入**接收对象的实际ID**(禁止使用XXX_ID等占位符)。
       message (str): 发送的实际消息内容
       stage_relative (str): 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为"no_relative"的字符串
       need_reply (bool): 表示是否需要回复，如果需要回复则为True，否则为False
@@ -86,7 +86,7 @@ use_prompt:
     - **请将你的消息构造结果用<send_message>和</send_message>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例：
     <send_message>
     {
-      "receiver": [ "<agent_id>", "<agent_id>", ... ],
+      "receiver": [ "<agent_id>", "<agent_id>", ... ],  # 实际的接收者Agent ID列表
       "message": "<message_content>",
       "stage_relative": "<stage_id或None>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
       "need_reply": <bool>,  # 需要回复则为True，否则为False
