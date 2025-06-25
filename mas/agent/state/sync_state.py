@@ -220,6 +220,31 @@ class SyncState:
             # 将消息添加到任务的通讯队列中
             task_state.communication_queue.put(message)
 
+    # 任务完成判定
+    def check_task_completion(self, task_id: str):
+        '''
+        由finish_stage是若不存在下一个阶段，则触发任务完成判定：
+        使用消息通知管理Agent，要求其对任务完成情况进行判断（使用ask_info获取信息，使用task_manager进行任务交付或任务修正）
+        '''
+        task_state = self.all_tasks.get(task_id)
+
+        # 构造任务完成判定的通知消息
+        message: Message = {
+            "task_id": task_id,
+            "sender_id": "[TaskState系统通知]",
+            "receiver": task_state.task_manager,
+            "message": f"[TaskState] 已侦测到任务 {task_id} 下所有Stage均已完成。\n"
+                       f"**现在你作为管理Agent需要对该任务完成情况进行判断，"
+                       f"你需要通过ask_info技能主动获取该任务的详细信息进行任务完成判定。**\n"
+                       f"- 如果任务完成情况满足预期，则使用task_manager技能的finish_task交付该任务\n"
+                       f"- 如果任务完成情况不满足预期，则可以考虑使用task_manager技能的add_stage为该任务添加新的阶段，以弥补不满足预期的部分。\n",
+            "stage_relative": "no_relative",
+            "need_reply": False,
+            "waiting": None,
+            "return_waiting_id": None
+        }
+        # 将构造好的消息放入任务的通信队列中
+        task_state.communication_queue.put(message)
 
     # 实现解析executor_output并更新task/stage状态
     def sync_state(self, executor_output: Dict[str, any]):
@@ -388,12 +413,15 @@ class SyncState:
                     "agent_id": "<agent_id>",  # 发起者Agent id
                     "action": "finish_stage",
                     "task_id": "<task_id>",  # 任务ID
+                    "summary": "<task_summary>",  # 任务总结
                 }
                 进入任务结束流程，通知所有Agent任务结束（以message指令形式）
                 '''
                 task_state = self.all_tasks.get(task_instruction["task_id"])
                 if task_state.execution_state != "failed":
-                    task_state.execution_state = "finished"
+                    task_state.update_task_execution_state("finished")
+                # 更新任务总结信息
+                task_state.task_summary = task_instruction.get("summary", "无总结信息")
                 # 向Agent发送任务结束的指令
                 self.finish_task(task_instruction["task_id"], task_instruction["agent_id"])
                 print(f"[SyncState] 任务{task_instruction['task_id']}已结束")
@@ -408,6 +436,7 @@ class SyncState:
                     "stage_id": "<stage_id>",  # 阶段ID
                 }
                 进入阶段结束流程，如果有下一个阶段，则sync_state需要负责开启下一个阶段
+                如果结束的阶段是任务中最后一个阶段，则需要触发任务完成判定
                 '''
                 # 结束当前阶段
                 stage_state = self.get_stage_state(task_instruction["task_id"], task_instruction["stage_id"])
@@ -417,16 +446,19 @@ class SyncState:
                 self.finish_stage(task_instruction["task_id"], task_instruction["stage_id"], task_instruction["agent_id"])
                 print(f"[SyncState] 任务{task_instruction['task_id']}的阶段{task_instruction['stage_id']}已结束")
 
-                # 如果还有下一个阶段，则开启下一个阶段
+                # 查询下一个阶段
                 task_state = self.all_tasks.get(task_instruction["task_id"])
                 next_stage = task_state.get_current_or_next_stage()
                 if next_stage:
+                    # 如果还有下一个阶段，则开启下一个阶段
                     next_stage.execution_state = "running"
                     # 向Agent发送开启下一个阶段的指令
                     self.start_stage(task_instruction["task_id"], next_stage.stage_id, task_instruction["agent_id"])
                     print(f"[SyncState] 任务{task_instruction['task_id']}的阶段{next_stage.stage_id}已开启")
                 else:
-                    print(f"[SyncState] 任务{task_instruction['task_id']}的所有阶段已结束")
+                    # 如果没有下一个阶段，则触发任务完成判定
+                    self.check_task_completion(task_instruction["task_id"])
+                    print(f"[SyncState] 任务{task_instruction['task_id']}的所有阶段已结束，触发任务完成判定...")
 
             # 5.重试阶段 retry_stage
             if task_instruction["action"] == "retry_stage":

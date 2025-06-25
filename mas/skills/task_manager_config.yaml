@@ -50,6 +50,7 @@ use_prompt:
       
     - 3.结束任务 finish_task
       如果你判断某个任务的目标已经被全部完成，任务的多个阶段均已完成且最终任务目标也被顺利达成，则可以使用 finish_task 结束并交付该任务。
+      同时你需要生成关于该任务的总结报告，包含任务目标达成情况、阶段目标达成情况、参与Agent的表现等信息。**需要重点包含总结复盘信息！**
       
     - 4.结束阶段 finish_stage
       如果你判断某个阶段的目标已经被参与当前阶段的Agent完成时，你可以使用 finish_stage。
@@ -103,10 +104,12 @@ use_prompt:
         {
           "action": "finish_task",
           "task_id": "<task_id>",  # 任务ID
+          "summary": "<summary>",  # 任务总结报告, 包含任务目标达成情况、阶段目标达成情况、参与Agent的表现等信息
         }
-        finish_task指令字典中包含两个字段:
+        finish_task指令字典中包含三个字段:
         action (str): 表示操作类型，值为"finish_task"
         task_id (str): 任务ID，你要结束的任务的ID，一般从上下文中可以获得。
+        summary (str): 任务总结报告, 包含任务目标达成情况、阶段目标达成情况、参与Agent的表现等信息。（禁止使用markdown一到三级标题）
     
       - 4.结束阶段 finish_stage 指令格式:
         {

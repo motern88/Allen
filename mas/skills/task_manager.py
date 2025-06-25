@@ -18,8 +18,9 @@
 
 3. 任务判定已完成，交付任务:
     结束任务 finish_task。
-    该操作会将 task_state 的状态更新为 finished 或 failed
-    并通知task_group中所有Agent。
+    该操作会将 task_state 的状态更新为 finished 或 failed，并通知task_group中所有Agent。
+    同时该操作需要管理Agent生成任务总结信息。
+
 
 4. 任务阶段判定已完成，进入下一个任务阶段:
     结束阶段 finish_stage。

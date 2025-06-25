@@ -26,7 +26,7 @@ class TaskState:
 
         stage_list (List[StageState]): 当前任务下所有阶段的列表（顺序执行不同阶段）
         execution_state (str): 当前任务的执行状态，"init"、"running"、"finished"、"failed"
-        task_summary (str): 任务完成后的总结，由SyncState或调度器最终生成
+        task_summary (str): 任务完成后的总结，由系统自动生成
 
     说明:
         共享消息池是各个Agent完成自己step后同步的简略信息，且共享消息池的信息所有Agent可主动访问，但是不会一有新消息就增量通知Agent。Agent可以不感知共享消息池的变化。
