@@ -241,34 +241,6 @@ class Executor(ABC):
         md_output.append(f"**return_format**: {return_format}\n")
 
         return "\n".join(md_output)
-    
-        # 组装Agent当前执行的tool_step的提示词
-    def get_current_tool_step_prompt(self, step_id, agent_state):
-        '''
-        组装Agent当前执行的工具Step的提示词，该方法供子类使用
-
-        1.当前步骤的简要意图
-        2.从step.text_content获取的具体目标
-        3.工具规则提示
-
-        '''
-        step_state = agent_state["agent_step"].get_step(step_id)[0]
-        tool_config = self.load_tool_config(step_state.executor)
-
-        md_output = []
-        md_output.append(
-            "**这是你当前需要执行的步骤！你将结合背景设定、你的角色agent_role、持续记忆persistent_memory、来遵从当前步骤(本小节'current_step')的提示完成具体目标**:\n"
-        )
-
-        tool_prompt = tool_config["use_prompt"].get("tool_prompt", "暂无描述")
-        return_format = tool_config["use_prompt"].get("return_format", "暂无描述")
-        md_output.append(f"**当前步骤的简要意图 step_intention**: {step_state.step_intention}\n")
-        md_output.append(f"**当前步骤的文本描述 text_content**: {step_state.text_content}\n")
-
-        md_output.append(f"{tool_prompt}\n")
-        md_output.append(f"**return_format**: {return_format}\n")
-
-        return "\n".join(md_output)
 
     # 组装历史步骤（已执行和待执行的step）信息提示词
     def get_history_steps_prompt(self, step_id, agent_state):
