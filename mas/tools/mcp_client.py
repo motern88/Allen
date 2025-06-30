@@ -65,6 +65,7 @@ class MCPClient:
         同时我们实现几个MCP基础方法：
         1. `connect_to_server`: 连接指定的 MCP 服务器
         2. `get_tool_description`: 获取指定工具的详细描述
+
         3. `execute_tool`: 执行指定工具并返回结果（未实现）
         """
         self.exit_stack = AsyncExitStack()  # 管理异步上下文连接
@@ -156,7 +157,8 @@ class MCPClient:
 
                     # 如果成功连接到服务器，则记录到 server_sessions 中
                     if session:
-                        await session.initialize()  # 初始化会话
+                        initialize_result = await session.initialize()  # 初始化会话
+                        print(f"[MCPClient] 初始化会话后服务器返回结果:{initialize_result}")
                         self.server_sessions[server_name] = session
                         print(f"[MCPClient] 成功连接到 MCP 服务器 '{server_name}' 实例 '{instance_name}'")
 
@@ -184,14 +186,17 @@ class MCPClient:
         for server_name, session in self.server_sessions.items():
             try:
                 result = await session.list_tools()  # 异步调用服务器获取工具列表
+                # print("[DEBUG][MCPClient] 工具列表返回结果:", result)
                 if hasattr(result, "tools") and result.tools:
                     # print("[DEBUG][MCPClient]\n📋 Available tools:")
                     for i, tool in enumerate(result.tools, 1):
                         if tool.description:
                             # 将工具描述存入 tool_descriptions 缓存
-                            self.tool_descriptions[server_name][tool.name] = {
+                            self.tool_descriptions.setdefault(server_name, {})[tool.name] = {
                                 "description": tool.description,
-                                "usage": tool.usage  # TODO: MCP tool_list会返回使用方式字段吗？怎么获取
+                                "inputSchema": getattr(tool, "inputSchema", "无inputSchema字段"), # TODO: MCP tool_list会返回使用方式字段吗？怎么获取
+                                "outputSchema": getattr(tool, "outputSchema", "无outputSchema字段"),
+
                             }
                     return self.tool_descriptions[server_name]
                 else:
@@ -239,36 +244,35 @@ class MCPClient:
             print(f"[MCPClient] 调用工具 '{tool_name}' 失败: {e}")
             return None
 
-async def main():
+async def test():
     """
-    主函数入口，用于测试 MCPClient 的基本功能。
+    用于测试 MCPClient 的基本功能。
     连接到指定的 MCP 服务器，并获取工具描述。
     """
-    print("正在测试 MCPClient 功能...\n")
-    mcp_client = MCPClient()
-    print(f"mcp_client.server_config:\n {mcp_client.server_config}")
-    await mcp_client.connect_to_server(["playwright"])
+    # 使用with AsyncExitStack()包裹主函数，统一管理整个上下文生命周期，自动清理异步资源。
+    async with AsyncExitStack() as stack:
+        print("正在测试 MCPClient 功能...\n")
+        mcp_client = MCPClient()
+        mcp_client.exit_stack = stack  # 替换为当前栈
+        print(f"mcp_client.server_config:\n {mcp_client.server_config}")
 
-    print("获取工具描述...\n")
-    tool_description = await mcp_client.get_tool_description("playwright")  # 替换为实际的 MCP Server 名称
-    print("工具描述获取结果：\n", tool_description)
+        await mcp_client.connect_to_server(["playwright"])
+        print(f"当前活跃连接：\n {mcp_client.server_sessions.keys()}\n")
+
+        print("获取工具描述中...\n")
+        tool_description = await mcp_client.get_tool_description("playwright")  # 替换为实际的 MCP Server 名称
+        print("工具描述获取结果：\n", tool_description)
+
 
 if __name__ == "__main__":
     '''
-    测试 MCPClient 的基本功能 python -m mas.tools.mcp_client
+    测试 MCPClient 的基本功能命令 python -m mas.tools.mcp_client
     
-    验证是否安装了npx，可用尝试在python中执行
-    '
-    import subprocess
-    try:
-        subprocess.run(["npx", "@playwright/mcp@latest"], check=True)
-    except FileNotFoundError:
-        print("❌ 找不到 npx")
-    '
+    验证是否安装了npx，可用尝试在环境中执行 npx --version 命令 
     
     '''
     import asyncio
-    asyncio.run(main())
+    asyncio.run(test())
     # main()
 
 
