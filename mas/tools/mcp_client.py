@@ -43,7 +43,7 @@ MCP Client
     应当在MAS启动时创建MCPClient实例，并传入给Executor，使得Executor可以通过MCPClient实例获取MCP Server连接和工具描述? TODO
 '''
 import os
-import yaml
+import json
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import requests
 
@@ -61,6 +61,11 @@ class MCPClient:
         1. `server_config`: 存储 MCP 服务器的启动配置
         2. `server_sessions`: 存储连接的 MCP 服务器实例
         3. `tool_descriptions`: 存储 MCP 工具的详细描述
+
+        同时我们实现几个MCP基础方法：
+        1. `connect_to_server`: 连接指定的 MCP 服务器
+        2. `get_tool_description`: 获取指定工具的详细描述
+        3. `execute_tool`: 执行指定工具并返回结果（未实现）
         """
         self.exit_stack = AsyncExitStack()  # 管理异步上下文连接
 
@@ -75,33 +80,30 @@ class MCPClient:
     # 获取全部MCP服务启动配置，并记录在self.server_config中
     def _get_server_config(self):
         """
-        从当前目录中读取所有以 "mcp_config.yaml" 结尾的文件。
-        将其中的 name 作为服务器名称，config 作为服务器启动配置，添加到 server_config。
-
-        这里的server_config中保存的启动配置类似：
-        {"mcpServers": {
-            "playwright": {
-              "command": "npx",
-              "args": ["@playwright/mcp@latest"]
+        从当前目录中读取所有以 "mcp_config.json" 结尾的文件。
+        其中保存的启动配置类似：
+        {
+            "mcpServers": {
+                "playwright": {
+                    "command": "npx",
+                    "args": ["@playwright/mcp@latest"]
+                }
             }
-        }}
+        }
+        将其中playwright的部分为name，整体为config，存入 server_config Dict[<name>,<config>] 字典中。
         """
         server_config = {}
         current_dir = os.path.dirname(os.path.abspath(__file__))
         for filename in os.listdir(current_dir):
-            if filename.endswith("mcp_config.yaml"):
+            if filename.endswith("mcp_config.json"):
                 file_path = os.path.join(current_dir, filename)
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
-                        config_data = yaml.safe_load(f)
-
-                    name = config_data.get("name")
-                    config = config_data.get("config")
-
-                    if name and isinstance(config, dict):
-                        server_config[name] = config
-                    else:
-                        print(f"[MCPClient] 配置文件 {filename} 缺少 'name' 或 'config' 字段，或格式不正确。")
+                        config_data = json.load(f)
+                        # 检查文件内容是否符合预期格式
+                        if "mcpServers" in config_data:
+                            for name, config in config_data["mcpServers"].items():
+                                server_config[name] = config_data
                 except Exception as e:
                     print(f"[MCPClient] 无法加载配置文件 {filename}: {e}")
         return server_config
@@ -122,7 +124,7 @@ class MCPClient:
                 print(f"[MCPClient] 未找到服务器 '{server_name}' 的启动配置，跳过。")
                 continue
 
-            mcp_servers = config.get("mcpServer", {})
+            mcp_servers = config.get("mcpServers", {})
             for instance_name, value in mcp_servers.items():
                 session = None
 
@@ -133,7 +135,7 @@ class MCPClient:
                         args = value["args"]
                         env = value.get("env", None)
 
-                        # print(f"[MCPClient] 正在连接本地 MCP 服务器 '{server_name}'，命令：{command} {args}")
+                        print(f"[MCPClient] 正在连接本地 MCP 服务器 '{server_name}'，命令：{command} {args}")
                         server_params = StdioServerParameters(
                             command=command,
                             args=args,
@@ -147,7 +149,7 @@ class MCPClient:
                     elif "baseurl" in value:
                         server_url = value["baseurl"]
 
-                        # print(f"[MCPClient] 正在连接远程 MCP 服务器 '{server_name}'")
+                        print(f"[MCPClient] 正在连接远程 MCP 服务器 '{server_name}'")
                         sse_transport = await self.exit_stack.enter_async_context(sse_client(server_url))
                         write,read = sse_transport
                         session = await self.exit_stack.enter_async_context(ClientSession(read, write))
@@ -209,32 +211,65 @@ class MCPClient:
             if server_name in self.server_sessions:
                 return await self.get_tool_description(server_name)
 
-    # TODO：传入参数调用工具
+    # 传入参数调用工具
+    async def execute_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any] | None = None) -> Any:
+        '''
+        调用指定的工具。
+        从server_sessions中已连接的对应服务器会话，从中调用工具
 
+        参数：
+            server_name: MCP Server的名称
+            tool_name: 要调用的工具名称
+            arguments: 调用工具时需要传入的参数
+        '''
+        if server_name not in self.server_sessions:
+            # 如果没有连接过服务器，则尝试自动连接
+            await self.connect_to_server([server_name])
 
+        session = self.server_sessions.get(server_name)
 
+        if not session:
+            print(f"[Debug][MCPClient] 未连接到 MCP Server '{server_name}'，尝试连接也失败。")
+            return None
 
+        try:
+            result = await session.call_tool(tool_name, arguments or {})
+            return result
+        except Exception as e:
+            print(f"[MCPClient] 调用工具 '{tool_name}' 失败: {e}")
+            return None
 
+async def main():
+    """
+    主函数入口，用于测试 MCPClient 的基本功能。
+    连接到指定的 MCP 服务器，并获取工具描述。
+    """
+    print("正在测试 MCPClient 功能...\n")
+    mcp_client = MCPClient()
+    print(f"mcp_client.server_config:\n {mcp_client.server_config}")
+    await mcp_client.connect_to_server(["playwright"])
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    print("获取工具描述...\n")
+    tool_description = await mcp_client.get_tool_description("playwright")  # 替换为实际的 MCP Server 名称
+    print("工具描述获取结果：\n", tool_description)
 
 if __name__ == "__main__":
-
+    '''
+    测试 MCPClient 的基本功能 python -m mas.tools.mcp_client
+    
+    验证是否安装了npx，可用尝试在python中执行
+    '
+    import subprocess
+    try:
+        subprocess.run(["npx", "@playwright/mcp@latest"], check=True)
+    except FileNotFoundError:
+        print("❌ 找不到 npx")
+    '
+    
+    '''
+    import asyncio
+    asyncio.run(main())
+    # main()
 
 
 
