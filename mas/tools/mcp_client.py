@@ -190,9 +190,9 @@ class MCPClient:
                         # 将服务器返回的初始化信息记录到 server_descriptions 中
                         self.server_descriptions[server_name] = {
                             "capabilities": {
-                                "prompts": False if initialize_result.prompts is None else True,
-                                "resources": False if initialize_result.resources is None else True,
-                                "tools": False if initialize_result.tools is None else True,
+                                "prompts": False if initialize_result.capabilities.prompts is None else True,
+                                "resources": False if initialize_result.capabilities.resources is None else True,
+                                "tools": False if initialize_result.capabilities.tools is None else True,
                             }
                         }
 
