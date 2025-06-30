@@ -34,10 +34,10 @@ MCP Client
 第三级：MCPClient.server_sessions
     存放了活跃的MCP Server连接实例，key为MCP Server名称，value为requests.Session实例。
     server_sessions会动态连接第二级权限包含的MCP Server，并保证MAS中所有Agent的工具权限所涉及到的MCP Server都处于活跃连接状态。
-第四级：MCPClient.tool_descriptions
+第四级：MCPClient.server_descriptions
     存放了MCP Server中可用工具的详细描述，key为工具名称，value为工具描述。
-    tool_descriptions会从第三级中活跃session连接中调用工具名称，描述和使用方式并记录。
-    在Agent获取全部工具和技能提示词时，tool_descriptions相应支持；在Agent执行具体工具Step/组装工具Step提示词时，tool_descriptions也会提供具体工具的描述和调用格式信息。
+    server_descriptions 会从第三级中活跃session连接中调用工具名称，描述和使用方式并记录。
+    在Agent获取全部工具和技能提示词时，server_descriptions 相应支持；在Agent执行具体工具Step/组装工具Step提示词时，server_descriptions 也会提供具体工具的描述和调用格式信息。
 
 3. MCP Client实例应当是全局唯一的，MAS中所有Agent都共享同一个MCP Client实例。
     应当在MAS启动时创建MCPClient实例，并传入给Executor，使得Executor可以通过MCPClient实例获取MCP Server连接和工具描述? TODO
@@ -60,12 +60,40 @@ class MCPClient:
         我们需要三套数据结构来管理 MCP 服务器和工具：
         1. `server_config`: 存储 MCP 服务器的启动配置
         2. `server_sessions`: 存储连接的 MCP 服务器实例
-        3. `tool_descriptions`: 存储 MCP 工具的详细描述
+            {
+                "<SERVER_NAME>": <ClientSession>,  # 连接的 MCP 服务器会话实例
+            }
+        3. `server_descriptions`: 存储 MCP 服务的详细描述，包括工具描述
+            {
+                "<SERVER_NAME>": {
+                    "capabilities":{
+                        "prompts": bool,  # 是否支持提示词
+                        "resources": bool,  # 是否支持资源
+                        "tools": bool,  # 是否支持工具
+                    },
+                    "tools": {  # 如果支持工具，则存储工具描述
+                        "<TOOL_NAME>": {
+                            "description": "<TOOL_DESCRIPTION>",
+                            "input_schema": "<INPUT_SCHEMA>",
+                            "output_schema": "<OUTPUT_SCHEMA>",
+                        },
+                    },
+                    "resources": {  # 如果支持资源，则存储资源描述
+                        "<RESOURCE_NAME>": {
+                            "description": "<RESOURCE_DESCRIPTION>",  TODO：resources实际返回字段未知
+                        },
+                    },
+                    "prompts": {  # 如果支持提示词，则存储提示词描述
+                        "<PROMPT_NAME>": {
+                            "description": "<PROMPT_DESCRIPTION>",  TODO：prompts实际返回字段未知
+                        },
+                    },
+                }
+            }
 
         同时我们实现几个MCP基础方法：
         1. `connect_to_server`: 连接指定的 MCP 服务器
         2. `get_tool_description`: 获取指定工具的详细描述
-
         3. `execute_tool`: 执行指定工具并返回结果（未实现）
         """
         self.exit_stack = AsyncExitStack()  # 管理异步上下文连接
@@ -74,8 +102,8 @@ class MCPClient:
         self.server_config = self._get_server_config()  # 储存一一对应的服务器名称和启动配置 Dict[str,Dict[str, Any]]
         # 初始化一个储存服务器连接字典，用于存储连接的 MCP 服务器实例
         self.server_sessions = {}  # 存储连接实例：server_name -> requests.Session()
-        # 初始化一个储存工具描述的字典，用于存储 MCP 工具的详细描述
-        self.tool_descriptions = {}
+        # 初始化一个储存服务描述的字典，用于存储 MCP 服务的详细描述（包括工具详细描述）
+        self.server_descriptions = {}
 
 
     # 获取全部MCP服务启动配置，并记录在self.server_config中
@@ -159,6 +187,15 @@ class MCPClient:
                     if session:
                         initialize_result = await session.initialize()  # 初始化会话
                         print(f"[MCPClient] 初始化会话后服务器返回结果:{initialize_result}")
+                        # 将服务器返回的初始化信息记录到 server_descriptions 中
+                        self.server_descriptions[server_name] = {
+                            "capabilities": {
+                                "prompts": False if initialize_result.prompts is None else True,
+                                "resources": False if initialize_result.resources is None else True,
+                                "tools": False if initialize_result.tools is None else True,
+                            }
+                        }
+
                         self.server_sessions[server_name] = session
                         print(f"[MCPClient] 成功连接到 MCP 服务器 '{server_name}' 实例 '{instance_name}'")
 
@@ -166,55 +203,83 @@ class MCPClient:
                     print(f"[MCPClient] 连接 MCP 服务器 '{server_name}'（实例：{instance_name}）失败: {e}")
 
     # 获取指定工具的详细描述
-    async def get_tool_description(self, server_name: str):
+    async def get_server_descriptions(self, server_name: str, capability_type: str):
         """
-        尝试从tool_descriptions中获取对应工具名称的详细描述。
+        输入参数：
+            server_name: 要获取描述的MCP Server名称
+            capability_type: 要获取的能力类型，"tools"、"resources" 或"prompts"
 
-        - 优先从本地缓存 tool_descriptions 获取。
+        尝试从server_descriptions中获取对应能力的详细描述。
+        - 优先从本地缓存 server_descriptions 获取。
         - 否则通过已连接的MCP Server获取。
-            如果tool_descriptions中没有该工具的描述，则从server_sessions对应活跃的MCP Server连接中调用工具描述信息。
+            如果server_descriptions中没有该能力的描述，则从server_sessions对应活跃的MCP Server连接中调用能力描述信息。
         - 如果没有连接过服务器，则尝试自动连接再请求描述。
             如果server_sessions中没有对应的MCP Server连接，则从server_config中获取对应的MCP Server配置并连接。
 
-        TODO:在ExecutorBase中调用get_tool_description后组装提示词未实现
+        TODO:在ExecutorBase中调用 get_server_descriptions 后组装提示词未实现
         """
-        # 1. tool_descriptions 缓存优先
-        if server_name in self.tool_descriptions:
-            return self.tool_descriptions[server_name]
+        # 1. server_descriptions 缓存优先
+        if server_name in self.server_descriptions:
+            if capability_type in self.server_descriptions[server_name]:
+                return self.server_descriptions[server_name][capability_type]
 
-        # 2. 从 server_sessions 中遍历已连接的 MCP Server
+        # 2. 本地缓存中没有，从 server_sessions 中遍历已连接的 MCP Server
         for server_name, session in self.server_sessions.items():
             try:
-                result = await session.list_tools()  # 异步调用服务器获取工具列表
-                # print("[DEBUG][MCPClient] 工具列表返回结果:", result)
-                if hasattr(result, "tools") and result.tools:
-                    # print("[DEBUG][MCPClient]\n📋 Available tools:")
-                    for i, tool in enumerate(result.tools, 1):
-                        if tool.description:
-                            # 将工具描述存入 tool_descriptions 缓存
-                            self.tool_descriptions.setdefault(server_name, {})[tool.name] = {
-                                "description": tool.description,
-                                "inputSchema": getattr(tool, "inputSchema", "无inputSchema字段"), # TODO: MCP tool_list会返回使用方式字段吗？怎么获取
-                                "outputSchema": getattr(tool, "outputSchema", "无outputSchema字段"),
+                # 如果该能力被 MCP Server 支持
+                if self.server_descriptions[server_name]["capabilities"][capability_type]:
 
-                            }
-                    return self.tool_descriptions[server_name]
+                    if capability_type == "tools":
+                        result = await session.list_tools()  # 异步调用服务器获取工具列表
+                        # print("[DEBUG][MCPClient] 工具列表返回结果:", result)
+                        if hasattr(result, "tools") and result.tools:
+                            for i, tool in enumerate(result.tools, 1):
+                                if tool.description:  # TODO: MCP tool_list会返回使用方式字段吗？怎么获取
+                                    # 将工具描述存入 server_descriptions 缓存
+                                    self.server_descriptions[server_name].setdefault("tools", {})[tool.name] = {
+                                        "description": tool.description,
+                                        "input_schema": getattr(tool, "inputSchema", "无inputSchema字段"),
+                                        "output_schema": getattr(tool, "outputSchema", "无outputSchema字段"),
+                                    }
+                            return self.server_descriptions[server_name]["tools"]
+
+                    elif capability_type == "resources":  # TODO：未测试！不清楚实际返回结果
+                        result = await session.list_resources()  # 异步调用服务器获取资源列表
+                        if hasattr(result, "resources") and result.resources:
+                            for i, resource in enumerate(result.resources, 1):
+                                # 将资源描述存入 server_descriptions 缓存
+                                self.server_descriptions[server_name].setdefault("resources", {})[resource.name] = {
+                                    "description": resource.description,
+                                    # TODO：resources实际返回字段未知
+                                }
+                            return self.server_descriptions[server_name]["resources"]
+
+                    elif capability_type == "prompts":  # TODO：未测试！不清楚实际返回结果
+                        result = await session.list_prompts()  # 异步调用服务器获取提示词列表
+                        if hasattr(result, "prompts") and result.prompts:
+                            for i, prompt in enumerate(result.prompts, 1):
+                                # 将提示词描述存入 server_descriptions 缓存
+                                self.server_descriptions[server_name].setdefault("prompts", {})[prompt.name] = {
+                                    "description": prompt.description,
+                                    # TODO：resources实际返回字段未知
+                                }
+                            return self.server_descriptions[server_name]["prompts"]
+
                 else:
-                    print(f"[MCPClient] MCP Server {server_name} 没有可用工具。")
-                    return {}
+                    print(f"[MCPClient] MCP Server {server_name} 不支持能力：{capability_type}。")
+                    return None
 
             except Exception as e:
-                print(f"[MCPClient] 获取工具描述失败（MCP服务 {server_name}）: {e}")
-                return {}
+                print(f"[MCPClient] 获取能力描述失败（MCP服务 {server_name}，能力 {capability_type}）: {e}")
+                return None
 
         # 3. 如果没有连接过服务器，则尝试自动连接
         if server_name not in self.server_sessions:
             # 尝试连接到指定的 MCP Server
             await self.connect_to_server([server_name])
-
             # 再次尝试获取工具描述
             if server_name in self.server_sessions:
-                return await self.get_tool_description(server_name)
+                return await self.get_server_descriptions(server_name)
 
     # 传入参数调用工具
     async def execute_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any] | None = None) -> Any:
@@ -260,8 +325,8 @@ async def test():
         print(f"当前活跃连接：\n {mcp_client.server_sessions.keys()}\n")
 
         print("获取工具描述中...\n")
-        tool_description = await mcp_client.get_tool_description("playwright")  # 替换为实际的 MCP Server 名称
-        print("工具描述获取结果：\n", tool_description)
+        server_description = await mcp_client.get_server_descriptions("playwright","tools")  # 替换为实际的 MCP Server 名称
+        print("服务描述获取结果：\n", server_description)
 
 
 if __name__ == "__main__":
