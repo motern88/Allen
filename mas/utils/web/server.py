@@ -11,7 +11,11 @@
 ├── web/
 │   ├── server.py         # Flask + SocketIO 服务端
 │   └── templates/
-│       └── index.html    # 前端界面
+│       ├── index.html    # 前端界面
+│       └── assets/       # 静态资源（CSS/JS）
+│           ├── index-xxxx.js
+│           └── index-xxxx.css
+
 
 实现后端接口：
 GET /api/states?type=task
@@ -27,17 +31,16 @@ GET /api/states?type=step
 }
 '''
 # 引入 Flask 框架核心模块：Flask 用于搭建 Web 服务，render_template 渲染前端页面，request 获取请求参数，jsonify 返回 JSON 格式数据
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 # 引入 SocketIO 支持，用于实现 WebSocket 推送功能
 from flask_socketio import SocketIO
 from typing import Dict
 import threading
 import time
-import json
 
 from mas.utils.monitor import StateMonitor
 
-app = Flask(__name__)  # 创建 Flask 实例
+app = Flask(__name__, static_folder="templates", static_url_path="")  # 创建 Flask 实例
 socketio = SocketIO(app)  # 将 Flask 实例封装为支持 WebSocket 的 SocketIO 实例
 monitor = StateMonitor()  # 实例化状态监控器，通常为单例对象
 
@@ -46,6 +49,14 @@ monitor = StateMonitor()  # 实例化状态监控器，通常为单例对象
 @app.route('/')
 def index():
     return render_template('index.html')  # 渲染 web/templates/index.html 文件
+
+@app.route('/assets/<path:filename>')
+def serve_assets(filename):
+    return send_from_directory('templates/assets', filename)
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory('templates', 'favicon.ico')
 
 # 定义一个循环任务，用于周期性推送状态数据
 def push_state_loop():

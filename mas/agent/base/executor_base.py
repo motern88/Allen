@@ -154,6 +154,28 @@ class Executor(ABC):
 
         return "\n".join(md_output)
 
+    def _remove_json_comments(self, json_str: str) -> str:
+        '''
+        去除字符串形式中json中的注释，防止json解析失败
+        '''
+        # 去除 // 后的注释（不包括字符串内部的 //）
+        lines = json_str.splitlines()
+        cleaned_lines = []
+        for line in lines:
+            # 如果包含 //，只保留前面内容（排除在字符串内部的情况）
+            quote_open = False
+            new_line = ""
+            i = 0
+            while i < len(line):
+                if line[i] == '"':
+                    quote_open = not quote_open
+                if not quote_open and line[i:i + 2] == "//":
+                    break
+                new_line += line[i]
+                i += 1
+            cleaned_lines.append(new_line)
+        return "\n".join(cleaned_lines)
+
     def extract_persistent_memory(self, response):
         '''
         从文本中解析持续性记忆，该方法供子类使用
@@ -176,7 +198,8 @@ class Executor(ABC):
             if not is_within_think(match.start()):
                 content = match.group(1).strip()
                 try:
-                    parsed = json.loads(content)
+                    content_cleaned = self._remove_json_comments(content)
+                    parsed = json.loads(content_cleaned)
                     if isinstance(parsed, list) and all(isinstance(item, dict) for item in parsed):
                         return parsed
                 except json.JSONDecodeError:
