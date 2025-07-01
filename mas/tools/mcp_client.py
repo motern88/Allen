@@ -67,26 +67,51 @@ class MCPClient:
             {
                 "<SERVER_NAME>": {
                     "capabilities":{
-                        "prompts": bool,  # 是否支持提示词
-                        "resources": bool,  # 是否支持资源
-                        "tools": bool,  # 是否支持工具
+                        "prompts": bool,                                          # 是否支持提示词
+                        "resources": bool,                                        # 是否支持资源
+                        "tools": bool,                                            # 是否支持工具
                     },
-                    "tools": {  # 如果支持工具，则存储工具描述
-                        "<TOOL_NAME>": {
+                    "tools": {                                                    # 如果支持工具，则存储工具描述
+                        "<TOOL_NAME>": {                                          # 工具名称
                             "description": "<TOOL_DESCRIPTION>",
-                            "input_schema": "<INPUT_SCHEMA>",
-                            "output_schema": "<OUTPUT_SCHEMA>",
+                            "tittle": "<TOOL_TITLE>",                             # 工具标题
+                            "input_schema": {
+                                "type": "object",                                 # 工具输入参数类型
+                                "properties": {
+                                    "<PROPERTY_NAME>": {                          # 工具输入参数名称
+                                        "type": "<PROPERTY_TYPE>",                # 工具输入参数类型
+                                        "description": "<PROPERTY_DESCRIPTION>",  # 工具输入参数描述
+                                    },
+                                    ...                                           # 其他输入参数
+                                }
+                            },
+                            "output_schema": <OUTPUT_SCHEMA>,                     # 工具输出参数的JSON Schema说明（可能类似input_schema），官方文档没有要求该字段，但是在一些实现中确实存在该字段
+                            "required": ["<PROPERTY_NAME>", ...]                  # 工具输入参数是否必需
                         },
+                        ...                                                       # 其他工具
                     },
-                    "resources": {  # 如果支持资源，则存储资源描述
-                        "<RESOURCE_NAME>": {
-                            "description": "<RESOURCE_DESCRIPTION>",  TODO：resources实际返回字段未知
+                    "resources": {                                                # 如果支持资源，则存储资源描述
+                        "<RESOURCE_NAME>": {                                      # 资源名称
+                            "description": "<RESOURCE_DESCRIPTION>",              # 资源描述
+                            "title": "<RESOURCE_TITLE>",                          # 资源标题
+                            "uri": "<RESOURCE_URI>",                              # 资源URI
+                            "mimeType": "<RESOURCE_MIME_TYPE>",                   # 资源MIME类型
                         },
+                        ...                                                       # 其他资源
                     },
-                    "prompts": {  # 如果支持提示词，则存储提示词描述
-                        "<PROMPT_NAME>": {
-                            "description": "<PROMPT_DESCRIPTION>",  TODO：prompts实际返回字段未知
+                    "prompts": {                                                  # 如果支持提示词，则存储提示词描述
+                        "<PROMPT_NAME>": {                                        # 提示词名称
+                            "description": "<PROMPT_DESCRIPTION>",                # 提示词描述
+                            "title": "<PROMPT_TITLE>",                            # 提示词标题
+                            "arguments": {                                        # 提示词参数
+                                "<ARGUMENT_NAME>": {                              # 提示词参数名称
+                                    "description": "<ARGUMENT_DESCRIPTION>",      # 提示词参数描述
+                                    "required": bool,                             # 提示词参数是否必需
+                                },
+                                ...                                               # 提示词参数其他属性
+                            }
                         },
+                        ...                                                       # 其他提示词
                     },
                 }
             }
@@ -110,7 +135,7 @@ class MCPClient:
     def _get_server_config(self):
         """
         从当前目录中读取所有以 "mcp_config.json" 结尾的文件。
-        其中保存的启动配置类似：
+        其中保存的启动配置类似（示例）：
         {
             "mcpServers": {
                 "playwright": {
@@ -164,7 +189,7 @@ class MCPClient:
                         args = value["args"]
                         env = value.get("env", None)
 
-                        print(f"[MCPClient] 正在连接本地 MCP 服务器 '{server_name}'，命令：{command} {args}")
+                        # print(f"[MCPClient] 正在通过命令连接 MCP 服务器 '{server_name}'，命令：{command} {args}")
                         server_params = StdioServerParameters(
                             command=command,
                             args=args,
@@ -178,7 +203,7 @@ class MCPClient:
                     elif "baseurl" in value:
                         server_url = value["baseurl"]
 
-                        print(f"[MCPClient] 正在连接远程 MCP 服务器 '{server_name}'")
+                        # print(f"[MCPClient] 正在通过url连接远程 MCP 服务器 '{server_name}'")
                         sse_transport = await self.exit_stack.enter_async_context(sse_client(server_url))
                         write,read = sse_transport
                         session = await self.exit_stack.enter_async_context(ClientSession(read, write))
@@ -186,7 +211,7 @@ class MCPClient:
                     # 如果成功连接到服务器，则记录到 server_sessions 中
                     if session:
                         initialize_result = await session.initialize()  # 初始化会话
-                        print(f"[MCPClient] 初始化会话后服务器返回结果:{initialize_result}")
+                        # print(f"[MCPClient] 初始化会话后服务器返回结果:{initialize_result}")
                         # 将服务器返回的初始化信息记录到 server_descriptions 中
                         self.server_descriptions[server_name] = {
                             "capabilities": {
@@ -227,41 +252,112 @@ class MCPClient:
         for server_name, session in self.server_sessions.items():
             try:
                 # 如果该能力被 MCP Server 支持
-                if self.server_descriptions[server_name]["capabilities"][capability_type]:
+                # print(f"[DEBUG]server_name:{server_name}, capability_type:{capability_type}")
+                # print(f"[DEBUG]server_descriptions[server_name]['capabilities'][capability_type]：",self.server_descriptions[server_name]["capabilities"][capability_type])
+                capability_supported = self.server_descriptions.get(server_name, {}).get("capabilities", {}).get(capability_type, None)
+                if capability_supported is True:
 
                     if capability_type == "tools":
                         result = await session.list_tools()  # 异步调用服务器获取工具列表
                         # print("[DEBUG][MCPClient] 工具列表返回结果:", result)
                         if hasattr(result, "tools") and result.tools:
                             for i, tool in enumerate(result.tools, 1):
-                                if tool.description:  # TODO: MCP tool_list会返回使用方式字段吗？怎么获取
-                                    # 将工具描述存入 server_descriptions 缓存
-                                    self.server_descriptions[server_name].setdefault("tools", {})[tool.name] = {
-                                        "description": tool.description,
-                                        "input_schema": getattr(tool, "inputSchema", "无inputSchema字段"),
-                                        "output_schema": getattr(tool, "outputSchema", "无outputSchema字段"),
+                                '''
+                                将工具描述存入 server_descriptions 缓存
+                                获取返回的字段的文档说明 https://modelcontextprotocol.io/specification/2025-06-18/server/tools
+                                
+                                从result.tools列表中获取到的tool格式示例：
+                                {
+                                    "name": "get_weather",
+                                    "title": "Weather Information Provider",
+                                    "description": "Get current weather information for a location",
+                                    "inputSchema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "location": {
+                                                "type": "string",
+                                                "description": "City name or zip code"
+                                            }
+                                        },
+                                        "required": ["location"]
                                     }
+                                }
+                                '''
+                                self.server_descriptions[server_name].setdefault("tools", {})[tool.name] = {
+                                    "description": tool.description,
+                                    "title": getattr(tool, "title", None),
+                                    "input_schema": getattr(tool, "inputSchema", None),
+                                    "output_schema": getattr(tool, "outputSchema", None),
+                                    "required": getattr(tool, "required", None),
+                                }
                             return self.server_descriptions[server_name]["tools"]
 
-                    elif capability_type == "resources":  # TODO：未测试！不清楚实际返回结果
+
+                    elif capability_type == "resources":
                         result = await session.list_resources()  # 异步调用服务器获取资源列表
                         if hasattr(result, "resources") and result.resources:
                             for i, resource in enumerate(result.resources, 1):
-                                # 将资源描述存入 server_descriptions 缓存
+                                '''
+                                将资源描述存入 server_descriptions 缓存
+                                获取返回的字段的文档说明 https://modelcontextprotocol.io/specification/2025-06-18/server/resources
+                                
+                                从result.resources列表中获取到的resource格式示例：
+                                {
+                                    "uri": "file:///project/src/main.rs",
+                                    "name": "main.rs",
+                                    "title": "Rust Software Application Main File",
+                                    "description": "Primary application entry point",
+                                    "mimeType": "text/x-rust"
+                                }
+                                '''
                                 self.server_descriptions[server_name].setdefault("resources", {})[resource.name] = {
                                     "description": resource.description,
-                                    # TODO：resources实际返回字段未知
+                                    "title": getattr(resource, "title", None),
+                                    "uri": getattr(resource, "uri", None),
+                                    "mimeType": getattr(resource, "mimeType", None),
+
                                 }
                             return self.server_descriptions[server_name]["resources"]
 
-                    elif capability_type == "prompts":  # TODO：未测试！不清楚实际返回结果
+
+                    elif capability_type == "prompts":
                         result = await session.list_prompts()  # 异步调用服务器获取提示词列表
                         if hasattr(result, "prompts") and result.prompts:
                             for i, prompt in enumerate(result.prompts, 1):
-                                # 将提示词描述存入 server_descriptions 缓存
+                                '''
+                                将提示词描述存入 server_descriptions 缓存
+                                获取返回的字段的文档说明 https://modelcontextprotocol.io/specification/2025-06-18/server/prompts
+                                
+                                从result.prompts列表中获取到的prompt格式示例：
+                                {
+                                    "name": "code_review",
+                                    "title": "Request Code Review",
+                                    "description": "Asks the LLM to analyze code quality and suggest improvements",
+                                    "arguments": [
+                                        {
+                                            "name": "code",
+                                            "description": "The code to review",
+                                            "required": true
+                                        }
+                                    ]
+                                }
+                                !!! 这里要将arguments从列表形式转换成字典形式，方便后续使用 !!!
+                                '''
+                                # 将 prompt.arguments 列表转换为符合 schema 的字典结构
+                                arguments_list = getattr(prompt, "arguments", [])
+                                arguments_dict = {}
+                                for arg in arguments_list:
+                                    arg_name = arg.get("name")
+                                    if arg_name:
+                                        arguments_dict[arg_name] = {
+                                            "description": arg.get("description", ""),
+                                            "required": arg.get("required", False)
+                                        }
+                                # 存储到 server_descriptions 中
                                 self.server_descriptions[server_name].setdefault("prompts", {})[prompt.name] = {
                                     "description": prompt.description,
-                                    # TODO：resources实际返回字段未知
+                                    "title": getattr(prompt, "title", None),
+                                    "arguments": arguments_dict,
                                 }
                             return self.server_descriptions[server_name]["prompts"]
 
@@ -281,16 +377,22 @@ class MCPClient:
             if server_name in self.server_sessions:
                 return await self.get_server_descriptions(server_name)
 
-    # 传入参数调用工具
-    async def execute_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any] | None = None) -> Any:
+    # 传入参数使用server提供的能力
+    async def use_capability(
+        self,
+        server_name: str,
+        capability_type: str,
+        capability_name: str,
+        arguments: Dict[str, Any] | None = None
+    ) -> Any:
         '''
-        调用指定的工具。
-        从server_sessions中已连接的对应服务器会话，从中调用工具
+        调用指定server的指定能力
+        从server_sessions中已连接的对应服务器会话，从中调用server能力
 
         参数：
             server_name: MCP Server的名称
-            tool_name: 要调用的工具名称
-            arguments: 调用工具时需要传入的参数
+            capability_name: 要调用的能力的具体名称
+            arguments: 调用能力时需要传入的参数，以字典形式传入
         '''
         if server_name not in self.server_sessions:
             # 如果没有连接过服务器，则尝试自动连接
@@ -302,11 +404,34 @@ class MCPClient:
             print(f"[Debug][MCPClient] 未连接到 MCP Server '{server_name}'，尝试连接也失败。")
             return None
 
+        # 检查能力类型是否支持
+        capability_supported = self.server_descriptions[server_name]["capabilities"][capability_type]
+        if not capability_supported:
+            print(f"[MCPClient] MCP Server '{server_name}' 不支持能力类型：{capability_type}")
+            return None
+
         try:
-            result = await session.call_tool(tool_name, arguments or {})
-            return result
+            if capability_type == "tools":
+                # 调用工具 需要传入对应的参数
+                result = await session.call_tool(capability_name, arguments or {})
+                return result.result  # 返回json中"result"字段中的值
+
+            elif capability_type == "resources":
+                # 查看资源 需要获取url，arguments字典中应包含arguments["url"]字段值
+                result = await session.get_resource(arguments.get("uri", ""))
+                return result.result  # 返回json中"result"字段中的值
+
+            elif capability_type == "prompts":
+                # 获取提示词，只需要传入提示词名称
+                result = await session.get_prompt(capability_name)
+                return result.result  # 返回json中"result"字段中的值
+
+            else:
+                print(f"[MCPClient] 不支持的能力类型：{capability_type}")
+                return None
+
         except Exception as e:
-            print(f"[MCPClient] 调用工具 '{tool_name}' 失败: {e}")
+            print(f"[MCPClient] 使用能力 '{capability_name}' 失败: {e}")
             return None
 
 async def test():
@@ -316,16 +441,17 @@ async def test():
     """
     # 使用with AsyncExitStack()包裹主函数，统一管理整个上下文生命周期，自动清理异步资源。
     async with AsyncExitStack() as stack:
-        print("正在测试 MCPClient 功能...\n")
+        # print("正在测试 MCPClient 功能...\n")
         mcp_client = MCPClient()
         mcp_client.exit_stack = stack  # 替换为当前栈
-        print(f"mcp_client.server_config:\n {mcp_client.server_config}")
+        # print(f"mcp_client.server_config:\n {mcp_client.server_config}")
 
-        await mcp_client.connect_to_server(["playwright"])
+        await mcp_client.connect_to_server(["playwright","puppeteer","amap_maps","test_everything"])
         print(f"当前活跃连接：\n {mcp_client.server_sessions.keys()}\n")
 
-        print("获取工具描述中...\n")
-        server_description = await mcp_client.get_server_descriptions("playwright","tools")  # 替换为实际的 MCP Server 名称
+        print(f"此时server_descriptions：\n {mcp_client.server_descriptions}")
+
+        server_description = await mcp_client.get_server_descriptions("puppeteer","resources")  # 替换为实际的 MCP Server 名称
         print("服务描述获取结果：\n", server_description)
 
 

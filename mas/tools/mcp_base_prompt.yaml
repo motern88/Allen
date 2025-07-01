@@ -1,0 +1,166 @@
+# MCP基础提示，一般只有在涉及到工具步骤的时候才会调用，例如InstructionGeneration/ToolDecision
+# 该提示的作用是教会Agent正确与MCP Server进行交互，包含:
+#   1.如何理解MCP Server能力列表
+#   2.如何生成MCP Server能力具体调用的参数
+#   3.如何理解MCP Server对能力调用的具体返回结果
+# 需要注意：
+#   Agent已经知晓如何调用MAS中的工具，只是不了解MCP协议。
+#   编写本提示中需要避免混淆 工具调用方式提示 和 Agent能直接看到的涉及到MCP协议执行过程的交互提示，本提示的重点在后者。
+mcp_base_prompt: |
+  MCP(model context protocol) Server 一般支持三种不同的 Capabilities，分别是：
+  - tools : 允许模型执行作或检索信息的可执行函数
+  - resources : 为模型提供额外上下文的结构化数据或内容
+  - prompts : 指导语言模型交互的预定义模板或说明
+  
+  作为MAS中的Agent，你所拥有的工具权限均来自于MCP Server(你的工具名称实际上对应的每个MCP服务的名称)。
+  MCP Server 的构成(注意：MCP Server不总是完全支持三种能力，大多数MCP Server仅支持tools调用能力):
+  MCP Server
+      ├── tools
+      │   ├── <tool_name>
+      │   └── ...
+      ├── resources
+      │   ├── <resource_name>
+      │   └── ...
+      └── prompts
+          ├── <prompt_name>
+          └── ...
+  
+  下面将介绍你会实际接触到的与MCP Server的交互说明：
+  
+  #### 1. 如何理解MCP Server能力列表
+
+  在你决策使用工具时，MAS会为你获取指定MCP Server所支持能力的列表
+  MAS会以以下格式的提示词呈现当前MCP Server支持能力的具体调用(以结构化的json数据提示)：
+      "tools": {
+          "<TOOL_NAME>": {
+              "description": "<TOOL_DESCRIPTION>",
+              "tittle": "<TOOL_TITLE>",
+              "input_schema": {
+                  "type": "object",
+                  "properties": {
+                      "<PROPERTY_NAME>": {
+                          "type": "<PROPERTY_TYPE>",
+                          "description": "<PROPERTY_DESCRIPTION>",
+                      },
+                      ...
+                  }
+              },
+              "output_schema": <OUTPUT_SCHEMA>,
+              "required": ["<PROPERTY_NAME>", ...]
+          },
+          ...
+      },
+      "resources": {
+          "<RESOURCE_NAME>": {
+              "description": "<RESOURCE_DESCRIPTION>",
+              "title": "<RESOURCE_TITLE>",
+              "uri": "<RESOURCE_URI>",
+              "mimeType": "<RESOURCE_MIME_TYPE>",
+          },
+          ...
+      },
+      "prompts": {
+          "<PROMPT_NAME>": {
+              "description": "<PROMPT_DESCRIPTION>",
+              "title": "<PROMPT_TITLE>",
+              "arguments": {
+                  "<ARGUMENT_NAME>": {
+                      "description": "<ARGUMENT_DESCRIPTION>",
+                      "required": bool,
+                  },
+                  ...
+              }
+          },
+          ...
+      },
+  根据以上格式的提示，你需要重点关注该Server支持何种能力下的哪些具体实现。
+  你需要根据每种具体实现的描述确定什么时候使用它，同时在使用具体能力的时候需要传入哪些参数。
+  
+  #### 2. 如何生成MCP Server能力具体调用的参数
+  当你决定需要调用MCP Server的某种具体能力时，你需要生成工具调用指令（这里默认你会将工具调用指令包裹在<tool_instruction>中）
+  - 如果你要使用MCP Server的tools能力：
+        <tool_instruction>
+        {
+            "tool_name": "<TOOL_NAME>",
+            "arguments": {
+                "<PROPERTY_NAME>": PROPERTY_VALUE,
+                "<PROPERTY_NAME>": PROPERTY_VALUE,
+                ...
+            }
+        }
+        </tool_instruction>
+    其中tool_name字段传入你要使用的MCP Server的工具名称，
+    arguments字段传入一个包含具体参数的字典，字典的键为该工具所需的参数名称，值为对应的参数值。
+    **请根据MCP Server能力列表中的提示信息，正确填写具体工具所需的参数。**
+  
+  - 如果你要使用MCP Server的resources能力：
+        <tool_instruction>
+        {
+            "resource_name": "<RESOURCE_NAME>",
+            "arguments": {"uri": "<RESOURCE_URI>"}
+        }
+        </tool_instruction>
+    其中resource_name字段传入你要使用的MCP Server的资源名称，
+    arguments字段仅需传入一个包含uri的字典，uri是该资源的访问地址（从MCP Server能力列表获得）。
+  
+  - 如果你要使用MCP Server的prompts能力，指令格式如下：
+      <tool_instruction>
+      {
+          "prompt_name": "<PROMPT_NAME>",
+          "arguments": None
+      }
+      </tool_instruction>    
+    其中prompt_name字段传入你要使用的MCP Server的prompt名称，
+    arguments字段传入None，因为prompt能力不需要任何其他参数
+  
+  #### 3. 如何理解MCP Server对能力调用的具体返回结果
+  当你通过生成具体指令调用MCP Server的某种能力时，MAS会为你获取该能力调用的返回结果。
+  该能力执行的返回结果会放在step_state.execute_result中，你需要熟悉MCP Server对能力调用的返回格式：
+  
+  - tool响应示例：
+    {
+      "content": [
+        {
+          "type": "text",
+          "text": "Current weather in New York:\nTemperature: 72°F\nConditions: Partly cloudy"
+        }
+      ],
+    }
+  
+  - resource响应示例：
+    {
+      "contents": [
+        {
+          "uri": "file:///project/src/main.rs",
+          "name": "main.rs",
+          "title": "Rust Software Application Main File",
+          "mimeType": "text/x-rust",
+          "text": "fn main() {\n    println!(\"Hello world!\");\n}"
+        }
+      ]
+    }
+  
+  - prompt响应示例：
+    {
+      "description": "Code review prompt",
+      "messages": [
+        {
+          "role": "user",
+          "content": {
+            "type": "text",
+            "text": "Please review this Python code:\ndef hello():\n    print('world')"
+          }
+        }
+      ]
+    }
+  
+  每种具体能力的响应示例都与MCP Server能力列表中的说明一一对应，请准确理解MCP Server的响应结果。
+  
+  
+  
+  
+  
+  
+  
+  
+  
