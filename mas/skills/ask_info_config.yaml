@@ -2,7 +2,6 @@
 # 该文件用于描述技能的使用方法，以及技能包含的提示词。
 
 # 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
-
 use_guide:
   skill_name: "ask_info"
   description: |

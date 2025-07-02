@@ -17,33 +17,36 @@
 
 说明:
 1. MCP Client 连接多个 MCP Server，每个 MCP Server 可以有多个 MCP Tool。
-MCP Client
-    ├── connects to ──> MCP Server 1
-    │                      ├── MCP Tool A
-    │                      └── MCP Tool B
-    └── connects to ──> MCP Server 2
-                           ├── MCP Tool C
-                           └── MCP Tool D
-
+    MCP Client
+        ├ connects to ─> MCP Server 1
+        │                ├── MCP Tool A
+        │                └── MCP Tool B
+        └ connects to ─> MCP Server 2
+                         ├── MCP Tool C
+                         └── MCP Tool D
 
 2. MCP 连接管理
-第一级：MCPClient.server_config
-    存放了MAS中所有支持的MCP Server的启动配置
-第二级：AgentState.tools
-    存放了Agent可调用的外部工具（MCP服务）的权限。第二级可用MCP服务是第一级的子集。
-第三级：MCPClient.server_sessions
-    存放了活跃的MCP Server连接实例，key为MCP Server名称，value为requests.Session实例。
-    server_sessions会动态连接第二级权限包含的MCP Server，并保证MAS中所有Agent的工具权限所涉及到的MCP Server都处于活跃连接状态。
-第四级：MCPClient.server_descriptions
-    存放了MCP Server中可用工具的详细描述，key为工具名称，value为工具描述。
-    server_descriptions 会从第三级中活跃session连接中调用工具名称，描述和使用方式并记录。
-    在Agent获取全部工具和技能提示词时，server_descriptions 相应支持；在Agent执行具体工具Step/组装工具Step提示词时，server_descriptions 也会提供具体工具的描述和调用格式信息。
+    第一级：MCPClient.server_config
+        存放了MAS中所有支持的MCP Server的启动配置
+
+    第二级：AgentState.tools
+        存放了Agent可调用的外部工具（MCP服务）的权限。第二级可用MCP服务是第一级的子集。
+
+    第三级：MCPClient.server_sessions
+        存放了活跃的MCP Server连接实例，key为MCP Server名称，value为requests.Session实例。
+        server_sessions会动态连接第二级权限包含的MCP Server，并保证MAS中所有Agent的工具权限所涉及到的MCP Server都处于活跃连接状态。
+
+    第四级：MCPClient.server_descriptions
+        存放了MCP Server中可用工具的详细描述，key为工具名称，value为工具描述。
+        server_descriptions 会从第三级中活跃session连接中调用工具名称，描述和使用方式并记录。
+        在Agent获取全部工具和技能提示词时，server_descriptions 相应支持；在Agent执行具体工具Step/组装工具Step提示词时，server_descriptions 也会提供具体工具的描述和调用格式信息。
 
 3. MCP Client实例应当是全局唯一的，MAS中所有Agent都共享同一个MCP Client实例。
     应当在MAS启动时创建MCPClient实例，并传入给Executor，使得Executor可以通过MCPClient实例获取MCP Server连接和工具描述? TODO
 '''
 import os
 import json
+import yaml
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import requests
 
@@ -134,8 +137,8 @@ class MCPClient:
     # 获取全部MCP服务启动配置，并记录在self.server_config中
     def _get_server_config(self):
         """
-        从当前目录中读取所有以 "mcp_config.json" 结尾的文件。
-        其中保存的启动配置类似（示例）：
+        从当前目录中读取所有以 "mcp_config.yaml" 结尾的文件。
+        其中保存的启动配置类似（在yaml文件的config字段中）：
         {
             "mcpServers": {
                 "playwright": {
@@ -149,17 +152,25 @@ class MCPClient:
         server_config = {}
         current_dir = os.path.dirname(os.path.abspath(__file__))
         for filename in os.listdir(current_dir):
-            if filename.endswith("mcp_config.json"):
+            if filename.endswith("mcp_config.yaml"):
                 file_path = os.path.join(current_dir, filename)
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
-                        config_data = json.load(f)
-                        # 检查文件内容是否符合预期格式
-                        if "mcpServers" in config_data:
-                            for name, config in config_data["mcpServers"].items():
-                                server_config[name] = config_data
+                        yaml_data = yaml.safe_load(f)
+
+                    # tool_name = yaml_data.get("use_guide", "").get("tool_name", "").strip()
+                    config_str = yaml_data.get("config", "").strip()
+                    if not config_str:
+                        continue
+
+                    config_json = json.loads(config_str)
+                    mcp_servers = config_json.get("mcpServers", {})
+
+                    for server_name in mcp_servers.keys():
+                        server_config[server_name] = config_json
+
                 except Exception as e:
-                    print(f"[MCPClient] 无法加载配置文件 {filename}: {e}")
+                    print(f"[MCPClient] 无法加载配置文件 {file_path}: {e}")
         return server_config
 
     # 连接指定MCP服务器，并记录到 server_sessions 中
@@ -183,6 +194,7 @@ class MCPClient:
                 session = None
 
                 try:
+                    # print(f"[DEBUG][MCPClient] 正在连接 MCP 服务器 '{server_name}' 实例 '{instance_name}'，配置：{value}")
                     # 如果为command字段则说明是本地执行的MCP服务器
                     if "command" in value:
                         command = value["command"]
@@ -240,20 +252,19 @@ class MCPClient:
             如果server_descriptions中没有该能力的描述，则从server_sessions对应活跃的MCP Server连接中调用能力描述信息。
         - 如果没有连接过服务器，则尝试自动连接再请求描述。
             如果server_sessions中没有对应的MCP Server连接，则从server_config中获取对应的MCP Server配置并连接。
-
-        TODO:在ExecutorBase中调用 get_server_descriptions 后组装提示词未实现
         """
         # 1. server_descriptions 缓存优先
         if server_name in self.server_descriptions:
             if capability_type in self.server_descriptions[server_name]:
                 return self.server_descriptions[server_name][capability_type]
 
-        # 2. 本地缓存中没有，从 server_sessions 中遍历已连接的 MCP Server
-        for server_name, session in self.server_sessions.items():
+        # 2. 本地缓存中没有，从 server_sessions 中找到对应已连接的 MCP Server 获取描述
+        session = self.server_sessions.get(server_name, None)
+        if session:
             try:
                 # 如果该能力被 MCP Server 支持
                 # print(f"[DEBUG]server_name:{server_name}, capability_type:{capability_type}")
-                # print(f"[DEBUG]server_descriptions[server_name]['capabilities'][capability_type]：",self.server_descriptions[server_name]["capabilities"][capability_type])
+                print(f"[DEBUG]server_descriptions[server_name]['capabilities'][capability_type]：",self.server_descriptions[server_name]["capabilities"][capability_type])
                 capability_supported = self.server_descriptions.get(server_name, {}).get("capabilities", {}).get(capability_type, None)
                 if capability_supported is True:
 
@@ -344,14 +355,14 @@ class MCPClient:
                                 !!! 这里要将arguments从列表形式转换成字典形式，方便后续使用 !!!
                                 '''
                                 # 将 prompt.arguments 列表转换为符合 schema 的字典结构
-                                arguments_list = getattr(prompt, "arguments", [])
+                                arguments_list = getattr(prompt, "arguments", []) or []
                                 arguments_dict = {}
                                 for arg in arguments_list:
-                                    arg_name = arg.get("name")
+                                    arg_name = getattr(arg, "name", None)
                                     if arg_name:
                                         arguments_dict[arg_name] = {
-                                            "description": arg.get("description", ""),
-                                            "required": arg.get("required", False)
+                                            "description": getattr(arg, "description", ""),
+                                            "required": getattr(arg, "required", False)
                                         }
                                 # 存储到 server_descriptions 中
                                 self.server_descriptions[server_name].setdefault("prompts", {})[prompt.name] = {
@@ -370,12 +381,12 @@ class MCPClient:
                 return None
 
         # 3. 如果没有连接过服务器，则尝试自动连接
-        if server_name not in self.server_sessions:
+        else:
             # 尝试连接到指定的 MCP Server
             await self.connect_to_server([server_name])
             # 再次尝试获取工具描述
             if server_name in self.server_sessions:
-                return await self.get_server_descriptions(server_name)
+                return await self.get_server_descriptions(server_name, capability_type)
 
     # 传入参数使用server提供的能力
     async def use_capability(
@@ -434,6 +445,7 @@ class MCPClient:
             print(f"[MCPClient] 使用能力 '{capability_name}' 失败: {e}")
             return None
 
+# 测试 MCPClient 的基本功能
 async def test():
     """
     用于测试 MCPClient 的基本功能。
@@ -441,18 +453,21 @@ async def test():
     """
     # 使用with AsyncExitStack()包裹主函数，统一管理整个上下文生命周期，自动清理异步资源。
     async with AsyncExitStack() as stack:
-        # print("正在测试 MCPClient 功能...\n")
+        print("...正在测试 MCPClient 功能...\n")
         mcp_client = MCPClient()
         mcp_client.exit_stack = stack  # 替换为当前栈
         # print(f"mcp_client.server_config:\n {mcp_client.server_config}")
 
-        await mcp_client.connect_to_server(["playwright","puppeteer","amap_maps","test_everything"])
-        print(f"当前活跃连接：\n {mcp_client.server_sessions.keys()}\n")
+        await mcp_client.connect_to_server(["playwright","puppeteer","amap-maps","everything"])
+        # print(f"当前活跃连接：\n {mcp_client.server_sessions.keys()}\n")
 
-        print(f"此时server_descriptions：\n {mcp_client.server_descriptions}")
+        print(f"\n此时server_descriptions：\n {mcp_client.server_descriptions}")
 
-        server_description = await mcp_client.get_server_descriptions("puppeteer","resources")  # 替换为实际的 MCP Server 名称
-        print("服务描述获取结果：\n", server_description)
+        server_description = await mcp_client.get_server_descriptions(
+            server_name = "everything",
+            capability_type = "resources"  # 可以是 "tools"、"resources" 或 "prompts"
+        )
+        print("\n服务描述获取结果：\n", server_description)
 
 
 if __name__ == "__main__":

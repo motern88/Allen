@@ -1,0 +1,31 @@
+# Date: 2025/07/02
+# 该文件用于描述MCP Server的描述，以及记录MCP Server的启动配置。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  tool_name: "amap-maps"   # 工具名称需要与mcpServer启动配置中的名称一致
+  description: |
+    该工具用于访问高德地图API，提供地图服务和地理位置查询功能。
+    该工具可以执行以下操作：
+    1. 获取地图数据
+    2. 查询地理位置
+    3. 提供导航服务
+    **请在调用时明确指定所需的操作和参数。**
+
+
+# MCP Server 启动配置
+config: |
+  {
+    "mcpServers": {
+      "amap-maps": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@amap/amap-maps-mcp-server"
+        ],
+        "env": {
+          "AMAP_MAPS_API_KEY": "3e20397150247a0e6d4350d49a2bfc40"
+        }
+      }
+    }
+  }

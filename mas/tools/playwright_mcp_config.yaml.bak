@@ -1,0 +1,21 @@
+# Date: 2025/07/02
+# 该文件用于描述MCP Server的描述，以及记录MCP Server的启动配置。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  tool_name: "playwright"   # 工具名称需要与mcpServer启动配置中的名称一致
+  description: |
+    Playwright 可以与 HTML 输入元素（如文本输入、复选框、单选按钮、选择选项、鼠标单击、键入字符、键和快捷方式）进行交互，以及上传文件和焦点元素。
+
+# MCP Server 启动配置
+config: |
+  {
+    "mcpServers": {
+      "playwright": {
+        "command": "npx",
+        "args": [
+          "@playwright/mcp@latest"
+        ]
+      }
+    }
+  }

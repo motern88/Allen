@@ -1,0 +1,24 @@
+# Date: 2025/07/02
+# 该文件用于描述MCP Server的描述，以及记录MCP Server的启动配置。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  tool_name: "everything"   # 工具名称需要与mcpServer启动配置中的名称一致
+  description: |
+    此 MCP 服务器尝试执行 MCP 协议的所有功能。
+    它不是为了成为一个有用的服务器，而是一个 MCP 客户端构建者的测试服务器。
+    它实施提示、工具、资源、采样等来展示 MCP 功能。
+
+# MCP Server 启动配置
+config: |
+  {
+    "mcpServers": {
+      "everything": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-everything"
+        ]
+      }
+    }
+  }

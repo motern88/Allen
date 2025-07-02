@@ -113,6 +113,8 @@ mcp_base_prompt: |
     其中prompt_name字段传入你要使用的MCP Server的prompt名称，
     arguments字段传入None，因为prompt能力不需要任何其他参数
   
+  **一定要看清你生成的是tool、resource还是prompt的指令，不要把能力搞混了。**
+  
   #### 3. 如何理解MCP Server对能力调用的具体返回结果
   当你通过生成具体指令调用MCP Server的某种能力时，MAS会为你获取该能力调用的返回结果。
   该能力执行的返回结果会放在step_state.execute_result中，你需要熟悉MCP Server对能力调用的返回格式：
