@@ -121,8 +121,8 @@ class MCPClient:
 
         同时我们实现几个MCP基础方法：
         1. `connect_to_server`: 连接指定的 MCP 服务器
-        2. `get_tool_description`: 获取指定工具的详细描述
-        3. `execute_tool`: 执行指定工具并返回结果（未实现）
+        2. `get_server_description`: 获取服务器支持的指定能力的详细描述，例如tools/resources/prompts
+        3. `use_capability`: 执行指定能力并返回结果
         """
         self.exit_stack = AsyncExitStack()  # 管理异步上下文连接
 
