@@ -423,19 +423,55 @@ class MCPClient:
 
         try:
             if capability_type == "tools":
+                '''
+                返回工具调用结果result.content：
+                [
+                    {
+                        "type": "text",
+                        "text": "Current weather in New York:\nTemperature: 72°F\nConditions: Partly cloudy"
+                    }
+                ],
+                '''
                 # 调用工具 需要传入对应的参数
                 result = await session.call_tool(capability_name, arguments or {})
-                return result.result  # 返回json中"result"字段中的值
+                print(f"\nresult:{str(result)}")
+                return str(result.content)  # 返回json中"content"字段中的值,以字符串形式
 
             elif capability_type == "resources":
+                '''
+                返回资源结果result.contents：
+                [
+                  {
+                    "uri": "test://static/resource/1",
+                    "name": "Resource 1",
+                    "title": "Rust Software Application Main File",
+                    "mimeType": "text/x-rust",
+                    "text": "Resource 1: This is a plaintext resource"
+                  }
+                ]
+                '''
                 # 查看资源 需要获取url，arguments字典中应包含arguments["url"]字段值
-                result = await session.get_resource(arguments.get("uri", ""))
-                return result.result  # 返回json中"result"字段中的值
+                result = await session.read_resource(arguments.get("uri", ""))
+                print(f"\nresult:{str(result)}")
+                return str(result.contents)  # 返回json中"contents"字段中的值,以字符串形式
 
             elif capability_type == "prompts":
+                '''
+                返回提示词结果result.messages：
+                [
+                    {
+                        "role": "user",
+                        "content": {
+                            "type": "text",
+                            "text": "Please review this Python code:\ndef hello():\n    print('world')"
+                        }
+                    }
+                ]
+                '''
                 # 获取提示词，只需要传入提示词名称
                 result = await session.get_prompt(capability_name)
-                return result.result  # 返回json中"result"字段中的值
+                print(f"\nresult:{str(result.messages)}")
+                return str(result.messages)  # 返回json中的值,以字符串形式
 
             else:
                 print(f"[MCPClient] 不支持的能力类型：{capability_type}")
@@ -463,11 +499,22 @@ async def test():
 
         print(f"\n此时server_descriptions：\n {mcp_client.server_descriptions}")
 
+        # 获取MCP服务的能力描述列表
         server_description = await mcp_client.get_server_descriptions(
             server_name = "everything",
-            capability_type = "resources"  # 可以是 "tools"、"resources" 或 "prompts"
+            capability_type = "tools"  # 可以是 "tools"、"resources" 或 "prompts"
         )
         print("\n服务描述获取结果：\n", server_description)
+
+        # 调用 MCP Server 的具体能力
+        response = await mcp_client.use_capability(
+            server_name = "everything",
+            capability_type = "tools",
+            capability_name = "echo",
+            arguments={"message": "Hello, MCP!"}  # 传入工具调用参数
+        )
+        print("\n调用 MCP Server 的能力返回结果：\n", response)
+
 
 
 if __name__ == "__main__":
