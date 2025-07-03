@@ -1,19 +1,8 @@
 '''
 这里实现MCP客户端的功能，用于向Executor提供MCP Client的相关功能:
-
-- 实现通过MCP Client获取可用工具列表中的全部工具描述，并组装成提示词
-    1 根据传入的工具名称的列表，获取全部对应MCP工具的server config
-    2 根据server config通过mcp client获取工具的详细描述
-    3 将返回结果组装成提示词
-
-- 实现通过MCP Client获取单个工具的详细描述与调用格式，并组装成提示词
-    1 根据传入的工具名称，获取对应MCP工具的server config
-    2 根据server config通过mcp client获取工具的详细说明和调用格式
-    3 将返回结果组装成提示词
-
-- 实现通过MCP Client传入指定工具及参数，调用MCP工具并返回调用结果
-    1 根据传入的工具名称，获取对应MCP工具的server config，并连接其服务器
-    2 根据传入参数，调用MCP工具并获取返回结果
+    1. `connect_to_server`: 连接指定的 MCP 服务器
+    2. `get_server_description`: 获取服务器支持的指定能力的详细描述，例如tools/resources/prompts
+    3. `use_capability`: 执行指定能力并返回结果
 
 说明:
 1. MCP Client 连接多个 MCP Server，每个 MCP Server 可以有多个 MCP Tool。
@@ -42,7 +31,7 @@
         在Agent获取全部工具和技能提示词时，server_descriptions 相应支持；在Agent执行具体工具Step/组装工具Step提示词时，server_descriptions 也会提供具体工具的描述和调用格式信息。
 
 3. MCP Client实例应当是全局唯一的，MAS中所有Agent都共享同一个MCP Client实例。
-    应当在MAS启动时创建MCPClient实例，并传入给Executor，使得Executor可以通过MCPClient实例获取MCP Server连接和工具描述? TODO
+    TODO：应当在MAS启动时创建MCPClient实例，并传入给Executor，使得Executor可以通过MCPClient实例获取MCP Server连接和工具描述?
 '''
 import os
 import json
@@ -402,6 +391,7 @@ class MCPClient:
 
         参数：
             server_name: MCP Server的名称
+            capability_type: 能力类型，可以是 "tools"、"resources" 或 "prompts"
             capability_name: 要调用的能力的具体名称
             arguments: 调用能力时需要传入的参数，以字典形式传入
         '''

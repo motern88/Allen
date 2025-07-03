@@ -18,8 +18,8 @@ from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor
 
-@Executor.register(executor_type="tool", executor_name="mcp")
-class BrowserUseTool(Executor):
+@Executor.register(executor_type="tool", executor_name="mcp_tool")
+class MCPTool(Executor):
     def __init__(self):
         super().__init__()
 
