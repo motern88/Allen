@@ -237,5 +237,10 @@ if __name__ == "__main__":
                 waiting=None,  # 不等待回复
             )
 
+        if user_input.strip() == "step_list":
+            llm_agent = mas.get_agent_from_id(llm_agent_id)
+            print(f"step_list:")
+            llm_agent.agent_state["agent_step"].print_all_steps()
+
         # print(".")
         time.sleep(1)  # 主线程保持活跃

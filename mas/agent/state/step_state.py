@@ -119,9 +119,9 @@ class AgentStep:
         """
         self.step_list.append(step)
         # 如果step未被执行过，则添加到待执行队列
-        assert step.execution_state not in ["finished", "failed"]
-        self.todo_list.append(step.step_id)
-        # print(f"[AgentStep] step {step.step_id} 已添加到todo_list")
+        if step.execution_state not in ["finished", "failed"]:
+            self.todo_list.append(step.step_id)
+            # print(f"[AgentStep] step {step.step_id} 已添加到todo_list")
 
     def add_next_step(self, step: StepState):
         """
