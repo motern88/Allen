@@ -7,6 +7,7 @@ Agent被分配执行或协作执行一个阶段时，Agent会为自己规划数�
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from collections import deque
+import threading
 from mas.utils.monitor import StateMonitor
 
 @StateMonitor.track  # 注册状态监控器
@@ -89,6 +90,13 @@ class StepState:
         self.execute_result = new_result
 
 
+'''
+有一个比较复杂的需求，我需要让step_list中的StepState按照实际执行顺序排列
+当增加新的Step时，如果时追加（add_step）则将step id追加到todo_list末尾。将StepState追加到step_list末尾。
+！！但如果是插入新的Step时（add_next_step），则将step id插入到todo_list队首。将StepState插入到step_list中下一个要执行的StepState的前一位。
+
+'''
+
 class AgentStep:
     '''
     Agent的执行步骤管理类，用于管理Agent的执行步骤列表。
@@ -100,8 +108,9 @@ class AgentStep:
     def __init__(self, agent_id: str):
         self.agent_id = agent_id
         self.todo_list = deque()  # 只存放待执行的 step_id，执行者从队列里取出任务进行处理，一旦执行完就不会再回到 todo_list
-        self.step_list: List[StepState] = []  # 持续记录所有 StepState，即使执行完毕也不会被删除，方便后续查询、状态更新和管理。
+        self.step_list: List[StepState] = []  # 持续记录所有 StepState，即使执行完毕也不会立即被删除，方便后续查询、状态更新和管理。
 
+        self.todo_lock = threading.Lock()  # 用于保护 todo_list 的并发修改
     # 添加step
     def add_step(self, step: StepState):
         """
@@ -110,19 +119,30 @@ class AgentStep:
         """
         self.step_list.append(step)
         # 如果step未被执行过，则添加到待执行队列
-        if step.execution_state not in ["finished", "failed"]:
-            self.todo_list.append(step.step_id)
-            # print(f"[AgentStep] step {step.step_id} 已添加到todo_list")
+        assert step.execution_state not in ["finished", "failed"]
+        self.todo_list.append(step.step_id)
+        # print(f"[AgentStep] step {step.step_id} 已添加到todo_list")
 
     def add_next_step(self, step: StepState):
         """
         将step插入到todo_list队列的最前面，优先执行
-        也会同步添加到step_list中
+        也会同步添加到step_list中（保证step_list中待执行的step顺序和todo_list一致）
         """
-        self.step_list.append(step)
-        if step.execution_state not in ["finished", "failed"]:
-            self.todo_list.appendleft(step.step_id)  # 插入队首
+        # 使用锁保护 todo_list 的并发修改
+        with self.todo_lock:
+            assert step.execution_state not in ["finished", "failed"]
+            # 插入step到todo_list的队首
+            self.todo_list.appendleft(step.step_id)
             # print(f"[AgentStep] step {step.step_id} 已插入todo_list队首（插队）")
+
+            # 获取插入之后 todo_list 的长度
+            len_todo = len(self.todo_list)
+
+        # 根据插入之后todo_list的长度来判断StepState应当插入在倒序第几的位置
+        # 反向查找第 len_todo -1 个未完成的 step
+        insert_index = max(0, len(self.step_list) - (len_todo - 1))
+
+        self.step_list.insert(insert_index, step)
         return step.step_id
 
     # 移除step
@@ -178,4 +198,60 @@ class AgentStep:
                 f"Execution State: {step.execution_state}, Type: {step.type}, Executor: {step.executor}, "
                 f"Intention: {step.step_intention}, Text Content: {step.text_content}, "
                 f"Instruction Content: {step.instruction_content}, Execute Result: {step.execute_result}"
+                f"\n"
             )
+
+if __name__ == "__main__":
+    '''
+    测试AgentStep插入和追加Step的管理逻辑：运行命令 python -m mas.agent.state.step_state
+    '''
+    agent_step = AgentStep(agent_id="agent_1")
+
+    step1 = StepState(
+        task_id="task_1",
+        stage_id="stage_1",
+        agent_id="agent_1",
+        step_intention="Initialize task",
+        type="skill",
+        executor="skill_executor"
+    )
+    step2 = StepState(
+        task_id="task_1",
+        stage_id="stage_1",
+        agent_id="agent_1",
+        step_intention="Process data",
+        type="tool",
+        executor="data_processor"
+    )
+    step3 = StepState(
+        task_id="task_1",
+        stage_id="stage_1",
+        agent_id="agent_1",
+        step_intention="Process data",
+        type="tool",
+        executor="data_processor"
+    )
+    step4 = StepState(
+        task_id="task_1",
+        stage_id="stage_1",
+        agent_id="agent_1",
+        step_intention="Finalize task",
+        type="skill",
+        executor="finalizer"
+    )
+
+    agent_step.add_step(step1)
+    agent_step.add_step(step2)
+    agent_step.add_step(step3)
+
+    print("此时取出一个todo_list的元素")
+    agent_step.todo_list.popleft()
+
+    print("插入步骤四")
+    agent_step.add_next_step(step4)
+    # 打印todo_list
+    print("当前todo_list:", list(agent_step.todo_list))
+    agent_step.print_all_steps()
+
+
+
