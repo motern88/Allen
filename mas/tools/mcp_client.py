@@ -126,7 +126,7 @@ class MCPClient:
     # 获取全部MCP服务启动配置，并记录在self.server_config中
     def _get_server_config(self):
         """
-        从当前目录中读取所有以 "mcp_config.yaml" 结尾的文件。
+        从 mas/tools/mcp_server_config 中读取所有以 "mcp_config.yaml" 结尾的文件。
         其中保存的启动配置类似（在yaml文件的config字段中）：
         {
             "mcpServers": {
@@ -139,10 +139,13 @@ class MCPClient:
         将其中playwright的部分为name，整体为config，存入 server_config Dict[<name>,<config>] 字典中。
         """
         server_config = {}
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        for filename in os.listdir(current_dir):
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))  # 当前文件（mcp_client.py）所在目录
+        config_dir = os.path.join(base_dir, "mcp_server_config")
+
+        for filename in os.listdir(config_dir):
             if filename.endswith("mcp_config.yaml"):
-                file_path = os.path.join(current_dir, filename)
+                file_path = os.path.join(config_dir, filename)
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         yaml_data = yaml.safe_load(f)
