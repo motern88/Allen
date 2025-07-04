@@ -86,7 +86,7 @@ use_prompt:
     - **请将你的消息构造结果用<send_message>和</send_message>标记，不要将其放在代码块中，否则将无法被系统识别。**返回示例：
     <send_message>
     {
-      "receiver": [ "<AGENT_ID>", "<AGENT_ID>", ... ],  # 包含接收者实际Agent ID(uuid格式)的列表
+      "receiver": [ "<AGENT_ID>", "<AGENT_ID>", ... ],  # **包含接收者实际Agent ID(uuid格式)的列表**
       "message": "<message_content>",
       "stage_relative": "<stage_id或None>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
       "need_reply": <bool>,  # 需要回复则为True，否则为False
