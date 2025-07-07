@@ -83,7 +83,7 @@ def send_human_message():
     except Exception as e:
         return jsonify({"success": False, "message": f"发送消息失败: {str(e)}"}), 500
 
-# TODO: 实现人类操作员登录接口
+
 @app.route("/api/bind_human_agent", methods=['POST'])
 def bind_human_agent():
     '''
