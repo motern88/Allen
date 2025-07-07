@@ -19,6 +19,6 @@ skills: ["planning", "reflection", "summary", "instruction_generation", "quick_t
 tools: []
 
 human_config:
-  account: "1"
+  agent_id: "d196643b-483b-4769-86df-eded54fa6d42"
   password: "1"
   level: 1

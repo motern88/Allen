@@ -78,6 +78,7 @@ class MultiAgentSystem:
     def add_human_agent(self, agent_config):
         '''
         添加新的人类操作端 Human-Agent到系统中。
+        检查配置文件中是否包含了agent_id, 如果包含则直接传入该ID
         '''
         if isinstance(agent_config, str):  # 如果传进来是一个路径
             with open(agent_config, 'r', encoding='utf-8') as f:
@@ -85,8 +86,19 @@ class MultiAgentSystem:
         else:
             config_data = agent_config
 
-        # 实例化AgentBase对象，并添加到agents_list中。
-        human_agent = HumanAgent(config=config_data, sync_state=self.sync_state)
+        # 获取配置中的 agent_id，如果没有则为 None
+        agent_id = config_data.get("human_config", {}).get("agent_id", None)
+        if agent_id is not None:
+            # 检查是否已经存在同名的Agent，如果存在则抛出异常
+            for agent in self.agents_list:
+                if agent.agent_id == agent_id:
+                    raise ValueError(f"Agent ID '{agent_id}' 已经存在. 请使用唯一ID.")
+            # 实例化指定AgentID的AgentBase对象
+            human_agent = HumanAgent(agent_id=agent_id, config=config_data, sync_state=self.sync_state)
+        else:
+            # 实例化AgentBase对象，并添加到agents_list中。
+            human_agent = HumanAgent(config=config_data, sync_state=self.sync_state)
+
         self.agents_list.append(human_agent)
 
         return human_agent.agent_id  # 返回新添加的Human-Agent的ID，方便后续引用

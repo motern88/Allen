@@ -15,7 +15,7 @@ from typing import Dict, Any, List
 
 
 
-class Agent(AgentBase):
+class LLMAgent(AgentBase):
     '''
     继承自AgentBase类的Agent，对AgentBase中方法的使用
     '''

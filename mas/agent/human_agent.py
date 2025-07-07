@@ -131,8 +131,12 @@ class HumanAgent(AgentBase):
         self,
         config,  # HumanAgent人类操作端配置文件,接收已经从yaml解析后的字典
         sync_state: SyncState,  # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给Agent)，由外部实例化后传给所有Agent
+        agent_id: Optional[str] = None,  # 可选的Agent ID，如果未提供则自动生成一个唯一ID
     ):
-        self.agent_id =  str(uuid.uuid4())  # 生成唯一ID
+        if agent_id is not None:  # 如果提供了agent_id，则使用提供的ID
+            self.agent_id = agent_id
+        else:
+            self.agent_id =  str(uuid.uuid4())  # 生成唯一ID
 
         self.sync_state = sync_state  # 状态同步器
         self.sync_state.register_agent(self)  # 向状态同步器注册自身，以便sync_state可以访问到自身的属性
