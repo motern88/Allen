@@ -26,28 +26,9 @@ HumanAgent 的核心行为：
 2. send_message方法实现：
     HumanAgent向其他Agent发送消息默认记录在一对一的私聊对话记录中(conversation_privates)
 
-3. 群聊对话记录(conversation_groups)暂未实现：
-    - 如果群聊中任何信息都插队让LLM-Agent立即处理
-      那么群聊中Human-Agent的发言将会极大程度影响LLM-Agent的工作进程。
-      我们认为至少不应该在群聊中的任何消息都触发LLM-Agent的立即处理，
-      但是私聊中的任何信息都应当让LLM-Agent立即处理。
+3. 对于群聊对话记录：
+    TODO：
 
-    - 如果群聊中任何信息都排队等LLM-Agent处理
-      那么群聊中和LLM-Agent相关的任何消息都无法即使得到回复，且长期来看，
-      这些消息依然会减缓LLM-Agent本身工作的执行过程。
-
-    - 群聊中的消息默认均不通知LLM-Agent，只有主动选择指定LLM-Agent，才会向LLM-Agent发送消息
-      那么这个消息一定是需要及时性地立即处理（在LLM-Agent的下一个step执行前插队处理）。
-      TODO：那么如何区分收到的消息是来自群聊消息还是来自私聊消息呢？或许群聊消息池不应当在Human-Agent中建立，而应当在TaskState中建立？
-      群聊消息根本不发送给Human-Agent的ReceiveMessage方法，而是有Human-Agent主动去获取？
-      这样Human-Agent就不需要在ReceiveMessage中判断消息来自私聊还是群聊了，只会来自私聊。
-      但是这样还是得区分LLM-Agent发送的消息是发送给群聊还是发送给私聊。如果把这个判定转给Agent的send_message的话，那应该还是要改动一样比较多
-      TODO： 或者直接在TaskState的共享消息池中HumanAgent自由发送消息算了，但此中消息不主动打扰LLM-Agent。LLM-Agent也能主动访问到。
-      TODO：同时如果要私聊的话还是一样可以走当前实现的私聊路径
-
-
-
-TODO：human_config中人类操作员账号密码登录实现
 
 TODO：人类操作端展示文本时需要自动为以下格式生成黄字超链接,(其中会包裹对应ID)
     <task_id></task_id>
@@ -86,7 +67,7 @@ from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from datetime import datetime
 import uuid
 
-@StateMonitor.track  # 注册状态监控器，主要监控agent_state  # TODO:监控器目前无法监控HumanAgent的AgentState
+@StateMonitor.track  # 注册状态监控器，主要监控agent_state
 class HumanAgent(AgentBase):
     '''
     人类操作端，继承AgentBase基础接口
@@ -97,24 +78,10 @@ class HumanAgent(AgentBase):
         - 人类操作员主动发起的消息也添加进 conversation_pool 中
     其中：
         agent_state["conversation_pool"] = {
-            "conversation_groups": [<conversation_group>, ...],  # List[Dict] 所有群聊对话组
             "conversation_privates": {"agent_id":[<conversation_private>, ...]},  # Dict[str,List] 所有私聊对话组
             "global_messages": [str, ...],  # 全局消息, 用于提醒该人类操作员自己的信息
         }
-    每个 <conversation_group> 是一个字典，包含与其他Agent的对话信息：  TODO:暂未实现群聊对话，群聊对话是否在HumanAgent中实现？
-        {
-            "group_id": str,  # 对话组的唯一标识符
-            "participants": List[str],  # 参与群聊对话的Agent ID列表，群聊中只允许Human-Agent出现，不允许LLM-Agent出现
-            "messages": [  # 对话消息列表
-                {
-                    "sender_id": str,  # 发送者Agent ID
-                    "content": str,  # 消息内容
-                    "timestamp": str,  # 消息发送时间戳
-                },
-                ...
-            ]
-        }
-    每个 <conversation_private> 是一个字典，包含与其他Agent的私聊对话信息：
+    每个 <conversation_private> 是一个字典，代表一条与其他Agent的私聊对话信息：
         "agent_id":[
             {
                 "sender_id": str,  # 发送者Agent ID
@@ -209,7 +176,6 @@ class HumanAgent(AgentBase):
 
         # 人类操作端的对话池，存储与其他Agent的对话
         agent_state["conversation_pool"] = {
-            "conversation_groups": [],  # List[Dict] 记录所有群聊对话组 TODO:暂未确定如何实现群聊对话
             "conversation_privates": {},  # Dict[str,Dict]  记录所有私聊对话组
             "global_messages": [],  # List[str] 用于通知人类操作员的全局重要消息
         }

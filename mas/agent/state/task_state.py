@@ -21,8 +21,12 @@ class TaskState:
         task_manager (str): 任务管理者Agent ID，负责管理这个任务的Agent ID
 
         task_group (list[str]): 任务群组，包含所有参与这个任务的Agent ID
-        shared_message_pool (List[Dict]): 任务群组共享消息池（可选结构：包含agent_id, role, content等）
+        shared_message_pool (List[Dict]): 任务群组共享消息池（可选结构：包含agent_id, role, content等），这里记录的是行为信息
         communication_queue (queue.Queue): 用于存放任务群组的通讯消息队列，Agent之间相互发送的待转发的消息会被存放于此
+        shared_conversation_pool (List[Dict[str, Message]]): 任务群组共享会话池（Message），转发成功的消息会被记录在此
+            包含时间戳和对应的消息内容。
+            我们将所有的由消息转发器转发的消息都备份一份在共享会话池中，该共享会话池是所有Agent需要展示的群聊的超集。
+
 
         stage_list (List[StageState]): 当前任务下所有阶段的列表（顺序执行不同阶段）
         execution_state (str): 当前任务的执行状态，"init"、"running"、"finished"、"failed"
@@ -45,10 +49,11 @@ class TaskState:
         self.task_name = task_name
         self.task_intention = task_intention
         self.task_manager = task_manager
-        # 任务群组与共享消息池
+        # 任务群组与共享消息池和共享会话池
         self.task_group = task_group  # list[str] 所有参与这个任务的Agent ID
         self.shared_message_pool: List[Dict[str, str]] = []  # 示例结构：[{"agent_id": "A1", "role": "assistant", "stage_id": "stage001" "content": "xxx"}]
         self.communication_queue = queue.Queue()  # 用于存放任务群组的通讯消息队列，Agent之间相互发送的待转发的消息会被存放于此，待MAS系统的消息处理模块定期扫描task_state的消息处理队列，执行消息传递任务。
+        self.shared_conversation_pool: List[Dict[str, Message]] = []  # 任务群组共享会话池（Message），记录的是对话信息，包含所有的消息记录，供Agent展示群聊使用。
         # 任务执行信息
         self.stage_list: List[StageState] = []  # 当前任务下所有阶段的列表（顺序执行不同阶段）
         self.execution_state = "init"  # 当前任务的执行状态，"init"、"running"、"finished"、"failed"

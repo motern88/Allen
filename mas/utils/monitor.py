@@ -171,6 +171,32 @@ class StateMonitor:
             # 将deque转换为列表
             return [self._safe_serialize(item) for item in obj]
 
+        # Message 特殊序列化, 例如 task_state.shared_conversation_pool 中的消息
+        elif isinstance(obj, Dict) and all(
+            type(value).__name__ == "Message" for value in obj.values()):# 不依赖导入类而通过名字判断
+            '''
+            每个 Message 展示：
+            {
+                "task_id": Message.task_id,                      # 任务ID
+                "sender_id": Message.sender_id,                  # 发送者ID
+                "receiver": Message.receiver,                    # 接收者ID的列表
+                "message": Message.message,                      # 消息文本
+                "stage_relative": Message.stage_relative,        # 是否与任务阶段相关
+                "need_reply": Message.need_reply,                # 是否需要回复
+                "waiting": Message.waiting,                      # 等待回复的唯一ID列表
+                "return_waiting_id": Message.return_waiting_id,  # 返回的唯一等待标识ID
+            }
+            '''
+            return {
+                "task_id": getattr(obj, "task_id", None),
+                "sender_id": getattr(obj, "sender_id", None),
+                "receiver": getattr(obj, "receiver", []),  # 接收者ID的列表
+                "message": getattr(obj, "message", None),
+                "stage_relative": getattr(obj, "stage_relative", None),
+                "need_reply": getattr(obj, "need_reply", None),
+                "waiting": getattr(obj, "waiting", None),  # 等待回复的唯一ID列表
+                "return_waiting_id": getattr(obj, "return_waiting_id", None),  # 返回的唯一等待标识ID
+            }
 
 
         # 1. TaskState
@@ -183,6 +209,7 @@ class StateMonitor:
                 "task_group": getattr(obj, "task_group", None),
                 "shared_message_pool": self._safe_serialize(getattr(obj, "shared_message_pool", [])),  # 注意内部是 dict
                 "communication_queue": self._safe_serialize(getattr(obj, "communication_queue", None)),
+                "shared_conversation_pool": self._safe_serialize(getattr(obj, "shared_conversation_pool", [])),  # 注意内部是 Dict[str, Message]
                 "stage_list": self._safe_serialize(getattr(obj, "stage_list", [])),  # 注意内部是 StageState
                 "execution_state": getattr(obj, "execution_state", None),
                 "task_summary": getattr(obj, "task_summary", None),
