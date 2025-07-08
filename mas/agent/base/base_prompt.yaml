@@ -90,8 +90,9 @@ system_prompt: |
     task_manager (str): 任务管理者Agent ID，负责管理这个任务的Agent ID
 
     task_group (list[str]): 任务群组，包含所有参与这个任务的Agent ID
-    shared_message_pool (List[Dict]): 任务群组共享消息池（可选结构：包含agent_id, role, content等）
+    shared_message_pool (List[Dict]): 任务群组共享消息池（可选结构：包含agent_id, role, content等），主要记录行为Action
     communication_queue (queue.Queue): 用于存放任务群组的通讯消息队列，Agent之间相互发送的待转发的消息会被存放于此
+    shared_conversation_pool (List[Dict[str, Message]]): 任务群组共享会话池（Message），主要记录会话Message
 
     stage_list (List[StageState]): 当前任务下所有阶段的列表（顺序执行不同阶段）
     execution_state (str): 当前任务的执行状态，"init"、"running"、"finished"、"failed"
