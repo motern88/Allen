@@ -27,14 +27,9 @@ HumanAgent 的核心行为：
     HumanAgent向其他Agent发送消息默认记录在一对一的私聊对话记录中(conversation_privates)
 
 3. 对于群聊对话记录：
-    TODO：
+    我们不由HumanAgent维护群聊对话记录，我们将Task下所有的对话记录均收集在TaskState.shared_conversation_pool中，
+    在人类操作端前端界面中从TaskState.shared_conversation_pool中筛选出特定聊天记录形成Task群组子集的聊天群组。
 
-
-TODO：人类操作端展示文本时需要自动为以下格式生成黄字超链接,(其中会包裹对应ID)
-    <task_id></task_id>
-    <stage_id></stage_id>
-    <agent_id></agent_id>
-    <step_id></step_id>
 
 NEWS：
     目前HumanAgent已经实现关于通讯消息的：
@@ -43,8 +38,6 @@ NEWS：
     - 主动发起对多消息并一一添加到私人对话(conversation_privates)记录中
 
     未实现：
-    - 基于私人对话记录(conversation_privates)实现群聊对话记录(conversation_groups)
-    - 基于私人对话发起与接收，整合成群聊对话发起与接收
 
     - 各种工具在HumanAgent中的的直接手动操作
 
@@ -52,6 +45,7 @@ NEWS：
         因为Message中return_waiting_id只考虑返回单个唯一等待标识ID，
         因此Message无法面对同时回复多个Agent时区分每个Agent是否等待的情况，即当前反而无法实现一条消息回复多个Agent
         需要考虑将Message中的return_waiting_id改为List[str]类型，和receiver一一对应？这样就有一些地方需要改的
+        (Date 25/07/08 :暂时不需要考虑这个问题)
 
 '''
 
