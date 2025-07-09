@@ -28,8 +28,7 @@ from mas.agent.base.agent_base import AgentBase
 from mas.agent.human_agent import HumanAgent  # 人类操作端Agent
 from mas.utils.message_dispatcher import MessageDispatcher  # 消息分发器
 
-from mas.utils.web.server import start_monitor_web  # 监控器网页服务
-from mas.utils.web.human_interface import register_mas_instance, start_human_interface  # 人类操作端接口服务
+from mas.utils.web.server import register_mas_instance, start_interface  # 状态监控，引用实例，启动接口
 
 import mas.skills.__init__  # 会自动触发所有注册器的装饰器调用
 # import mas.tools.__init__  # 会自动触发所有注册器的装饰器调用  TODO:工具注册器暂时注释掉，等工具模块完善后再启用
@@ -187,8 +186,7 @@ if __name__ == "__main__":
     
     3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
     
-    4.启动状态监控网页服务（可视化 + 热更新）
-    4.1 启动人类操作端接口服务
+    4.启动人类操作端和状态监控（可视化 + 热更新）的统一服务端口
     
     5.主线程保持活跃，接受来自人类操作段的输入
     
@@ -210,16 +208,10 @@ if __name__ == "__main__":
     llm_agent_id = mas.add_llm_agent("mas/role_config/管理者_灰风.yaml")  # 添加第一个Agent（管理者）
     first_task_id = mas.init_and_start_first_task(llm_agent_id)  # 传入第一个agent（管理者）的ID
 
-    # 4. 启动状态监控网页服务（可视化 + 热更新）
-    threading.Thread(target=start_monitor_web, daemon=True).start()
-    print(f"[MAS] 状态监控网页服务已启动，访问 http://localhost:5000 查看状态。")
-
-    from mas.utils.monitor import StateMonitor  # Debug：查看监控器捕获信息时需要导入
-
-    # 4.1 启动人类操作端接口服务
+    # 4. 启动状态监控网页服务（可视化 + 热更新）和启动人类操作端服务的统一端口
     register_mas_instance(mas)  # 注册MAS实例
-    threading.Thread(target=start_human_interface, daemon=True).start()
-    print(f"[MAS] 人类操作端接口服务已启动，访问 http://localhost:5001 发送消息。")
+    threading.Thread(target=start_interface, daemon=True).start()
+    print(f"[MAS] 前端界面端口已启动，访问 http://localhost:5000 查看状态。")
 
 
     # 5. 主线程可以执行其他逻辑，接受来自人类操作段的输入
