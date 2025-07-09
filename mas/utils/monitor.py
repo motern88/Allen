@@ -207,7 +207,7 @@ class StateMonitor:
                 "task_intention": getattr(obj, "task_intention", None),
                 "task_manager": getattr(obj, "task_manager", None),
                 "task_group": getattr(obj, "task_group", None),
-                "shared_message_pool": self._safe_serialize(getattr(obj, "shared_message_pool", [])),  # 注意内部是 dict
+                "shared_info_pool": self._safe_serialize(getattr(obj, "shared_info_pool", [])),  # 注意内部是 dict
                 "communication_queue": self._safe_serialize(getattr(obj, "communication_queue", None)),
                 "shared_conversation_pool": self._safe_serialize(getattr(obj, "shared_conversation_pool", [])),  # 注意内部是 Dict[str, Message]
                 "stage_list": self._safe_serialize(getattr(obj, "stage_list", [])),  # 注意内部是 StageState

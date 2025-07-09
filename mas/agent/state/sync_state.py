@@ -268,19 +268,19 @@ class SyncState:
                       f" 中 agent{info['agent_id']} 的状态为 {info['state']}")
 
 
-        # 如果字典的key是"send_shared_message",则添加共享消息到任务共享消息池
-        if "send_shared_message" in executor_output:
-            info = executor_output["send_shared_message"]
+        # 如果字典的key是"send_shared_info",则添加共享消息到任务共享消息池
+        if "send_shared_info" in executor_output:
+            info = executor_output["send_shared_info"]
             # 获取任务状态
             task_state = self.all_tasks.get(info["task_id"])
             # 将消息添加到共享消息池中
-            task_state.add_shared_message(
+            task_state.add_shared_info(
                 info["agent_id"],
                 info["role"],
                 info["stage_id"],
                 info["content"]
             )
-            print(f"[SyncState] 已更新任务{info['task_id']}的共享消息池，"
+            print(f"[SyncState] 已更新任务{info['task_id']}的共享信息池，"
                     f"添加了来自 agent{info['agent_id']} 的消息")
 
 
@@ -667,9 +667,9 @@ class SyncState:
                                               f"任务群组：{task_state.task_group}\n\n"
                                               f"任务当前执行状态：{task_state.execution_state}\n\n"
                                               f"任务完成后总结：{task_state.task_summary}\n")
-                    return_ask_info_md.append(f"## 共享消息池信息 shared_message_pool info (用'---'分隔)\n")
-                    # 遍历共享消息池
-                    for dict in task_state.shared_message_pool:
+                    return_ask_info_md.append(f"## 共享信息池中近20条信息 shared_info_pool info (用'---'分隔)\n")
+                    # 遍历共享信息池
+                    for dict in task_state.get_shared_info(20):  # 通过 get_shared_info 方法获取共享消息池中近20条信息
                         return_ask_info_md.append(f"---"
                                                   f"Agent ID：{dict['agent_id']}\n"
                                                   f"角色：{dict['role']}\n"

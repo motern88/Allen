@@ -21,7 +21,7 @@ class TaskState:
         task_manager (str): 任务管理者Agent ID，负责管理这个任务的Agent ID
 
         task_group (list[str]): 任务群组，包含所有参与这个任务的Agent ID
-        shared_message_pool (List[Dict]): 任务群组共享消息池（可选结构：包含agent_id, role, content等），这里记录的是行为信息
+        shared_info_pool (List[Dict]): 任务群组共享消息池（可选结构：包含agent_id, role, content等），这里记录的是行为信息
         communication_queue (queue.Queue): 用于存放任务群组的通讯消息队列，Agent之间相互发送的待转发的消息会被存放于此
         shared_conversation_pool (List[Dict[str, Message]]): 任务群组共享会话池（Message），转发成功的消息会被记录在此
             包含时间戳和对应的消息内容。
@@ -51,7 +51,7 @@ class TaskState:
         self.task_manager = task_manager
         # 任务群组与共享消息池和共享会话池
         self.task_group = task_group  # list[str] 所有参与这个任务的Agent ID
-        self.shared_message_pool: List[Dict[str, str]] = []  # 示例结构：[{"agent_id": "A1", "role": "assistant", "stage_id": "stage001" "content": "xxx"}]
+        self.shared_info_pool: List[Dict[str, str]] = []  # 示例结构：[{"agent_id": "A1", "role": "assistant", "stage_id": "stage001" "content": "xxx"}]
         self.communication_queue = queue.Queue()  # 用于存放任务群组的通讯消息队列，Agent之间相互发送的待转发的消息会被存放于此，待MAS系统的消息处理模块定期扫描task_state的消息处理队列，执行消息传递任务。
         self.shared_conversation_pool: List[Dict[str, Message]] = []  # 任务群组共享会话池（Message），记录的是对话信息，包含所有的消息记录，供Agent展示群聊使用。
         # 任务执行信息
@@ -170,19 +170,19 @@ class TaskState:
         '''
         self.execution_state = state
 
-    def add_shared_message(self, agent_id: str, role: str, stage_id: str, content: str):
+    def add_shared_info(self, agent_id: str, role: str, stage_id: str, content: str):
         '''
         向共享消息池添加一条信息
         '''
-        self.shared_message_pool.append({
+        self.shared_info_pool.append({
             "agent_id": agent_id,
             "role": role,
             "stage_id": stage_id,
             "content": content
         })
 
-    def get_shared_context(self, limit: int = 10) -> List[Dict[str, str]]:
+    def get_shared_info(self, limit: int = 10) -> List[Dict[str, str]]:
         '''
         获取最近的共享消息，用于构建Agent的上下文
         '''
-        return self.shared_message_pool[-limit:]
+        return self.shared_info_pool[-limit:]

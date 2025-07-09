@@ -6,18 +6,18 @@
 
 每一个任务会有自己的一个任务群组。任务群组由多个Agent组成。每个任务初始化时会维护一个 `task_state` 。`task_state` 记录任务所包含的全部信息
 
-| 属性                | 类型             | 说明                                                        |
-| ------------------- | ---------------- | ----------------------------------------------------------- |
-| task_id             | str              | 用于标识一个任务的唯一ID                                    |
-| task_intention      | str              | 任务意图, 较为详细的任务目标说明                            |
-| task_manager        | str              | 任务管理者Agent ID，负责管理这个任务的Agent ID              |
-| task_group          | list[str]        | 任务群组，包含所有参与这个任务的Agent ID                    |
-| shared_message_pool | List[Dict]       | 任务群组共享消息池                                          |
-| stage_list          | List[StageState] | 当前任务下所有阶段的列表（顺序执行不同阶段）                |
-| execution_state     | str              | 当前任务的执行状态，"init"、"running"、"finished"、"failed" |
-| task_summary        | str              | 任务完成后的总结，由SyncState或调度器最终生成               |
+| 属性               | 类型             | 说明                                                        |
+|------------------| ---------------- | ----------------------------------------------------------- |
+| task_id          | str              | 用于标识一个任务的唯一ID                                    |
+| task_intention   | str              | 任务意图, 较为详细的任务目标说明                            |
+| task_manager     | str              | 任务管理者Agent ID，负责管理这个任务的Agent ID              |
+| task_group       | list[str]        | 任务群组，包含所有参与这个任务的Agent ID                    |
+| shared_info_pool | List[Dict]       | 任务群组共享消息池                                          |
+| stage_list       | List[StageState] | 当前任务下所有阶段的列表（顺序执行不同阶段）                |
+| execution_state  | str              | 当前任务的执行状态，"init"、"running"、"finished"、"failed" |
+| task_summary     | str              | 任务完成后的总结，由SyncState或调度器最终生成               |
 
-`task_state`存储包含多个`stage_state`的列表。任务状态类负责管理`stage_state`列表，管理`shared_message_pool`共享消息池。
+`task_state`存储包含多个`stage_state`的列表。任务状态类负责管理`stage_state`列表，管理`send_shared_info`共享信息池。
 
 
 

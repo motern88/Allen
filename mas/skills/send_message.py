@@ -310,8 +310,8 @@ class SendMessageSkill(Executor):
             "state": update_agent_situation,
         }
 
-        # 2. 添加步骤信息到task共享消息池
-        execute_output["send_shared_message"] = {
+        # 2. 添加步骤信息到task共享信息池
+        execute_output["send_shared_info"] = {
             "task_id": task_id,
             "stage_id": stage_id,
             "agent_id": agent_state["agent_id"],
