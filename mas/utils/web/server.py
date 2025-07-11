@@ -160,6 +160,7 @@ def send_human_message():
         "stage_relative": "相关阶段ID", // 可选，默认为"no_relative"
         "need_reply": true,  // 可选，默认为true
         "waiting": true      // 可选，默认为false
+        "return_waiting_id": "唯一等待ID"  // 可选，默认为None
     }
 
     返回:
@@ -194,6 +195,7 @@ def send_human_message():
         stage_relative = data.get("stage_relative", "no_relative")
         need_reply = data.get("need_reply", True)
         waiting = data.get("waiting", False)
+        return_waiting_id = data.get("return_waiting_id", None)
 
         # 调用send_message方法
         human_agent.send_message(
@@ -202,7 +204,8 @@ def send_human_message():
             context=content,
             stage_relative=stage_relative,
             need_reply=need_reply,
-            waiting=waiting
+            waiting=waiting,
+            return_waiting_id=return_waiting_id
         )
 
         return jsonify({"success": True, "message": "消息已发送"})

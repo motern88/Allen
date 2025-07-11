@@ -342,6 +342,7 @@ class HumanAgent(AgentBase):
         stage_relative: Optional[str] = None,  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为None
         need_reply: bool = True,  # 是否需要回复
         waiting: bool = True, # message中的步骤锁等待机制，但在Human-Agent中仅用作是否需要对方立即回复的功能，不用作步骤锁约束自身。如果是则True
+        return_waiting_id: Optional[str] = None,  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
     ):
         '''
         这是人类操作端发送消息的方法，不是LLM-Agent的send_message技能
@@ -374,7 +375,7 @@ class HumanAgent(AgentBase):
                 "stage_relative": stage_relative if stage_relative else "no_relative",  # 是否与任务阶段相关
                 "need_reply": need_reply,  # 是否需要回复
                 "waiting": waiting_ids,  # 如果发送者需要等待回复，则为所有发送对象填写唯一等待ID。不等待则为 None
-                "return_waiting_id": None,  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
+                "return_waiting_id": return_waiting_id,  # 如果消息发送者需要等待回复，则返回消息时填写接收到的消息中包含的来自发送者的唯一等待ID
             }
 
             # 2. 如果在 conversation_pool 的 conversation_privates 中发现该消息是回复上一条等待消息的，
