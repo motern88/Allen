@@ -146,10 +146,73 @@ def get_state_detail(state_id):
 
 # ===================== 人类操作端路由 =====================
 
-@app.route("/api/send_message", methods=['POST'])
-def send_human_message():
+@app.route("/api/send_private_message", methods=['POST'])
+def human_send_private_message():
     """
-    API接口，用于调用HumanAgent的send_message方法发送消息
+    API接口，用于调用HumanAgent的send_message方法发送消息（在私聊中发送消息）
+
+    请求参数(JSON):
+    {
+        "human_agent_id": "人类操作员ID",  # 这个ID是uuid.uuid4()的agent_id,而不是监控器中带"HumanAgent_"前缀的ID
+        "task_id": "任务ID",
+        "receiver": ["接收者ID1", "接收者ID2", ...],
+        "content": "消息内容",
+        "stage_relative": "相关阶段ID", // 可选，默认为"no_relative"
+        "need_reply": true,  // 可选，默认为true
+        "waiting": true      // 可选，默认为false
+    }
+
+    返回:
+    {
+        "success": true,
+        "message": "消息已发送"
+    }
+    """
+    try:
+        # 获取请求中的JSON数据
+        data = request.json
+
+        # 必需参数验证
+        required_fields = ["human_agent_id", "task_id", "receiver", "content"]
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"success": False, "message": f"缺少必需参数: {field}"}), 400
+
+        # 检查MAS实例是否已注册
+        if _mas_instance is None:
+            return jsonify({"success": False, "message": "MAS实例未注册"}), 500
+
+        # 获取HumanAgent实例
+        human_agent = _mas_instance.get_agent_from_id(data["human_agent_id"])
+        if not human_agent or not isinstance(human_agent, HumanAgent):
+            return jsonify({"success": False, "message": "找不到指定的HumanAgent"}), 404
+
+        # 准备参数
+        task_id = data["task_id"]
+        receiver = data["receiver"]
+        content = data["content"]
+        stage_relative = data.get("stage_relative", "no_relative")
+        need_reply = data.get("need_reply", True)
+        waiting = data.get("waiting", False)
+
+        # 调用send_message方法
+        human_agent.send_private_message(
+            task_id=task_id,
+            receiver=receiver,
+            context=content,
+            stage_relative=stage_relative,
+            need_reply=need_reply,
+            waiting=waiting,
+        )
+
+        return jsonify({"success": True, "message": "消息已发送"})
+    except Exception as e:
+        return jsonify({"success": False, "message": f"发送消息失败: {str(e)}"}), 500
+
+@app.route("/api/send_group_message", methods=['POST'])
+def human_send_group_message():
+    """
+    API接口，用于调用HumanAgent的send_group_message方法发送消息（在群聊中发送消息）
 
     请求参数(JSON):
     {
@@ -198,7 +261,7 @@ def send_human_message():
         return_waiting_id = data.get("return_waiting_id", None)
 
         # 调用send_message方法
-        human_agent.send_message(
+        human_agent.send_group_message(
             task_id=task_id,
             receiver=receiver,
             context=content,
@@ -211,6 +274,7 @@ def send_human_message():
         return jsonify({"success": True, "message": "消息已发送"})
     except Exception as e:
         return jsonify({"success": False, "message": f"发送消息失败: {str(e)}"}), 500
+
 
 @app.route("/api/bind_human_agent", methods=['POST'])
 def bind_human_agent():

@@ -231,8 +231,8 @@ if __name__ == "__main__":
         if user_input.strip() == "send":
             print("[DEBUG][HumanAgent] 请输入要发送的消息内容：")
             message_content = input("[DEBUG][HumanAgent] 消息内容：")
-            # 调用 HumanAgent 的 send_message 方法发送消息
-            human_agent.send_message(
+            # 调用 HumanAgent 的 send_private_message 方法发送消息
+            human_agent.send_private_message(
                 task_id=first_task_id,
                 receiver=[llm_agent_id],  # 发送给管理者Agent
                 context=message_content,
