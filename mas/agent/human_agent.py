@@ -23,6 +23,7 @@ HumanAgent 的核心行为：
     HumanAgent的receive_message方法被覆写，其中收到来自其他Agent的消息均会添加到
     agent_state["conversation_pool"]["conversation_privates"]单独私聊对话中
     目前被动接听到的消息均会被作为私聊呼叫添加到一对一的私聊对话记录中(conversation_privates)
+    注：这里的私聊对话记录按照AgentID和TaskID来区分，区分和谁的对话，同时也必须区分属于的任务
 
 2. send_private_message方法实现：
     HumanAgent向其他Agent发送私聊消息，其中return_waiting_id字段由方法自动判定填充。
@@ -82,17 +83,20 @@ class HumanAgent(AgentBase):
             "global_messages": [str, ...],  # 全局消息, 用于提醒该人类操作员自己的信息
         }
     每个 <conversation_private> 是一个字典，代表一条与其他Agent的私聊对话信息：
-        "agent_id":[
-            {
-                "sender_id": str,  # 发送者Agent ID
-                "content": str,  # 消息内容
-                "stage_relative": str,  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为"no_relative"
-                "timestamp": str,  # 消息发送时间戳
-                "need_reply": bool,  # 是否需要回复
-                "waiting": bool,  # 如果需要回复，发起方是否正在等待该消息回复
-                "return_waiting_id": Optional[str], # 如果发起方正在等待回复，那么需要返回的唯一等待标识ID
-            }
-        ]
+        "agent_id": {
+            "task_id" : [  # 私聊消息必须区分任务
+                {
+                    "sender_id": str,  # 发送者Agent ID
+                    "content": str,  # 消息内容
+                    "stage_relative": str,  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为"no_relative"
+                    "timestamp": str,  # 消息发送时间戳
+                    "need_reply": bool,  # 是否需要回复
+                    "waiting": bool,  # 如果需要回复，发起方是否正在等待该消息回复
+                    "return_waiting_id": Optional[str], # 如果发起方正在等待回复，那么需要返回的唯一等待标识ID
+                },
+                。。。
+            ]
+        }
     '''
     def __init__(
         self,
@@ -219,7 +223,7 @@ class HumanAgent(AgentBase):
                 return_waiting_id = message["waiting"][message["receiver"].index(self.agent_state["agent_id"])]
 
             # 将消息添加到 conversation_pool中私聊对话组中
-            self.agent_state["conversation_pool"]["conversation_privates"].setdefault(message["sender_id"], []).append(
+            self.agent_state["conversation_pool"]["conversation_privates"].setdefault(message["sender_id"], {}).setdefault(message["task_id"], []).append(
                 {
                     "sender_id": message["sender_id"],  # 发送者Agent ID
                     "content": message["message"],  # 消息内容
@@ -269,7 +273,7 @@ class HumanAgent(AgentBase):
         # 1. 对于需要人类理解并消化的消息，添加到 agent_state["conversation_pool"] 中
         if text:
             # 将消息添加到 conversation_pool中私聊对话组中
-            self.agent_state["conversation_pool"]["conversation_privates"][message["sender_id"]].append(
+            self.agent_state["conversation_pool"]["conversation_privates"][message["sender_id"]][message["task_id"]].append(
                 {
                     "sender_id": message["sender_id"],  # 发送者Agent ID
                     "content": text,  # 消息内容
@@ -386,7 +390,7 @@ class HumanAgent(AgentBase):
             # 则追加 return_waiting_id 到构造好的 message 消息体中
             if self.agent_state["conversation_pool"]["conversation_privates"].get(receiver_id, []):
                 # 获取最新的消息
-                last_message = self.agent_state["conversation_pool"]["conversation_privates"][receiver_id][-1]
+                last_message = self.agent_state["conversation_pool"]["conversation_privates"][receiver_id][task_id][-1]
                 # 如果最后一条消息是需要回复的，并且发起方正在等待该消息回复
                 if last_message["need_reply"] and last_message["waiting"]:
                     # 追加 return_waiting_id 到构造好的 message 消息体中
@@ -394,9 +398,9 @@ class HumanAgent(AgentBase):
 
             # 3. 将消息添加到 conversation_pool 中，如果没有则创建。
             if receiver_id not in self.agent_state["conversation_pool"]["conversation_privates"]:
-                self.agent_state["conversation_pool"]["conversation_privates"][receiver_id] = []
+                self.agent_state["conversation_pool"]["conversation_privates"][receiver_id][task_id] = []
 
-            self.agent_state["conversation_pool"]["conversation_privates"][receiver_id].append(
+            self.agent_state["conversation_pool"]["conversation_privates"][receiver_id][task_id].append(
                 {
                     "sender_id": message["sender_id"],
                     "content": message["message"],
@@ -483,9 +487,9 @@ class HumanAgent(AgentBase):
 
             # 2. 将消息添加到 conversation_pool 中，如果没有则创建。
             if receiver_id not in self.agent_state["conversation_pool"]["conversation_privates"]:
-                self.agent_state["conversation_pool"]["conversation_privates"][receiver_id] = []
+                self.agent_state["conversation_pool"]["conversation_privates"][receiver_id][task_id] = []
 
-            self.agent_state["conversation_pool"]["conversation_privates"][receiver_id].append(
+            self.agent_state["conversation_pool"]["conversation_privates"][receiver_id][task_id].append(
                 {
                     "sender_id": message["sender_id"],
                     "content": message["message"],
