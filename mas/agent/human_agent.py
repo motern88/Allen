@@ -313,6 +313,11 @@ class HumanAgent(AgentBase):
 
         # 4. 如果instruction字典包含finish_task的key,提醒人类,并清除该task所有step且清除相应工作记忆
         if instruction and "finish_task" in instruction:
+            '''
+            1.清除step
+            2.清除working_memory
+            3.清除维护的该任务下的私聊记录
+            '''
             # 指令内容 {"finish_task": {"task_id": <task_id> }}  # 由sync_state生成
             task_id = instruction["finish_task"]["task_id"]
             # 提示人类操作员，现在已经结束某一个任务
@@ -324,6 +329,11 @@ class HumanAgent(AgentBase):
             # 清除相应的工作记忆
             if task_id in self.agent_state["working_memory"]:
                 del self.agent_state["working_memory"][task_id]
+            # 清除私聊会话组中对应task的记录
+            for agent_id in self.agent_state["conversation_pool"]["conversation_privates"].keys():
+                if task_id in self.agent_state["conversation_pool"]["conversation_privates"][agent_id].keys():
+                    del self.agent_state["conversation_pool"]["conversation_privates"][agent_id][task_id]
+
 
         # 5. 如果instruction字典包含update_working_memory的key,提醒人类,并更新Agent的工作记忆
         if instruction and "update_working_memory" in instruction:
