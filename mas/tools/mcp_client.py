@@ -31,7 +31,7 @@
         在Agent获取全部工具和技能提示词时，server_descriptions 相应支持；在Agent执行具体工具Step/组装工具Step提示词时，server_descriptions 也会提供具体工具的描述和调用格式信息。
 
 3. MCP Client实例应当是全局唯一的，MAS中所有Agent都共享同一个MCP Client实例。
-    TODO：应当在MAS启动时创建MCPClient实例，并传入给Executor，使得Executor可以通过MCPClient实例获取MCP Server连接和工具描述?
+    在MAS启动时创建MCPClient实例，并传入给Executor.execute，使得Executor.execute可以通过MCPClient实例获取MCP Server连接和工具描述
 '''
 import os
 import json
@@ -295,6 +295,9 @@ class MCPClient:
                                 }
                             return self.server_descriptions[server_name]["tools"]
 
+                        else:
+                            print(f"[MCPClient] MCP Server {server_name} 返回的工具列表为空或未定义。")
+                            return None
 
                     elif capability_type == "resources":
                         result = await session.list_resources()  # 异步调用服务器获取资源列表
@@ -322,6 +325,9 @@ class MCPClient:
                                 }
                             return self.server_descriptions[server_name]["resources"]
 
+                        else:
+                            print(f"[MCPClient] MCP Server {server_name} 返回的资源列表为空或未定义。")
+                            return None
 
                     elif capability_type == "prompts":
                         result = await session.list_prompts()  # 异步调用服务器获取提示词列表
@@ -364,6 +370,9 @@ class MCPClient:
                                 }
                             return self.server_descriptions[server_name]["prompts"]
 
+                        else:
+                            print(f"[MCPClient] MCP Server {server_name} 返回的提示词列表为空或未定义。")
+                            return None
                 else:
                     print(f"[MCPClient] MCP Server {server_name} 不支持能力：{capability_type}。")
                     return None

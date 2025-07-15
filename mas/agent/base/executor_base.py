@@ -4,6 +4,7 @@ Router类通过type与executor的str返回一个具体执行器，这个执行�
 '''
 
 from mas.agent.state.step_state import StepState
+from mas.tools.mcp_client import MCPClient
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
@@ -39,8 +40,15 @@ class Executor(ABC):
         return wrapper
 
     @abstractmethod
-    def execute(self, step_id: str, agent_state: Dict[str, Any]):
-        """由子类必须实现的具体execute方法"""
+    def execute(self, step_id: str, agent_state: Dict[str, Any], mcp_client: Optional[MCPClient] = None):
+        """
+        由子类必须实现的具体execute方法
+
+        其中：
+        - step_id: 当前执行的步骤ID
+        - agent_state: 这里传入agent_state是因为部分执行器需要具备操作agent本身的能力
+        - mcp_client: tool executor 需要用到的MCPClient实例，用于执行工具调用, skill executor 一般不需要传入
+        """
         pass
 
     # 上：基础方法
@@ -61,12 +69,13 @@ class Executor(ABC):
             return yaml.safe_load(f)
 
     # 加载tool指定的 YAML 配置文件
-    def load_tool_config(self, tool_name, config_dir="mas/tools"):
+    def load_tool_config(self, tool_name, config_dir="mas/tools/mcp_server_config"):
         """
         根据工具名称动态加载对应的 YAML 配置文件
+        找到 mas/tools/mcp_server_config 目录下的 <tool_name>_mcp_config.yaml 文件
         """
         # 生成对应的文件名
-        config_file = os.path.join(config_dir, f"{tool_name}_config.yaml")
+        config_file = os.path.join(config_dir, f"{tool_name}_mcp_config.yaml")
         if not os.path.exists(config_file):
             raise ValueError(f"配置文件 {config_file} 不存在！")
         # 加载YAML文件

@@ -69,7 +69,7 @@ class StepState:
         self.execution_state = execution_state  # 'init', 'pending', 'running', 'finished', 'failed'
 
         # step内容
-        self.text_content = text_content or {}
+        self.text_content = text_content or ''
         self.instruction_content = instruction_content or {}
         self.execute_result = execute_result or {}
 
@@ -89,13 +89,6 @@ class StepState:
         """更新执行结果"""
         self.execute_result = new_result
 
-
-'''
-有一个比较复杂的需求，我需要让step_list中的StepState按照实际执行顺序排列
-当增加新的Step时，如果时追加（add_step）则将step id追加到todo_list末尾。将StepState追加到step_list末尾。
-！！但如果是插入新的Step时（add_next_step），则将step id插入到todo_list队首。将StepState插入到step_list中下一个要执行的StepState的前一位。
-
-'''
 
 class AgentStep:
     '''

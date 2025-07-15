@@ -27,6 +27,7 @@ from mas.agent.state.sync_state import SyncState
 from mas.agent.base.agent_base import AgentBase
 from mas.agent.human_agent import HumanAgent  # 人类操作端Agent
 from mas.utils.message_dispatcher import MessageDispatcher  # 消息分发器
+from mas.tools.mcp_client import MCPClient  # MCP客户端，用于实现工具执行器
 
 from mas.utils.web.server import register_mas_instance, start_interface  # 状态监控，引用实例，启动接口
 
@@ -49,7 +50,8 @@ class MultiAgentSystem:
 
     '''
     def __init__(self):
-        self.sync_state = SyncState(self)  # 实例化局唯一的状态同步器，把self传进去，让SyncState能访问MultiAgentSystem
+        self.sync_state = SyncState(self)  # 实例化全局唯一的状态同步器，把self传进去，让SyncState能访问MultiAgentSystem
+        self.MCPClient = MCPClient()  # 实例化全局唯一的MCP客户端，用于执行工具
         self.agents_list = []  # 存储所有Agent实例的列表
         self.message_dispatcher = MessageDispatcher(self.sync_state)  # 实例化消息分发器
 
@@ -68,7 +70,8 @@ class MultiAgentSystem:
             config_data = agent_config
 
         # 实例化AgentBase对象，并添加到agents_list中。在Agent实例化的同时就启动了Agent自己的任务执行线程。
-        llm_agent = AgentBase(config=config_data, sync_state=self.sync_state)
+        llm_agent = AgentBase(config=config_data, sync_state=self.sync_state,
+                              mcp_client=self.MCPClient)
         self.agents_list.append(llm_agent)
 
         return llm_agent.agent_id  # 返回新添加的Agent的ID，方便后续引用
@@ -78,6 +81,7 @@ class MultiAgentSystem:
         '''
         添加新的人类操作端 Human-Agent到系统中。
         检查配置文件中是否包含了agent_id, 如果包含则直接传入该ID
+        (这样可以保证每次重启 MAS 系统时，Human-Agent 已存在的 ID 不会改变)
         '''
         if isinstance(agent_config, str):  # 如果传进来是一个路径
             with open(agent_config, 'r', encoding='utf-8') as f:
@@ -93,10 +97,12 @@ class MultiAgentSystem:
                 if agent.agent_id == agent_id:
                     raise ValueError(f"Agent ID '{agent_id}' 已经存在. 请使用唯一ID.")
             # 实例化指定AgentID的AgentBase对象
-            human_agent = HumanAgent(agent_id=agent_id, config=config_data, sync_state=self.sync_state)
+            human_agent = HumanAgent(agent_id=agent_id, config=config_data, sync_state=self.sync_state,
+                                     mcp_client=self.MCPClient)
         else:
             # 实例化AgentBase对象，并添加到agents_list中。
-            human_agent = HumanAgent(config=config_data, sync_state=self.sync_state)
+            human_agent = HumanAgent(config=config_data, sync_state=self.sync_state,
+                                     mcp_client=self.MCPClient)
 
         self.agents_list.append(human_agent)
 

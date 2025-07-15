@@ -6,6 +6,7 @@ Agent基础类，这里实现关于LLM驱动的相关基础功能，不涉及到
 from mas.agent.state.step_state import StepState, AgentStep
 from mas.agent.state.stage_state import StageState
 from mas.agent.state.sync_state import SyncState
+from mas.tools.mcp_client import MCPClient
 from mas.agent.base.router import Router
 from mas.utils.monitor import StateMonitor
 
@@ -50,12 +51,14 @@ class AgentBase():
         self,
         config,  # Agent配置文件,接收已经从yaml解析后的字典
         sync_state: SyncState,  # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给Agent)，由外部实例化后传给所有Agent
+        mcp_client: MCPClient,  # 所有Agents接收同一个MCP客户端(整个系统只维护一个MCPClient，通过实例化传递给Agent)，由外部实例化后传给所有Agent
     ):
         self.agent_id =  str(uuid.uuid4())  # 生成唯一ID
         self.router = Router()  # 在action中用于分发具体executor的路由器，用于同步stage_state与task_state
 
         self.sync_state = sync_state  # 状态同步器
         self.sync_state.register_agent(self)  # 向状态同步器注册自身，以便sync_state可以访问到自身的属性
+        self.mcp_client = mcp_client  # MCP客户端，用于执行工具
 
         # 初始化Agent状态
         self.agent_state = self.init_agent_state(
@@ -169,7 +172,11 @@ class AgentBase():
 
         # 2. 执行路由器返回的执行器
         with self.agent_state_lock:  # 防止任务分配线程与任务执行线程同时修改agent_state，这里优先保证任务执行线程的修改
-            executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state)  # 部分执行器需要具备操作agent本身的能力
+            if step_type == "skill":
+                executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state)  # 这里传入agent_state是因为部分执行器需要具备操作agent本身的能力
+            else:
+                # 如果是工具调用，则需要传入MCPClient
+                executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state, mcp_client=self.mcp_client)
 
         # 3. 使用sync_state专门同步stage_state与task_state
         self.sync_state.sync_state(executor_output)  # 根据executor_output更新stage,task相应状态
