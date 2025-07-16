@@ -137,7 +137,7 @@ class MCPTool(Executor):
         # 如果指令类型"instruction_type"字段是"get_description"，则获取MCP服务的能力列表描述
         if instruction_content["instruction_type"] == "get_description":
             '''
-            
+            TODO:如果成功则追加tool_decision技能进一步决策调用哪个具体能力
             '''
             # 获取MCP服务的能力列表描述
             mcp_server_name = instruction_content["mcp_server_name"]

@@ -1,9 +1,0 @@
-# 调取在内网本地部署的qwq 32b
-
-api_type: "ollama"
-base_url: "http://192.168.30.16:11434/api"
-model: "qwq:32b"
-max_tokens: 8192
-temperature: 0.1
-timeout: 600
-
