@@ -128,6 +128,15 @@ class Executor(ABC):
         with open(base_prompt, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)[key]
 
+    # MCP调用的基础提示词
+    def get_mcp_base_prompt(self, mcp_base_prompt="mas/tools/mcp_base_prompt.yaml", key="mcp_base_prompt"):
+        '''
+        获取MCP调用的基础提示词, 该方法供子类使用
+        获取到yaml文件中以mcp_base_prompt为键的值：包含 #### 四级标题的md格式文本
+        '''
+        with open(mcp_base_prompt, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)[key]
+
     # Role角色提示词
     def get_agent_role_prompt(self, agent_state):
         '''
@@ -441,7 +450,8 @@ class Executor(ABC):
         1.获取tool_step
         2.当前工具步骤的简要意图
         3.从step.text_content获取的具体目标
-        4.工具规则提示
+        4.MCP基础调用提示
+        5.当前MCP工具的简要描述
         '''
         md_output = []
         md_output.append(
@@ -452,8 +462,7 @@ class Executor(ABC):
         tool_step = self.get_next_tool_step(step_id, agent_state)
         tool_config = self.load_tool_config(tool_step.executor)
 
-        tool_prompt = tool_config["use_prompt"].get("tool_prompt", "暂无描述")
-        return_format = tool_config["use_prompt"].get("return_format", "暂无描述")
+        tool_description = tool_config["use_guide"].get("description", "暂无描述")
 
         # 2.当前工具步骤的简要意图
         md_output.append(f"**当前工具步骤的简要意图**: {tool_step.step_intention}\n")
@@ -461,9 +470,13 @@ class Executor(ABC):
         # 3.从step.text_content获取的具体目标
         md_output.append(f"**需要调用工具实现的具体目标**: {tool_step.text_content}\n")
 
-        # 4.工具规则提示
-        md_output.append(f"{tool_prompt}\n")
-        md_output.append(f"**return_format**: {return_format}\n")
+        # 4.MCP工具调用的基础规则提示
+        mcp_base_prompt = self.get_mcp_base_prompt(key="mcp_base_prompt")  # 已包含 #### 四级标题的md
+        md_output.append(f"**MCP工具调用的基础规则**: {mcp_base_prompt}\n")
+
+        # 5.当前工具的简要描述
+        md_output.append(f"**当前工具的简要描述**: {tool_description}\n")
+
 
         return "\n".join(md_output)
 

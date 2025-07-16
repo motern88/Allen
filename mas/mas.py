@@ -51,7 +51,7 @@ class MultiAgentSystem:
     '''
     def __init__(self):
         self.sync_state = SyncState(self)  # 实例化全局唯一的状态同步器，把self传进去，让SyncState能访问MultiAgentSystem
-        self.MCPClient = MCPClient()  # 实例化全局唯一的MCP客户端，用于执行工具
+        self.mcp_client = MCPClient()  # 实例化全局唯一的MCP客户端，用于执行工具
         self.agents_list = []  # 存储所有Agent实例的列表
         self.message_dispatcher = MessageDispatcher(self.sync_state)  # 实例化消息分发器
 
@@ -71,7 +71,7 @@ class MultiAgentSystem:
 
         # 实例化AgentBase对象，并添加到agents_list中。在Agent实例化的同时就启动了Agent自己的任务执行线程。
         llm_agent = AgentBase(config=config_data, sync_state=self.sync_state,
-                              mcp_client=self.MCPClient)
+                              mcp_client=self.mcp_client)
         self.agents_list.append(llm_agent)
 
         return llm_agent.agent_id  # 返回新添加的Agent的ID，方便后续引用
@@ -98,11 +98,11 @@ class MultiAgentSystem:
                     raise ValueError(f"Agent ID '{agent_id}' 已经存在. 请使用唯一ID.")
             # 实例化指定AgentID的AgentBase对象
             human_agent = HumanAgent(agent_id=agent_id, config=config_data, sync_state=self.sync_state,
-                                     mcp_client=self.MCPClient)
+                                     mcp_client=self.mcp_client)
         else:
             # 实例化AgentBase对象，并添加到agents_list中。
             human_agent = HumanAgent(config=config_data, sync_state=self.sync_state,
-                                     mcp_client=self.MCPClient)
+                                     mcp_client=self.mcp_client)
 
         self.agents_list.append(human_agent)
 

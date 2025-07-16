@@ -23,20 +23,46 @@ Agent通过mcp工具能够实现调用符合MCP协议的任意服务器端点。
         MCPTool Executor 通过调用 MCPClient 的 execute 方法，传入具体的能力名称和参数，
         来执行该能力并获取结果。
 
-todo：指令生成和工具决策技能均能够获取 mcp_base_prompt 提示词
+注：指令生成和工具决策技能均能够获取 mcp_base_prompt 提示词，
+    指令生成在组装tool step提示词中包含mcp_base_prompt，
+    工具决策在组装get_tool_decision_prompt时包含mcp_base_prompt
 
 '''
 import re
 import json
+import asyncio
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.tools.mcp_client import MCPClient
 from mas.agent.base.executor_base import Executor
 
+
 @Executor.register(executor_type="tool", executor_name="mcp_tool")
 class MCPTool(Executor):
     def __init__(self):
         super().__init__()
+
+    def add_next_tool_decision_step(
+        self,
+        step_intention: str,
+        text_content: str,
+        step_id: str,
+        agent_state: Dict[str, Any],
+    ):
+        '''
+        在AgentStep中追加插入下一个工具决策步骤。
+        需要传入工具决策步骤的step_intention步骤意图和text_content文本说明。
+        需要传入step_id和agent_state，以便调用ExecutorBase方法中添加下一个步骤。
+        '''
+        # 构造工具决策步骤的字典
+        tool_decision_step = {
+            "step_intention": step_intention,
+            "text_content": text_content,
+            "type": "skill",  # 步骤类型默认为"skill"
+            "executor": "tool_decision",  # 执行器默认为"tool_decision"
+        }
+        # 调用ExecutorBase的方法，在AgentStep中添加下一个步骤
+        self.add_next_step([tool_decision_step], step_id, agent_state)
 
     def get_capabilities_list_description(self, mcp_server_name, mcp_client):
         '''
@@ -112,7 +138,7 @@ class MCPTool(Executor):
             "stage_id": stage_id,
             "agent_id": agent_state["agent_id"],
             "role": agent_state["role"],
-            "content": f"执行Instruction Generation步骤:{shared_step_situation}，"
+            "content": f"执行MCP Tool步骤:{shared_step_situation}，"
         }
 
         return execute_output
@@ -122,8 +148,9 @@ class MCPTool(Executor):
         执行MCP工具，调用MCP客户端的execute方法。
 
         1. 获取step_state.instruction_content中的指令内容。
-        2. 根据指令类型执行相应的操作。 TODO：instruction_generation尚未实现相应指令生提示
+        2. 根据指令类型执行相应的操作。
             - 如果指令类型"instruction_type"字段是"get_description"，则获取MCP服务的能力列表描述。
+            - 如果指令类型"instruction_type"字段是"function_call"，则执行MCP服务的具体能力。
         '''
 
         # step状态更新为 running
@@ -137,10 +164,14 @@ class MCPTool(Executor):
         # 如果指令类型"instruction_type"字段是"get_description"，则获取MCP服务的能力列表描述
         if instruction_content["instruction_type"] == "get_description":
             '''
-            TODO:如果成功则追加tool_decision技能进一步决策调用哪个具体能力
+            如果instruction_content中的指令内容：
+            {
+                "instruction_type": "get_description",
+            }
+            则说明该操作是需要获取MCP服务的能力列表描述。
             '''
             # 获取MCP服务的能力列表描述
-            mcp_server_name = instruction_content["mcp_server_name"]
+            mcp_server_name = step_state.executor  # 工具执行器名称即为MCP服务名称
             capabilities_list_description = self.get_capabilities_list_description(mcp_server_name, mcp_client)
 
             if capabilities_list_description is None:
@@ -156,19 +187,104 @@ class MCPTool(Executor):
                 )
                 return execute_output
             else:
-                # 如果获取到能力列表描述，则更新执行结果为成功
-                # TODO:同时触发tool_decision技能进一步决策调用哪个具体能力
+                # 如果获取到能力列表描述，同时触发tool_decision技能进一步决策调用哪个具体能力
+                self.add_next_tool_decision_step(
+                    step_intention="决策调用MCP Server的具体能力",
+                    text_content=f"根据上一步工具调用结果返回的capabilities_list_description能力列表描述，"
+                                 f"决策使用哪个具体的能力进行下一步操作，以满足工具调用目标。",
+                    step_id=step_id,
+                    agent_state=agent_state,
+                )
+                # 并则更新执行结果为成功
                 agent_state["agent_step"].update_step_status(step_id, "finished")  # step状态更新为 finished
                 step_state.update_execute_result({"capabilities_list_description": capabilities_list_description})
                 # 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
                 execute_output = self.get_execute_output(
                     step_id,
                     agent_state,
-                    update_agent_situation="finished",
-                    shared_step_situation="获取MCP Server的能力列表描述成功",
+                    update_agent_situation="working",
+                    shared_step_situation="finished",
                 )
                 return execute_output
 
+        # 如果指令类型"instruction_type"字段是"function_call"，则执行MCP服务的具体能力
+        elif instruction_content["instruction_type"] == "function_call":
+            '''
+            如果instruction_content中的指令内容：
+            {
+                "instruction_type": "function_call",
+                ...
+            }
+            则说明该操作是执行MCP服务的具体能力。
+            '''
+            if "tool_name" in instruction_content.keys():
+                # 如果指令内容中包含"tool_name"字段，则说明需要调用MCP服务的具体工具。
+                # {"tool_name": "<TOOL_NAME>"}
+                capability_type = "tools"
+                capability_name = instruction_content["tool_name"]
+            elif "resource_name" in instruction_content.keys():
+                # 如果指令内容中包含"resource_name"字段，则说明需要调用MCP服务的具体资源。
+                # {"resource_name": "<RESOURCE_NAME>"}
+                capability_type = "resources"
+                capability_name = instruction_content["resource_name"]
+            elif "prompt_name" in instruction_content.keys():
+                # 如果指令内容中包含"prompt_name"字段，则说明需要调用MCP服务的具体提示词。
+                # {"prompt_name": "<PROMPT_NAME>"}
+                capability_type = "prompts"
+                capability_name = instruction_content["prompt_name"]
+            else:
+                # 如果指令内容中没有可执行的指令类型，则更新执行结果为失败
+                agent_state["agent_step"].update_step_status(step_id, "failed")  # step状态更新为 failed
+                step_state.update_execute_result({"error": "当前工具步骤中instruction_content部分没有可执行的指令类型"})
+                # 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
+                execute_output = self.get_execute_output(
+                    step_id,
+                    agent_state,
+                    update_agent_situation="failed",
+                    shared_step_situation="failed",
+                )
+                return execute_output
 
+            # 执行MCP服务的具体能力
+            server_name = step_state.executor  # 工具执行器名称即为MCP服务名称
+            arguments = instruction_content.get("arguments", {})  # 获取指令内容中的参数，如果没有则默认为空字典
+            mcp_server_result = mcp_client.use_capability(
+                server_name=server_name,
+                capability_type=capability_type,
+                capability_name=capability_name,
+                arguments=arguments,
+            )
 
+            # 更新执行结果，同时触发tool_decision技能进行工具调用的完成判定
+            self.add_next_tool_decision_step(
+                step_intention="决策工具调用完成与否",
+                text_content=f"根据上一步工具调用步骤的execute_result执行结果中返回的mcp_server_result具体调用结果，"
+                             f"决策当前工具调用目标是否达成。",
+                step_id=step_id,
+                agent_state=agent_state,
+            )
+            # 并则更新执行结果为成功
+            agent_state["agent_step"].update_step_status(step_id, "finished")  # step状态更新为 finished
+            step_state.update_execute_result({"mcp_server_result": mcp_server_result})
+            # 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
+            execute_output = self.get_execute_output(
+                step_id,
+                agent_state,
+                update_agent_situation="working",
+                shared_step_situation="finished",
+            )
+            return execute_output
 
+        # instruction_content中instruction_type既不是获取能力列表也不是执行具体能力，则更新执行结果为失败
+        else:
+            # 更新执行结果为失败
+            agent_state["agent_step"].update_step_status(step_id, "failed")  # step状态更新为 failed
+            step_state.update_execute_result({"error": "当前工具步骤中instruction_content部分没有可执行的指令类型"})
+            # 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
+            execute_output = self.get_execute_output(
+                step_id,
+                agent_state,
+                update_agent_situation="failed",
+                shared_step_situation="failed",
+            )
+            return execute_output

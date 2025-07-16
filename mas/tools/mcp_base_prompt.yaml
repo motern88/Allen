@@ -1,8 +1,9 @@
 # MCP基础提示，一般只有在涉及到工具步骤的时候才会调用，例如InstructionGeneration/ToolDecision
 # 该提示的作用是教会Agent正确与MCP Server进行交互，包含:
-#   1.如何理解MCP Server能力列表
-#   2.如何生成MCP Server能力具体调用的参数
-#   3.如何理解MCP Server对能力调用的具体返回结果
+#   1.如何生成获取MCP Server能力列表的具体指令
+#   2.如何理解MCP Server能力列表
+#   3.如何生成MCP Server能力具体调用的参数
+#   4.如何理解MCP Server对能力调用的具体返回结果
 # 需要注意：
 #   Agent已经知晓如何调用MAS中的工具，只是不了解MCP协议。
 #   编写本提示中需要避免混淆 工具调用方式提示 和 Agent能直接看到的涉及到MCP协议执行过程的交互提示，本提示的重点在后者。
@@ -27,8 +28,18 @@ mcp_base_prompt: |
   
   下面将介绍你会实际接触到的与MCP Server的交互说明：
   
-  #### 1. 如何理解MCP Server能力列表
-
+  #### 1. 如何生成获取MCP Server能力列表的具体指令
+  在你首次使用该工具时，你如果没有获取过该工具的MCP Server能力列表，你应当首先获取其支持的MCP Server能力列表。
+  如果你当前正在执行Instruction Generation步骤你可以通过生成以下指令来使得下一个Tool Step进行能力列表的获取：
+      <tool_instruction>
+      {
+          "instruction_type": "get_description",
+      }
+      </tool_instruction>
+  其中instruction_type字段为"get_description"，表示这是一个获取MCP Server能力列表的指令。
+  **请确保你生成的指令使用<tool_instruction>标签包裹**
+  
+  #### 2. 如何理解MCP Server能力列表
   在你决策使用工具时，MAS会为你获取指定MCP Server所支持能力的列表
   MAS会以以下格式的提示词呈现当前MCP Server支持能力的具体调用(以结构化的json数据提示)：
       "tools": {
@@ -76,11 +87,12 @@ mcp_base_prompt: |
   根据以上格式的提示，你需要重点关注该Server支持何种能力下的哪些具体实现。
   你需要根据每种具体实现的描述确定什么时候使用它，同时在使用具体能力的时候需要传入哪些参数。
   
-  #### 2. 如何生成MCP Server能力具体调用的参数
+  #### 3. 如何生成MCP Server能力具体调用的参数
   当你决定需要调用MCP Server的某种具体能力时，你需要生成工具调用指令（这里默认你会将工具调用指令包裹在<tool_instruction>中）
   - 如果你要使用MCP Server的tools能力：
         <tool_instruction>
         {
+            "instruction_type": "function_call",
             "tool_name": "<TOOL_NAME>",
             "arguments": {
                 "<PROPERTY_NAME>": PROPERTY_VALUE,
@@ -89,33 +101,41 @@ mcp_base_prompt: |
             }
         }
         </tool_instruction>
-    其中tool_name字段传入你要使用的MCP Server的工具名称，
+    其中:
+    instruction_type字段固定为"function_call"，表示这是一个函数调用指令，
+    tool_name字段传入你要使用的MCP Server的工具名称，
     arguments字段传入一个包含具体参数的字典，字典的键为该工具所需的参数名称，值为对应的参数值。
     **请根据MCP Server能力列表中的提示信息，正确填写具体工具所需的参数。**
   
   - 如果你要使用MCP Server的resources能力：
         <tool_instruction>
         {
+            "instruction_type": "function_call",
             "resource_name": "<RESOURCE_NAME>",
             "arguments": {"uri": "<RESOURCE_URI>"}
         }
         </tool_instruction>
-    其中resource_name字段传入你要使用的MCP Server的资源名称，
+    其中:
+    instruction_type字段固定为"function_call"，表示这是一个函数调用指令，
+    resource_name字段传入你要使用的MCP Server的资源名称，
     arguments字段仅需传入一个包含uri的字典，uri是该资源的访问地址（从MCP Server能力列表获得）。
   
   - 如果你要使用MCP Server的prompts能力，指令格式如下：
       <tool_instruction>
       {
+          "instruction_type": "function_call",
           "prompt_name": "<PROMPT_NAME>",
           "arguments": None
       }
       </tool_instruction>    
-    其中prompt_name字段传入你要使用的MCP Server的prompt名称，
+    其中:
+    instruction_type字段固定为"function_call"，表示这是一个函数调用指令，
+    prompt_name字段传入你要使用的MCP Server的prompt名称，
     arguments字段传入None，因为prompt能力不需要任何其他参数
   
   **一定要看清你生成的是tool、resource还是prompt的指令，不要把能力搞混了。**
   
-  #### 3. 如何理解MCP Server对能力调用的具体返回结果
+  #### 4. 如何理解MCP Server对能力调用的具体返回结果
   当你通过生成具体指令调用MCP Server的某种能力时，MAS会为你获取该能力调用的返回结果。
   该能力执行的返回结果会放在step_state.execute_result中，你需要熟悉MCP Server对能力调用的返回格式：
   

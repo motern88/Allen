@@ -31,7 +31,8 @@ NOTE:
         1.4 tool step:（# 一级标题）
             1.4.1 工具step.step_intention 当前步骤的简要意图（## 二级标题）
             1.4.2 工具step.text_content 具体目标（## 二级标题）
-            1.4.3 技能规则提示(tool_config["use_prompt"])（## 二级标题）
+            1.4.3 MCP工具调用的基础规则提示（#### 四级标题）
+            1.4.4 当前MCP工具的简要描述
         1.5 持续性记忆:（# 一级标题）
             1.5.1 Agent持续性记忆说明提示词（## 二级标题）
             1.5.2 Agent持续性记忆内容提示词（## 二级标题）
@@ -84,7 +85,8 @@ class InstructionGenerationSkill(Executor):
         4 tool step:（# 一级标题）
             4.1 工具step.step_intention 当前步骤的简要意图
             4.2 工具step.text_content 具体目标
-            4.3 技能规则提示(tool_config["use_prompt"])
+            4.3 MCP工具调用的基础规则提示（#### 四级标题）
+            4.4 当前MCP工具的简要描述
         5 持续性记忆:（# 一级标题）
             5.1 Agent持续性记忆说明提示词（## 二级标题）
             5.2 Agent持续性记忆内容提示词（## 二级标题）

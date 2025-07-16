@@ -61,10 +61,11 @@ LLM需要获取足够进行决策判断的条件:
             1.3.1 step.step_intention 当前步骤的简要意图
             1.3.2 step.text_content 长尾工具提供的返回结果
             1.3.3 技能规则提示(tool_decision_config["use_prompt"])
-        1.4 该工具的历史执行结果（# 一级标题）
-        1.5 持续性记忆:（# 一级标题）
-            1.5.1 Agent持续性记忆说明提示词（## 二级标题）
-            1.5.2 Agent持续性记忆内容提示词（## 二级标题）
+        1.4 MCP工具调用基础提示词 （# 一级标题）
+        1.5 该工具的历史执行结果（# 一级标题）
+        1.6 持续性记忆:（# 一级标题）
+            1.6.1 Agent持续性记忆说明提示词（## 二级标题）
+            1.6.2 Agent持续性记忆内容提示词（## 二级标题）
 
     2. llm调用
     3. 解析llm返回的步骤信息，更新AgentStep中的步骤列表
@@ -120,10 +121,11 @@ class ToolDecisionSkill(Executor):
             3.1 step.step_intention 当前步骤的简要意图
             3.2 step.text_content 长尾工具提供的返回结果
             3.3 技能规则提示(tool_decision_config["use_prompt"])
-        4 该工具历史执行结果（# 一级标题）
-        5 持续性记忆:（# 一级标题）
-            5.1 Agent持续性记忆说明提示词（## 二级标题）
-            5.2 Agent持续性记忆内容提示词（## 二级标题）
+        4 MCP工具调用基础提示词（# 一级标题）
+        5 该工具历史执行结果（# 一级标题）
+        6 持续性记忆:（# 一级标题）
+            6.1 Agent持续性记忆说明提示词（## 二级标题）
+            6.2 Agent持续性记忆内容提示词（## 二级标题）
         '''
         md_output = []
 
@@ -157,13 +159,17 @@ class ToolDecisionSkill(Executor):
         current_step = self.get_current_skill_step_prompt(step_id, agent_state)  # 不包含标题的md格式文本
         md_output.append(f"{current_step}\n")
 
+        # 4. MCP工具调用基础提示词
+        md_output.append("# MCP调用提示 mcp_base_prompt\n")
+        mcp_base_prompt = self.get_mcp_base_prompt(key="mcp_base_prompt")  # 已包含 #### 四级标题的md
+        md_output.append(f"{mcp_base_prompt}\n")
 
-        # 4. 获取该工具历史执行结果
+        # 5. 获取该工具历史执行结果
         md_output.append(f"# 该工具历史的历史信息 tool_history\n")
         history_tools_result = self.get_tool_history_prompt(step_id, agent_state, tool_name)  # 不包含标题的md格式文本
         md_output.append(f"{history_tools_result}\n")
 
-        # 5. 持续性记忆提示词
+        # 6. 持续性记忆提示词
         md_output.append("# 持续性记忆persistent_memory\n")
         # 获取persistent_memory的使用说明
         base_persistent_memory_prompt = self.get_base_prompt(key="persistent_memory_prompt")  # 不包含标题的md格式文本
