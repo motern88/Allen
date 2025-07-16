@@ -60,13 +60,18 @@ class InstructionGenerationSkill(Executor):
 
     def extract_tool_instruction(self, text: str):
         '''
-        从文本中解析工具调用指令
+        从文本中解析工具调用指令,解析成字典形式
         '''
         # 使用正则表达式提取 <tool_instruction> ... </tool_instruction> 之间的内容
         match = re.findall(r"<tool_instruction>\s*(.*?)\s*</tool_instruction>", text, re.DOTALL)
         if match:
-            tool_instruction = match[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
-            return tool_instruction
+            tool_instruction_str = match[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
+            try:
+                tool_instruction_json = json.loads(tool_instruction_str)
+                return tool_instruction_json
+            except json.JSONDecodeError as e:
+                print(f"JSON解析失败: {e}")
+                return None
         else:
             return None
 

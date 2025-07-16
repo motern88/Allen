@@ -172,6 +172,7 @@ class AgentBase():
 
         # 2. 执行路由器返回的执行器
         with self.agent_state_lock:  # 防止任务分配线程与任务执行线程同时修改agent_state，这里优先保证任务执行线程的修改
+            # 工具executor需要传入MCP Client，技能不需要
             if step_type == "skill":
                 executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state)  # 这里传入agent_state是因为部分执行器需要具备操作agent本身的能力
             else:

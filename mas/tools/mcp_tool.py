@@ -3,8 +3,8 @@
 期望作用: Agent通过调用该工具，从而能够调度任意MCP（Model Context Protocol）的服务器端点。（本mcp tool用于在MAS中兼容MCP协议的服务器端实现。）
     对于Agent而言，MCP工具连接多个MCP的服务端。对于真正的MCP Server端点而言，该MCP Server工具是他们的Client客户端。
 
-Agent --> MCP Tool --> MCP Server Endpoint
-Agent <--  "MCP Client"   <-- MCP Server Endpoint
+Agent  -->  MCP Tool    -->  MCP Server Endpoint
+Agent  <--  MCP Client  <--  MCP Server Endpoint
 
 
 Agent通过mcp工具能够实现调用符合MCP协议的任意服务器端点。
@@ -23,9 +23,19 @@ Agent通过mcp工具能够实现调用符合MCP协议的任意服务器端点。
         MCPTool Executor 通过调用 MCPClient 的 execute 方法，传入具体的能力名称和参数，
         来执行该能力并获取结果。
 
-注：指令生成和工具决策技能均能够获取 mcp_base_prompt 提示词，
-    指令生成在组装tool step提示词中包含mcp_base_prompt，
-    工具决策在组装get_tool_decision_prompt时包含mcp_base_prompt
+说明：
+1.指令生成和工具决策技能均能够获取 mcp_base_prompt 提示词，
+    指令生成技能instruction generation在组装tool step提示词中包含mcp_base_prompt，
+    工具决策技能tool decision在get_tool_decision_prompt()方法中包含mcp_base_prompt
+
+2.对于工具调用，有别于技能调用，技能调用直接找到StepState.executor对应的技能executor即可。
+    （如果不接入MCP，则为每一个工具都实现一个Executor，此时执行步骤时传入的StepState.executor对应上相应的工具Executor即可；
+    然而，我们全盘接入MCP，则始终仅有一个MCPToolExecutor对应所有的MCP Server。
+    即所有的工具Step，不论StepState.executor是什么，均会调用这一个MCPToolExecutor。
+    这一部分调用逻辑在Router路由中设置。）
+
+    但是工具中的StepState.executor实际上是MCP Server的名字，而只要是StepState。
+    因此调用MCPToolExecutor的依据是StepState.type = tool就调用。
 
 '''
 import re
@@ -64,7 +74,7 @@ class MCPTool(Executor):
         # 调用ExecutorBase的方法，在AgentStep中添加下一个步骤
         self.add_next_step([tool_decision_step], step_id, agent_state)
 
-    def get_capabilities_list_description(self, mcp_server_name, mcp_client):
+    async def get_capabilities_list_description(self, mcp_server_name, mcp_client):
         '''
         获取MCP服务的能力列表描述。
         1. 获取MCPClient.server_descriptions中对应的mcp_server_name的能力范围。
@@ -78,22 +88,23 @@ class MCPTool(Executor):
         if not server_capabilities:
             return None
 
+        loop = asyncio.get_event_loop()
         # 2. 调用MCPClient.get_server_descriptions方法获取具体的能力列表
         if server_capabilities["prompts"] is True:
             # 如果prompts为True，则获取所有prompts的描述
-            prompts_description = mcp_client.get_server_descriptions(mcp_server_name, "prompts")
+            prompts_description = await mcp_client.get_server_descriptions(mcp_server_name, "prompts")
             if prompts_description is not None:
                 capabilities_list_description["prompts"] = prompts_description
 
         if server_capabilities["resources"] is True:
             # 如果resources为True，则获取所有resources的描述
-            resources_description = mcp_client.get_server_descriptions(mcp_server_name, "resources")
+            resources_description = await mcp_client.get_server_descriptions(mcp_server_name, "resources")
             if resources_description is not None:
                 capabilities_list_description["resources"] = resources_description
 
         if server_capabilities["tools"] is True:
             # 如果tools为True，则获取所有tools的描述
-            tools_description = mcp_client.get_server_descriptions(mcp_server_name, "tools")
+            tools_description = await mcp_client.get_server_descriptions(mcp_server_name, "tools")
             if tools_description is not None:
                 capabilities_list_description["tools"] = tools_description
 
@@ -172,7 +183,7 @@ class MCPTool(Executor):
             '''
             # 获取MCP服务的能力列表描述
             mcp_server_name = step_state.executor  # 工具执行器名称即为MCP服务名称
-            capabilities_list_description = self.get_capabilities_list_description(mcp_server_name, mcp_client)
+            capabilities_list_description = asyncio.run(self.get_capabilities_list_description(mcp_server_name, mcp_client))
 
             if capabilities_list_description is None:
                 # 如果没有获取到能力列表描述，则更新执行结果为失败
@@ -288,3 +299,4 @@ class MCPTool(Executor):
                 shared_step_situation="failed",
             )
             return execute_output
+
