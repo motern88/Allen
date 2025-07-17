@@ -1,5 +1,6 @@
 '''
-Multi-Agent System
+Multi-Agent System (MAS)
+多线程并行 + 每个线程内部同步逻辑（多Agent中每个Agent一个线程；每个Agent内部顺序执行每个Step）
 
 该类用于管理几个上层组件：
 - 状态同步器
@@ -13,7 +14,22 @@ Multi-Agent System
     同时实现一个MAS中的消息转发组件，该组件不断地从sync_state.all_tasks中的每个task_state
     task_state.communication_queue中获取消息，并向指定的Agent发送消息。
 
-同时该类决定MAS的启动方式：
+其中还额外包含三个特殊组件，这三个特殊组件的目的均是为了Agent能够调用MCP工具：
+- AsyncLoopThread类
+    主要向MultiAgentSystem提供异步环境，实现一个用于在多线程环境中运行异步任务的异步事件循环线程。
+    由此可以在MAS中的Agent和Executor中向 AsyncLoopThread 提交异步调用任务而不引起额外阻塞。
+
+- MCPClient
+    全局唯一的MCP客户端，用于执行工具。该客户端在MAS初始化时创建，并在MAS关闭时关闭。
+
+- MCPClientWrapper
+    主要用于在MAS中调用MCPClient方法，其负责将对MCPClient的调用提交到异步事件循环线程 AsyncLoopThread 中。
+    由此MAS中给每个Agent和工具Executor传入的就不再是MCPClient实例，而是 MCPClientWrapper 包装器，
+    通过调用 MCPClientWrapper 以实现在MAS中的异步调用MCPClient方法。
+
+
+
+同时该MultiAgentSystem类决定MAS的启动方式：
     1.先启动消息分发器的循环（在一个线程中异步运行），后续任务的启动和创建均依赖此分发器
     2.添加第一个Agent（管理者），Agent在被实例化时就会启动自己的任务执行线程
     3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
@@ -27,16 +43,23 @@ from mas.agent.state.sync_state import SyncState
 from mas.agent.base.agent_base import AgentBase
 from mas.agent.human_agent import HumanAgent  # 人类操作端Agent
 from mas.utils.message_dispatcher import MessageDispatcher  # 消息分发器
-from mas.tools.mcp_client import MCPClient  # MCP客户端，用于实现工具执行器
+
+
+# MCP客户端，用于实现工具执行器
+from mas.tools.mcp_client import MCPClient
+# 异步事件循环线程，用于在多线程环境中运行异步任务; MCPClient包装器用于将MCPClient的调用提交到异步事件循环线程中
+from mas.async_loop import AsyncLoopThread, MCPClientWrapper
+
 
 from mas.utils.web.server import register_mas_instance, start_interface  # 状态监控，引用实例，启动接口
 
-import mas.skills.__init__  # 会自动触发所有注册器的装饰器调用
-# import mas.tools.__init__  # 会自动触发所有注册器的装饰器调用  TODO:工具注册器暂时注释掉，等工具模块完善后再启用
+import mas.skills.__init__  # 会自动触发所有技能注册器的装饰器调用
+import mas.tools.__init__  # 会自动触发所有工具注册器的装饰器调用
 
 import time
 import yaml
 import threading
+from concurrent.futures import Future
 
 
 class MultiAgentSystem:
@@ -44,17 +67,56 @@ class MultiAgentSystem:
     多Agent系统的核心类，负责管理所有Agent的生命周期和状态同步。
 
     属性:
+        async_loop (AsyncLoopThread): 异步事件循环线程，用于在多线程环境中运行异步任务，例如MCPClient的异步调用
+        mcp_client (MCPClient): 全局唯一的MCP客户端，用于执行工具
+        mcp_client_wrapper (MCPClientWrapper): MCPClient的包装器，用于在各个Agent中将MCPClient的调用提交到异步事件循环线程中
+
         sync_state (SyncState): 全局状态同步器，用于协调所有Agent的状态
         agents_list (List[AgentBase]): 用于存放所有Agent的列表
         message_dispatcher (MessageDispatcher): 消息分发器，用于在Agent之间传递消息
 
     '''
     def __init__(self):
+        self.async_loop = AsyncLoopThread()  # 实例化异步事件循环线程，用于在多线程环境中运行异步任务，例如MCPClient的异步调用
+        self.async_loop.start()
+
+        # 在事件循环中创建 MCPClient 并初始化
+        future = self.async_loop.run_coroutine(self._init_mcp_client())
+        self.mcp_client = future.result()  # 同步等待初始化完成
+        # 实例化MCPClient包装器，用于在各个Agent中将MCPClient的调用提交到async_loop异步事件循环线程中
+        # 传递给Agent的也是这一个MCPClient包装器，而不是直接传递MCPClient实例。
+        self.mcp_client_wrapper = MCPClientWrapper(self.mcp_client, self.async_loop)
+
+        # 其他属性初始化
         self.sync_state = SyncState(self)  # 实例化全局唯一的状态同步器，把self传进去，让SyncState能访问MultiAgentSystem
-        self.mcp_client = MCPClient()  # 实例化全局唯一的MCP客户端，用于执行工具
         self.agents_list = []  # 存储所有Agent实例的列表
         self.message_dispatcher = MessageDispatcher(self.sync_state)  # 实例化消息分发器
 
+    async def _init_mcp_client(self):
+        '''
+        异步初始化 MCPClient。
+        '''
+        mcp_client = MCPClient()
+        await mcp_client.initialize_servers()
+        return mcp_client
+
+    # TODO：关闭MAS系统调用shutdown未实现未测试
+    def shutdown(self):
+        '''
+        关闭MAS系统的所有资源，包括 MCPClient 和事件循环。
+        '''
+        try:
+            # 1. 调用 MCPClient.close_all_server() (异步执行)
+            if self.mcp_client:
+                future = self.async_loop.run_coroutine(self.mcp_client.close_all_server())
+                future.result(timeout=15)  # 等待完成，避免资源泄露
+                print("[MAS] MCPClient 所有连接已关闭。")
+        except Exception as e:
+            print(f"[MAS] MCPClient 关闭时出错: {e}")
+        finally:
+            # 2. 停止事件循环
+            self.async_loop.stop()
+            print("[MAS] 事件循环已停止。")
 
     def add_llm_agent(self, agent_config):
         '''
@@ -71,7 +133,7 @@ class MultiAgentSystem:
 
         # 实例化AgentBase对象，并添加到agents_list中。在Agent实例化的同时就启动了Agent自己的任务执行线程。
         llm_agent = AgentBase(config=config_data, sync_state=self.sync_state,
-                              mcp_client=self.mcp_client)
+                              mcp_client_wrapper=self.mcp_client_wrapper)
         self.agents_list.append(llm_agent)
 
         return llm_agent.agent_id  # 返回新添加的Agent的ID，方便后续引用
@@ -98,11 +160,11 @@ class MultiAgentSystem:
                     raise ValueError(f"Agent ID '{agent_id}' 已经存在. 请使用唯一ID.")
             # 实例化指定AgentID的AgentBase对象
             human_agent = HumanAgent(agent_id=agent_id, config=config_data, sync_state=self.sync_state,
-                                     mcp_client=self.mcp_client)
+                                     mcp_client_wrapper=self.mcp_client_wrapper)
         else:
             # 实例化AgentBase对象，并添加到agents_list中。
             human_agent = HumanAgent(config=config_data, sync_state=self.sync_state,
-                                     mcp_client=self.mcp_client)
+                                     mcp_client_wrapper=self.mcp_client_wrapper)
 
         self.agents_list.append(human_agent)
 

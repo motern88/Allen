@@ -4,7 +4,6 @@ Router类通过type与executor的str返回一个具体执行器，这个执行�
 '''
 
 from mas.agent.state.step_state import StepState
-from mas.tools.mcp_client import MCPClient
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
@@ -40,7 +39,7 @@ class Executor(ABC):
         return wrapper
 
     @abstractmethod
-    def execute(self, step_id: str, agent_state: Dict[str, Any], mcp_client: Optional[MCPClient] = None):
+    def execute(self, step_id: str, agent_state: Dict[str, Any], mcp_client = None):
         """
         由子类必须实现的具体execute方法
 
@@ -488,8 +487,12 @@ class Executor(ABC):
         '''
         # 1. 获取当前步骤
         current_step = agent_state["agent_step"].get_step(current_step_id)[0]
+        # print("[DEBUG] 获取到的当前步骤: ", current_step)
+
         # 2. 获取当前步骤所属阶段的所有步骤
         all_stage_steps = agent_state["agent_step"].get_step(stage_id=current_step.stage_id)
+        # print("[DEBUG] 当前阶段的所有步骤: ", all_stage_steps)
+
         # 3. 找到当前步骤在所有步骤中的位置，并从该位置开始寻找下一个工具步骤
         current_step_found = False
         for step in all_stage_steps:

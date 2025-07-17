@@ -1,0 +1,7 @@
+api_type: "openai"
+base_url: "https://ark.cn-beijing.volces.com/api/v3"  # https://ark.cn-beijing.volces.com/api/v3
+model: "doubao-1-5-thinking-pro-250415"  # doubao-1-5-thinking-pro-250415   # rwkv
+api_key: "86033119-97cd-4b7c-aea2-544b16634071"
+max_tokens: 8192
+temperature: 0.1
+timeout: 600

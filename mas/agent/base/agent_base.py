@@ -6,7 +6,7 @@ Agent基础类，这里实现关于LLM驱动的相关基础功能，不涉及到
 from mas.agent.state.step_state import StepState, AgentStep
 from mas.agent.state.stage_state import StageState
 from mas.agent.state.sync_state import SyncState
-from mas.tools.mcp_client import MCPClient
+from mas.async_loop import MCPClientWrapper
 from mas.agent.base.router import Router
 from mas.utils.monitor import StateMonitor
 
@@ -18,6 +18,7 @@ import json
 import uuid
 
 from types import SimpleNamespace  # 用于将字典转换为对象，便于访问配置文件中的属性
+
 
 @StateMonitor.track  # 注册状态监控器，主要监控agent_state
 class AgentBase():
@@ -49,16 +50,20 @@ class AgentBase():
     '''
     def __init__(
         self,
-        config,  # Agent配置文件,接收已经从yaml解析后的字典
-        sync_state: SyncState,  # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给Agent)，由外部实例化后传给所有Agent
-        mcp_client: MCPClient,  # 所有Agents接收同一个MCP客户端(整个系统只维护一个MCPClient，通过实例化传递给Agent)，由外部实例化后传给所有Agent
+        # Agent配置文件,接收已经从yaml解析后的字典
+        config,
+        # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给Agent)，由外部实例化后传给所有Agent
+        sync_state: SyncState,
+        # 所有Agents接收同一个MCP客户端(整个系统只维护一个MCPClient，通过实例化传递给Agent)，由外部实例化后传给所有Agent。
+        # 为了方便异步调用，这里传入的不是MCPClient实例，而是MCPClient的包装器(MCPClientWrapper
+        mcp_client_wrapper: MCPClientWrapper,
     ):
         self.agent_id =  str(uuid.uuid4())  # 生成唯一ID
         self.router = Router()  # 在action中用于分发具体executor的路由器，用于同步stage_state与task_state
 
         self.sync_state = sync_state  # 状态同步器
         self.sync_state.register_agent(self)  # 向状态同步器注册自身，以便sync_state可以访问到自身的属性
-        self.mcp_client = mcp_client  # MCP客户端，用于执行工具
+        self.mcp_client_wrapper = mcp_client_wrapper  # MCP客户端(用于执行工具)在MAS中的包装器，便于提交异步调用到全局事件循环线程中
 
         # 初始化Agent状态
         self.agent_state = self.init_agent_state(
@@ -73,7 +78,7 @@ class AgentBase():
         )
 
         # 初始化线程锁
-        self.agent_state_lock = threading.Lock()  # TODO：使用统一AgentState全局锁，还是细分为分区锁？
+        self.agent_state_lock = threading.Lock()  # 用于步骤锁，防止某个Step等待时插入其他Step执行
 
         # 启动Agent的执行线程
         self.action_thread = threading.Thread(target=self.action)
@@ -177,7 +182,7 @@ class AgentBase():
                 executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state)  # 这里传入agent_state是因为部分执行器需要具备操作agent本身的能力
             else:
                 # 如果是工具调用，则需要传入MCPClient
-                executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state, mcp_client=self.mcp_client)
+                executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state, mcp_client_wrapper=self.mcp_client_wrapper)
 
         # 3. 使用sync_state专门同步stage_state与task_state
         self.sync_state.sync_state(executor_output)  # 根据executor_output更新stage,task相应状态

@@ -38,6 +38,7 @@ import json
 import yaml
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import requests
+import asyncio
 
 from contextlib import AsyncExitStack
 
@@ -51,7 +52,8 @@ class MCPClient:
         初始化 MCP 客户端
         我们需要三套数据结构来管理 MCP 服务器和工具：
         1. `server_config`: 存储 MCP 服务器的启动配置
-        2. `server_sessions`: 存储连接的 MCP 服务器实例
+        2. `server_sessions`: 存储连接的 MCP 服务器实例。
+            这里尽管每个session都已经注册到AsyncExitStack中了，但是我们仍然额外地显式管理一份会话在server_sessions中
             {
                 "<SERVER_NAME>": <ClientSession>,  # 连接的 MCP 服务器会话实例
             }
@@ -121,6 +123,32 @@ class MCPClient:
         self.server_sessions = {}  # 存储连接实例：server_name -> requests.Session()
         # 初始化一个储存服务描述的字典，用于存储 MCP 服务的详细描述（包括工具详细描述）
         self.server_descriptions = {}
+
+    # 初始化的时候自动尝试连接所有的服务器以获取服务器能力描述
+    async def initialize_servers(self):
+        '''
+        初始化时，连接所有配置的 MCP 服务器。
+        在MAS初始化时通过MultiAgentSystem._init_mcp_client调用该方法
+        '''
+        # 收集所有连接任务
+        connect_tasks = [
+            self.connect_to_server([server_name])
+            for server_name in self.server_config.keys()
+        ]
+
+        # 并行执行所有任务
+        results = await asyncio.gather(*connect_tasks, return_exceptions=True)
+
+    # 结束所有已连接的MCP服务器连接
+    async def close_all_server(self):
+        '''
+        关闭所有已连接的 MCP 服务器连接。
+        '''
+        # 关闭所有通过这个 exit stack 注册的异步上下文管理器。在之前的连接过程中（可能在 connect_to_server 方法中
+        await self.exit_stack.aclose()
+        # 清空服务器会话和描述字典
+        self.server_sessions.clear()
+        self.server_descriptions.clear()
 
 
     # 获取全部MCP服务启动配置，并记录在self.server_config中
@@ -496,7 +524,7 @@ async def test():
         mcp_client.exit_stack = stack  # 替换为当前栈
         # print(f"mcp_client.server_config:\n {mcp_client.server_config}")
 
-        await mcp_client.connect_to_server(["playwright","puppeteer","amap-maps","everything"])
+        await mcp_client.initialize_servers()
         # print(f"当前活跃连接：\n {mcp_client.server_sessions.keys()}\n")
 
         print(f"\n此时server_descriptions：\n {mcp_client.server_descriptions}")

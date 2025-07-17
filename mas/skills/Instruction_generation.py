@@ -272,7 +272,7 @@ class InstructionGenerationSkill(Executor):
 # Debug
 if __name__ == "__main__":
     '''
-    测试instruction_generation需在Allen根目录下执行 python -m mas.skills.Instruction_generation
+    测试instruction_generation需在Allen根目录下执行 python -m mas.skills.instruction_generation
     '''
     from mas.agent.configs.llm_config import LLMConfig
 
@@ -280,21 +280,28 @@ if __name__ == "__main__":
     agent_state = {
         "agent_id": "0001",
         "name": "小灰",
-        "role": "合同提取专员",
-        "profile": "负责合同提取，将合同内容按字段提取录入系统",
+        "role": "工具调用专家",
+        "profile": "负责工具调用，帮助MAS系统实现与真实环节的交互",
         "working_state": "idle",
-        "llm_config": LLMConfig.from_yaml("mas/role_config/qwq32b.yaml"),
+        "llm_config": LLMConfig.from_yaml("mas/agent/configs/test_llm_config.yaml"),
         "working_memory": {},
         "persistent_memory": {},
         "agent_step": AgentStep("0001"),
-        "skills": ["planning", "reflection", "summary", "instruction_generation"],
-        "tools": ["milvus_vector_db"],
+        "skills": [
+            "planning", "reflection", "summary", "instruction_generation", "quick_think", "think", "tool_decision",
+            # 步骤执行基础技能
+            "send_message", "process_message",  # 通信基础技能
+            "task_manager", "agent_manager", "ask_info",  # 管理技能
+        ],
+        "tools": [
+            "amap_maps", "everything", "playwright"
+        ],
     }
 
     # 构造虚假的步骤
     step1 = StepState(
-        task_id="task_001",
-        stage_id="stage_001",
+        task_id="0001",
+        stage_id="0001",
         agent_id="0001",
         step_intention="生成指令",
         type="skill",
@@ -303,13 +310,13 @@ if __name__ == "__main__":
         execute_result={},
     )
     step2 = StepState(
-        task_id="task_001",
-        stage_id="stage_001",
+        task_id="0001",
+        stage_id="0001",
         agent_id="0001",
-        step_intention="查找milvus中相似合同",
+        step_intention="指令生成",
         type="tool",
-        executor="milvus_vector_db",
-        text_content="查找名为《沐滕科技迪士尼投放合同》的合同",
+        executor="everything",
+        text_content="调用everything其中一种工具用作测试",
         execute_result={},
     )
 

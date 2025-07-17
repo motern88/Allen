@@ -37,14 +37,17 @@ Agent通过mcp工具能够实现调用符合MCP协议的任意服务器端点。
     但是工具中的StepState.executor实际上是MCP Server的名字，而只要是StepState。
     因此调用MCPToolExecutor的依据是StepState.type = tool就调用。
 
+3.
+
 '''
 import re
 import json
 import asyncio
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
-from mas.tools.mcp_client import MCPClient
 from mas.agent.base.executor_base import Executor
+from mas.agent.state.step_state import StepState, AgentStep
+from mas.async_loop import MCPClientWrapper
 
 
 @Executor.register(executor_type="tool", executor_name="mcp_tool")
@@ -73,45 +76,6 @@ class MCPTool(Executor):
         }
         # 调用ExecutorBase的方法，在AgentStep中添加下一个步骤
         self.add_next_step([tool_decision_step], step_id, agent_state)
-
-    async def get_capabilities_list_description(self, mcp_server_name, mcp_client):
-        '''
-        获取MCP服务的能力列表描述。
-        1. 获取MCPClient.server_descriptions中对应的mcp_server_name的能力范围。
-        2. 调用MCPClient.get_server_descriptions方法获取具体的能力列表。
-            分别获取prompts、resources和tools的描述（根据Sever是否支持该能力）。
-        '''
-        capabilities_list_description = {}
-
-        # 1. 获取MCPClient.server_descriptions中对应的mcp_server_name的能力范围
-        server_capabilities = mcp_client.server_descriptions.get(mcp_server_name, {})
-        if not server_capabilities:
-            return None
-
-        loop = asyncio.get_event_loop()
-        # 2. 调用MCPClient.get_server_descriptions方法获取具体的能力列表
-        if server_capabilities["prompts"] is True:
-            # 如果prompts为True，则获取所有prompts的描述
-            prompts_description = await mcp_client.get_server_descriptions(mcp_server_name, "prompts")
-            if prompts_description is not None:
-                capabilities_list_description["prompts"] = prompts_description
-
-        if server_capabilities["resources"] is True:
-            # 如果resources为True，则获取所有resources的描述
-            resources_description = await mcp_client.get_server_descriptions(mcp_server_name, "resources")
-            if resources_description is not None:
-                capabilities_list_description["resources"] = resources_description
-
-        if server_capabilities["tools"] is True:
-            # 如果tools为True，则获取所有tools的描述
-            tools_description = await mcp_client.get_server_descriptions(mcp_server_name, "tools")
-            if tools_description is not None:
-                capabilities_list_description["tools"] = tools_description
-
-        if capabilities_list_description == {}:
-            return None
-        else:
-            return capabilities_list_description
 
     def get_execute_output(
         self,
@@ -154,7 +118,7 @@ class MCPTool(Executor):
 
         return execute_output
 
-    def execute(self, step_id: str, agent_state: Dict[str, Any], mcp_client: MCPClient):
+    def execute(self, step_id: str, agent_state: Dict[str, Any], mcp_client_wrapper: MCPClientWrapper):
         '''
         执行MCP工具，调用MCP客户端的execute方法。
 
@@ -183,7 +147,8 @@ class MCPTool(Executor):
             '''
             # 获取MCP服务的能力列表描述
             mcp_server_name = step_state.executor  # 工具执行器名称即为MCP服务名称
-            capabilities_list_description = asyncio.run(self.get_capabilities_list_description(mcp_server_name, mcp_client))
+            capabilities_list_description = mcp_client_wrapper.get_capabilities_list_description(mcp_server_name)
+            print("[Debug][mcp_tool]获取到的MCP Server能力列表描述:", capabilities_list_description)
 
             if capabilities_list_description is None:
                 # 如果没有获取到能力列表描述，则更新执行结果为失败
@@ -259,7 +224,7 @@ class MCPTool(Executor):
             # 执行MCP服务的具体能力
             server_name = step_state.executor  # 工具执行器名称即为MCP服务名称
             arguments = instruction_content.get("arguments", {})  # 获取指令内容中的参数，如果没有则默认为空字典
-            mcp_server_result = mcp_client.use_capability(
+            mcp_server_result = mcp_client_wrapper.use_capability_sync(
                 server_name=server_name,
                 capability_type=capability_type,
                 capability_name=capability_name,
@@ -299,4 +264,104 @@ class MCPTool(Executor):
                 shared_step_situation="failed",
             )
             return execute_output
+
+# Debug
+if __name__ == "__main__":
+    '''
+    测试mcp_tool需要在Allen根目录下执行 python -m mas.tools.mcp_tool
+    '''
+    from mas.agent.configs.llm_config import LLMConfig
+    from mas.async_loop import AsyncLoopThread, MCPClientWrapper
+    from mas.tools.mcp_client import MCPClient
+
+    agent_state = {
+        "agent_id": "0001",
+        "name": "小灰",
+        "role": "工具调用专家",
+        "profile": "负责工具调用，帮助MAS系统实现与真实环节的交互",
+        "working_state": "idle",
+        "llm_config": LLMConfig.from_yaml("mas/agent/configs/test_llm_config.yaml"),
+        "working_memory": {},
+        "persistent_memory": {},
+        "agent_step": AgentStep("0001"),
+        "skills": [
+            "planning", "reflection", "summary", "instruction_generation", "quick_think", "think", "tool_decision",  # 步骤执行基础技能
+            "send_message", "process_message",  # 通信基础技能
+            "task_manager", "agent_manager", "ask_info",  # 管理技能
+        ],
+        "tools": [
+            "amap_maps","everything","playwright"
+        ],
+    }
+    # 构造虚假的历史步骤
+    step1 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="指令生成",
+        type="skill",
+        executor="instruction_generation",
+        text_content="为下一个工具生成指令",
+        execute_result={"instruction_generation": {"instruction_type": "get_description"}},
+    )
+    step2 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="指令生成",
+        type="tool",
+        executor="everything",
+        text_content="调用everything其中一种工具用作测试",
+        instruction_content={
+            "instruction_type": "get_description"
+        },
+        execute_result={},
+    )
+    agent_state["agent_step"].add_step(step1)
+    agent_state["agent_step"].add_step(step2)
+
+    step_id = agent_state["agent_step"].step_list[1].step_id  # 当前为第二个step
+
+
+    # 模拟MAS中初始化AsyncLoopThread，MCPClient和MCPClientWrapper
+    # ---------------------------------------------------------------------------------------------
+    async_loop = AsyncLoopThread()  # 实例化异步事件循环线程，用于在多线程环境中运行异步任务，例如MCPClient的异步调用
+    async_loop.start()
+
+    async def _init_mcp_client():
+        '''
+        异步初始化 MCPClient。
+        '''
+        mcp_client = MCPClient()
+        await mcp_client.initialize_servers()
+        return mcp_client
+
+    # 在事件循环中创建 MCPClient 并初始化
+    future = async_loop.run_coroutine(_init_mcp_client())
+    mcp_client = future.result()  # 同步等待初始化完成
+    # 实例化 MCPClientWrapper
+    mcp_client_wrapper = MCPClientWrapper(mcp_client, async_loop)
+    # ---------------------------------------------------------------------------------------------
+
+
+    print("[Test] MCP Client已实例化，当前可用的MCP Server描述：\n", mcp_client.server_descriptions, "\n")
+    # 实例化 MCPTool
+    mcp_tool = MCPTool()
+    mcp_tool.execute(step_id, agent_state, mcp_client_wrapper=mcp_client_wrapper)
+
+    # 打印step信息
+    print("[Test] 执行完毕，当前AgentStep状态：\n")
+    agent_state["agent_step"].print_all_steps()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
