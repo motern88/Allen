@@ -91,21 +91,24 @@ class MCPClientWrapper:
         '''
         # 1. 获取MCPClient.server_descriptions中对应的mcp_server_name的能力范围
         server_capabilities = self.mcp_client.server_descriptions.get(mcp_server_name, {})
+        # print(f"[MCPClientWrapper] Server '{mcp_server_name}' capabilities: {server_capabilities}")
+        # {'capabilities': {'prompts': True, 'resources': True, 'tools': True}}
         if not server_capabilities:
             return None
 
         # 2. 定义 调用MCPClient.get_server_descriptions方法获取具体的能力列表 的异步任务集合
         async def fetch_all():
             tasks = []
-            if server_capabilities.get("prompts"):  # 如果prompts为True，则获取所有prompts的描述
+            capabilities = server_capabilities.get("capabilities", {})
+            if capabilities.get("prompts"):  # 如果prompts为True，则获取所有prompts的描述
                 tasks.append(asyncio.create_task(
                     self.mcp_client.get_server_descriptions(mcp_server_name, "prompts")
                 ))
-            if server_capabilities.get("resources"):  # 如果resources为True，则获取所有resources的描述
+            if capabilities.get("resources"):  # 如果resources为True，则获取所有resources的描述
                 tasks.append(asyncio.create_task(
                     self.mcp_client.get_server_descriptions(mcp_server_name, "resources")
                 ))
-            if server_capabilities.get("tools"):  # 如果tools为True，则获取所有tools的描述
+            if capabilities.get("tools"):  # 如果tools为True，则获取所有tools的描述
                 tasks.append(asyncio.create_task(
                     self.mcp_client.get_server_descriptions(mcp_server_name, "tools")
                 ))
@@ -115,6 +118,7 @@ class MCPClientWrapper:
         # 3. 提交到全局事件循环并同步等待
         future = self.async_loop.run_coroutine(fetch_all())
         results = future.result()
+        # print(f"[MCPClientWrapper] 获取服务 '{mcp_server_name}' 的能力列表: {results}")
 
         # 4.组装结果
         capabilities_list_description = {}

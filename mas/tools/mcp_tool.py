@@ -148,7 +148,7 @@ class MCPTool(Executor):
             # 获取MCP服务的能力列表描述
             mcp_server_name = step_state.executor  # 工具执行器名称即为MCP服务名称
             capabilities_list_description = mcp_client_wrapper.get_capabilities_list_description(mcp_server_name)
-            print("[Debug][mcp_tool]获取到的MCP Server能力列表描述:", capabilities_list_description)
+            # print("[Debug][mcp_tool]获取到的MCP Server能力列表描述:", capabilities_list_description)
 
             if capabilities_list_description is None:
                 # 如果没有获取到能力列表描述，则更新执行结果为失败
