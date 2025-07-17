@@ -38,7 +38,9 @@ use_prompt:
       其中你只需要填充三个字段的内容：
         工具步骤的 step_intention (str): 步骤的简要意图
         工具步骤的 executor (str): 从工具历史执行信息 tool_history 中可以看到其工具的具体名称
-        工具步骤的 text_content (str): 你需要工具在下次调用时完成的具体目标的详细提示文本
+        工具步骤的 text_content (str): 
+          你需要工具在下次调用时完成的具体目标的详细提示文本，如果你已知晓MCP Server返回的capabilities_list_description，
+          你应当在此处指导其MCP Server能力的具体的调用格式（请写入某个能力的返回描述的完整字典）。
     
       步骤指令具体格式如下，List[Dict[str:str]]：
       <tool_decision>
@@ -53,11 +55,10 @@ use_prompt:
           "step_intention": <继续调用的简要意图>,
           "type": "tool",
           "executor": <工具具体名称>,
-          "text_content": <继续调用具体方向的详细说明>
+          "text_content": <继续调用具体方向的详细说明，同时应该提示MCP Server的具体调用方式>
         }
       ]
       </tool_decision>
-    
     
     - 如果你认为该工具调用已经完成其最初意图，你决定终止该工具的继续调用，则返回用<tool_decision>和</tool_decision>包裹的空指令：
       <tool_decision>

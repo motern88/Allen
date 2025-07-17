@@ -277,9 +277,10 @@ if __name__ == "__main__":
     from mas.agent.configs.llm_config import LLMConfig
 
     print("测试Instruction Generation技能的调用")
+    # 创建一个模拟的代理状态
     agent_state = {
         "agent_id": "0001",
-        "name": "小灰",
+        "name": "灰风/小灰",
         "role": "工具调用专家",
         "profile": "负责工具调用，帮助MAS系统实现与真实环节的交互",
         "working_state": "idle",
@@ -298,32 +299,127 @@ if __name__ == "__main__":
         ],
     }
 
-    # 构造虚假的步骤
+    # 构造虚假的历史步骤
     step1 = StepState(
-        task_id="0001",
-        stage_id="0001",
-        agent_id="0001",
-        step_intention="生成指令",
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="指令生成",
         type="skill",
         executor="instruction_generation",
-        text_content="为下一个工具调用生成指令",
-        execute_result={},
+        text_content="为下一个工具生成指令",
+        execute_result={"instruction_generation": {"instruction_type": "get_description"}},
     )
     step2 = StepState(
-        task_id="0001",
-        stage_id="0001",
-        agent_id="0001",
+        task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="指令生成",
         type="tool",
         executor="everything",
         text_content="调用everything其中一种工具用作测试",
-        execute_result={},
+        instruction_content={
+            "instruction_type": "get_description"
+        },
+        execute_result={
+            'capabilities_list_description':
+                {'tools': {
+                    'echo': {'description': 'Echoes back the input', 'title': None, 'input_schema': {'type': 'object',
+                                                                                                     'properties': {
+                                                                                                         'message': {
+                                                                                                             'type': 'string',
+                                                                                                             'description': 'Message to echo'}},
+                                                                                                     'required': [
+                                                                                                         'message'],
+                                                                                                     'additionalProperties': False,
+                                                                                                     '$schema': 'http://json-schema.org/draft-07/schema#'},
+                             'output_schema': None, 'required': None},
+                    'add': {'description': 'Adds two numbers', 'title': None, 'input_schema': {'type': 'object',
+                                                                                               'properties': {'a': {
+                                                                                                   'type': 'number',
+                                                                                                   'description': 'First number'},
+                                                                                                   'b': {
+                                                                                                       'type': 'number',
+                                                                                                       'description': 'Second number'}},
+                                                                                               'required': ['a', 'b'],
+                                                                                               'additionalProperties': False,
+                                                                                               '$schema': 'http://json-schema.org/draft-07/schema#'},
+                            'output_schema': None, 'required': None}, 'printEnv': {
+                        'description': 'Prints all environment variables, helpful for debugging MCP server configuration',
+                        'title': None,
+                        'input_schema': {'type': 'object', 'properties': {}, 'additionalProperties': False,
+                                         '$schema': 'http://json-schema.org/draft-07/schema#'}, 'output_schema': None,
+                        'required': None}, 'longRunningOperation': {
+                        'description': 'Demonstrates a long running operation with progress updates', 'title': None,
+                        'input_schema': {'type': 'object', 'properties': {'duration': {'type': 'number', 'default': 10,
+                                                                                       'description': 'Duration of the operation in seconds'},
+                                                                          'steps': {'type': 'number', 'default': 5,
+                                                                                    'description': 'Number of steps in the operation'}},
+                                         'additionalProperties': False,
+                                         '$schema': 'http://json-schema.org/draft-07/schema#'}, 'output_schema': None,
+                        'required': None},
+                    'sampleLLM': {'description': "Samples from an LLM using MCP's sampling feature", 'title': None,
+                                  'input_schema': {'type': 'object', 'properties': {
+                                      'prompt': {'type': 'string', 'description': 'The prompt to send to the LLM'},
+                                      'maxTokens': {'type': 'number', 'default': 100,
+                                                    'description': 'Maximum number of tokens to generate'}},
+                                                   'required': ['prompt'], 'additionalProperties': False,
+                                                   '$schema': 'http://json-schema.org/draft-07/schema#'},
+                                  'output_schema': None, 'required': None},
+                    'getTinyImage': {'description': 'Returns the MCP_TINY_IMAGE', 'title': None,
+                                     'input_schema': {'type': 'object', 'properties': {}, 'additionalProperties': False,
+                                                      '$schema': 'http://json-schema.org/draft-07/schema#'},
+                                     'output_schema': None, 'required': None}, 'annotatedMessage': {
+                        'description': 'Demonstrates how annotations can be used to provide metadata about content',
+                        'title': None, 'input_schema': {'type': 'object', 'properties': {
+                            'messageType': {'type': 'string', 'enum': ['error', 'success', 'debug'],
+                                            'description': 'Type of message to demonstrate different annotation patterns'},
+                            'includeImage': {'type': 'boolean', 'default': False,
+                                             'description': 'Whether to include an example image'}},
+                                                        'required': ['messageType'], 'additionalProperties': False,
+                                                        '$schema': 'http://json-schema.org/draft-07/schema#'},
+                        'output_schema': None, 'required': None}, 'getResourceReference': {
+                        'description': 'Returns a resource reference that can be used by MCP clients', 'title': None,
+                        'input_schema': {'type': 'object', 'properties': {
+                            'resourceId': {'type': 'number', 'minimum': 1, 'maximum': 100,
+                                           'description': 'ID of the resource to reference (1-100)'}},
+                                         'required': ['resourceId'], 'additionalProperties': False,
+                                         '$schema': 'http://json-schema.org/draft-07/schema#'}, 'output_schema': None,
+                        'required': None}}}
+        },
     )
+    step3 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="决策调用MCP Server的具体能力",
+        type="skill",
+        executor="tool_decision",
+        text_content="根据上一步工具调用结果返回的capabilities_list_description能力列表描述，决策使用哪个具体的能力进行下一步操作，以满足工具调用目标。\n需要决策的工具名：<tool_name>everything</tool_name>",
+        instruction_content={},
+        execute_result={'tool_decision': [{'step_intention': '生成指令', 'type': 'skill', 'executor': 'instruction_generation', 'text_content': '根据MCP Server能力列表描述，生成调用具体工具能力的function_call指令'}, {'step_intention': '调用MCP Server具体工具能力', 'type': 'tool', 'executor': 'every_thing', 'text_content': '根据能力列表选择目标工具/资源/提示，生成对应的function_call指令并执行'}]}
+    )
+    step4 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="生成指令",
+        type="skill",
+        executor="instruction_generation",
+        text_content="根据MCP Server能力列表描述，生成调用具体工具能力的function_call指令",
+        instruction_content={},
+        execute_result={}
+    )
+    step5 = StepState(
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="调用MCP Server具体工具能力",
+        type="tool",
+        executor="everything",
+        text_content="使用MCP Server的tools能力调用echo工具，传入message参数进行测试。具体调用格式为：<tool_instruction>{'instruction_type': 'function_call', 'tool_name': 'echo', 'arguments': {'message': '测试回声消息'}}</tool_instruction>",
+        instruction_content={'instruction_type': 'function_call', 'tool_name': 'echo', 'arguments': {'message': '测试回声消息'}},
+        execute_result={}
+    )
+
 
     agent_state["agent_step"].add_step(step1)
     agent_state["agent_step"].add_step(step2)
+    agent_state["agent_step"].add_step(step3)
+    agent_state["agent_step"].add_step(step4)
+    agent_state["agent_step"].add_step(step5)
 
-    step_id = agent_state["agent_step"].step_list[0].step_id  # 当前为第一个step
+    step_id = agent_state["agent_step"].step_list[3].step_id  # 当前为第四个step
 
     instruction_generation_skill = InstructionGenerationSkill()
     instruction_generation_skill.execute(step_id, agent_state)

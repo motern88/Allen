@@ -48,6 +48,12 @@ LLM需要获取足够进行决策判断的条件:
     执行该技能后，如果Tool Decision终止工具继续调用则有：
         Step（ToolDecision技能终止工具继续调用）
 
+    对于MCP工具的长尾调用，一个问题是首次调用返回的MCP工具调用描述capabilities_list_description，
+    该如何通过tool_decision传达给下一个Instruction_Generation?
+    我们在tool_decision_config.yaml的提示词中指定其填入工具步骤的 text_content时需要：
+        "你需要工具在下次调用时完成的具体目标的详细提示文本，如果你已知晓MCP Server返回的capabilities_list_description，
+        你应当在此处指导其MCP Server能力的具体的调用格式（请写入某个能力的返回描述的完整字典）。"
+
 
 提示词顺序（系统 → 角色 → (目标 → 规则) → 记忆）
 
@@ -133,7 +139,7 @@ class ToolDecisionSkill(Executor):
         step_state = agent_state["agent_step"].get_step(step_id)[0]
         text_content = step_state.text_content  # text_content中包含 <tool_name></tool_name> 用于指示技能执行时获取哪些工具历史结果
         match = re.search(r"<tool_name>\s*(.*?)\s*</tool_name>", text_content)
-        tool_name = match.group(1)
+        tool_name = match.group(1)  # 工具决策需要知晓决策什么工具，一般在工具调用结束追加tool_decision时将工具名称用<tool_name>包裹放在text_content中
 
         # 1. 获取MAS系统的基础提示词
         md_output.append("# 系统提示 system_prompt\n")
@@ -326,133 +332,149 @@ if __name__ == "__main__":
     agent_state = {  
         "agent_id": "0001",  
         "name": "灰风/小灰",
-        "role": "网页操作员",
-        "profile": "负责操作网页",
+        "role": "工具调用专家",
+        "profile": "负责工具调用，帮助MAS系统实现与真实环节的交互",
         "working_state": "idle",
-        "llm_config": LLMConfig.from_yaml("mas/role_config/qwen235b.yaml"),  
+        "llm_config": LLMConfig.from_yaml("mas/agent/configs/test_llm_config.yaml"),
         "working_memory": {},  
         "persistent_memory": {},
         "agent_step": AgentStep("0001"),  
-        "skills": ["planning", "reflection", "summary",  
-                   "instruction_generation", "quick_think", "think", "tool_decision",
-                   "send_message", "process_message"],
-        "tools": ["browser_use",],
+        "skills": [
+            "planning", "reflection", "summary", "instruction_generation", "quick_think", "think", "tool_decision",  # 步骤执行基础技能
+            "send_message", "process_message",  # 通信基础技能
+            "task_manager", "agent_manager", "ask_info",  # 管理技能
+        ],
+        "tools": [
+            "amap_maps","everything","playwright"
+        ],
     }
 
     # 构造虚假的历史步骤
     step1 = StepState(
-        task_id="0001",stage_id="0001",agent_id="0001",
+        task_id="0001", stage_id="0001", agent_id="0001",
         step_intention="指令生成",
         type="skill",
         executor="instruction_generation",
         text_content="为下一个工具生成指令",
-        execute_result={"instruction_generation": "<错误获取！！！>"},
+        execute_result={"instruction_generation": {"instruction_type": "get_description"}},
     )
     step2 = StepState(
-        task_id="0001",stage_id="0001",agent_id="0001",
-        step_intention="获取候选人简历",
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="指令生成",
         type="tool",
-        executor="browser_use",
-        text_content="打开Boss直聘网站获取候选人简历",
-        execute_result={"browser_use":
-            {
-                "执行意图": "打开小弟直聘网站",
-                "执行命令": "<执行命令>",
-                "执行结果": "<执行错误！！！>",
-            }
+        executor="everything",
+        text_content="调用everything其中一种工具用作测试",
+        instruction_content={
+            "instruction_type": "get_description"
+        },
+        execute_result={
+            'capabilities_list_description':
+                {'tools': {
+                    'echo': {'description': 'Echoes back the input', 'title': None, 'input_schema': {'type': 'object',
+                                                                                                     'properties': {
+                                                                                                         'message': {
+                                                                                                             'type': 'string',
+                                                                                                             'description': 'Message to echo'}},
+                                                                                                     'required': [
+                                                                                                         'message'],
+                                                                                                     'additionalProperties': False,
+                                                                                                     '$schema': 'http://json-schema.org/draft-07/schema#'},
+                             'output_schema': None, 'required': None},
+                    'add': {'description': 'Adds two numbers', 'title': None, 'input_schema': {'type': 'object',
+                                                                                               'properties': {'a': {
+                                                                                                   'type': 'number',
+                                                                                                   'description': 'First number'},
+                                                                                                   'b': {
+                                                                                                       'type': 'number',
+                                                                                                       'description': 'Second number'}},
+                                                                                               'required': ['a', 'b'],
+                                                                                               'additionalProperties': False,
+                                                                                               '$schema': 'http://json-schema.org/draft-07/schema#'},
+                            'output_schema': None, 'required': None}, 'printEnv': {
+                        'description': 'Prints all environment variables, helpful for debugging MCP server configuration',
+                        'title': None,
+                        'input_schema': {'type': 'object', 'properties': {}, 'additionalProperties': False,
+                                         '$schema': 'http://json-schema.org/draft-07/schema#'}, 'output_schema': None,
+                        'required': None}, 'longRunningOperation': {
+                        'description': 'Demonstrates a long running operation with progress updates', 'title': None,
+                        'input_schema': {'type': 'object', 'properties': {'duration': {'type': 'number', 'default': 10,
+                                                                                       'description': 'Duration of the operation in seconds'},
+                                                                          'steps': {'type': 'number', 'default': 5,
+                                                                                    'description': 'Number of steps in the operation'}},
+                                         'additionalProperties': False,
+                                         '$schema': 'http://json-schema.org/draft-07/schema#'}, 'output_schema': None,
+                        'required': None},
+                    'sampleLLM': {'description': "Samples from an LLM using MCP's sampling feature", 'title': None,
+                                  'input_schema': {'type': 'object', 'properties': {
+                                      'prompt': {'type': 'string', 'description': 'The prompt to send to the LLM'},
+                                      'maxTokens': {'type': 'number', 'default': 100,
+                                                    'description': 'Maximum number of tokens to generate'}},
+                                                   'required': ['prompt'], 'additionalProperties': False,
+                                                   '$schema': 'http://json-schema.org/draft-07/schema#'},
+                                  'output_schema': None, 'required': None},
+                    'getTinyImage': {'description': 'Returns the MCP_TINY_IMAGE', 'title': None,
+                                     'input_schema': {'type': 'object', 'properties': {}, 'additionalProperties': False,
+                                                      '$schema': 'http://json-schema.org/draft-07/schema#'},
+                                     'output_schema': None, 'required': None}, 'annotatedMessage': {
+                        'description': 'Demonstrates how annotations can be used to provide metadata about content',
+                        'title': None, 'input_schema': {'type': 'object', 'properties': {
+                            'messageType': {'type': 'string', 'enum': ['error', 'success', 'debug'],
+                                            'description': 'Type of message to demonstrate different annotation patterns'},
+                            'includeImage': {'type': 'boolean', 'default': False,
+                                             'description': 'Whether to include an example image'}},
+                                                        'required': ['messageType'], 'additionalProperties': False,
+                                                        '$schema': 'http://json-schema.org/draft-07/schema#'},
+                        'output_schema': None, 'required': None}, 'getResourceReference': {
+                        'description': 'Returns a resource reference that can be used by MCP clients', 'title': None,
+                        'input_schema': {'type': 'object', 'properties': {
+                            'resourceId': {'type': 'number', 'minimum': 1, 'maximum': 100,
+                                           'description': 'ID of the resource to reference (1-100)'}},
+                                         'required': ['resourceId'], 'additionalProperties': False,
+                                         '$schema': 'http://json-schema.org/draft-07/schema#'}, 'output_schema': None,
+                        'required': None}}}
         },
     )
     step3 = StepState(
-        task_id="0001",stage_id="0001",agent_id="0001",
-        step_intention="反思",
+        task_id="0001", stage_id="0001", agent_id="0001",
+        step_intention="决策调用MCP Server的具体能力",
         type="skill",
-        executor="reflection",
-        text_content="进行反思",
-        execute_result={"reflection": "<工具步骤失败，重新执行工具步骤>"
-        },
+        executor="tool_decision",
+        text_content="根据上一步工具调用结果返回的capabilities_list_description能力列表描述，决策使用哪个具体的能力进行下一步操作，以满足工具调用目标。\n需要决策的工具名：<tool_name>everything</tool_name>",
+        instruction_content={},
+        execute_result={'tool_decision': [
+            {'step_intention': '生成指令', 'type': 'skill', 'executor': 'instruction_generation',
+             'text_content': '根据MCP Server能力列表描述，生成调用具体工具能力的function_call指令'},
+            {'step_intention': '调用MCP Server具体工具能力', 'type': 'tool', 'executor': 'every_thing',
+             'text_content': '根据能力列表选择目标工具/资源/提示，生成对应的function_call指令并执行'}]}
     )
     step4 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
-        step_intention="指令生成",
+        step_intention="生成指令",
         type="skill",
         executor="instruction_generation",
-        text_content="为下一个工具生成指令",
-        execute_result={"instruction_generation": "<正确工具指令>"},
+        text_content="根据MCP Server能力列表描述，生成调用具体工具能力的function_call指令",
+        instruction_content={},
+        execute_result={}
     )
     step5 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
-        step_intention="获取候选人简历",
+        step_intention="调用MCP Server具体工具能力",
         type="tool",
-        executor="browser_use",
-        text_content="打开Boss直聘网站获取候选人简历",
-        execute_result={"browser_use":
-            {
-                "执行意图": "打开小弟直聘网站",
-                "执行命令": "<执行命令>",
-                "执行结果": "<已经打开网站,呈现一些页面元素：1.候选人简历下载;2.简历上传;3.重置账号密码>",
-            }
-        },
+        executor="everything",
+        text_content="使用MCP Server的tools能力调用echo工具，传入message参数进行测试。具体调用格式为：<tool_instruction>{'instruction_type': 'function_call', 'tool_name': 'echo', 'arguments': {'message': '测试回声消息'}}</tool_instruction>",
+        instruction_content={'instruction_type': 'function_call', 'tool_name': 'echo',
+                             'arguments': {'message': '测试回声消息'}},
+        execute_result={
+            'mcp_server_result': "[TextContent(type='text', text='Echo: 测试回声消息', annotations=None, meta=None)]"}
     )
     step6 = StepState(
         task_id="0001", stage_id="0001", agent_id="0001",
-        step_intention="进行工具决策",
+        step_intention="决策工具调用完成与否",
         type="skill",
         executor="tool_decision",
-        text_content="进行工具决策<tool_name>browser_use</tool_name>",
-        execute_result={"tool_decision":
-            [
-                {
-                    "step_intention": "生成指令",
-                    "type": "skill",
-                    "executor": "instruction_generation",
-                    "text_content": "为下一个工具生成具体工具调用指令",
-                },
-                {
-                    "step_intention": "下载候选人简历",
-                    "type": "tool",
-                    "executor": "browser_use",
-                    "text_content": "在当前页面上点击候选人简历下载按钮",
-                }
-            ]
-        },
-    )
-    step7 = StepState(
-        task_id="0001", stage_id="0001", agent_id="0001",
-        step_intention="紧急处理消息恢复",
-        type="skill",
-        executor="send_message",
-        text_content="紧急处理消息恢复",
-        execute_result={"send_message": "<发送消息>"},
-    )
-    step8 = StepState(
-        task_id="0001", stage_id="0001", agent_id="0001",
-        step_intention="指令生成",
-        type="skill",
-        executor="instruction_generation",
-        text_content="为下一个工具生成指令",
-        execute_result={"instruction_generation": "<正确工具指令>"},
-    )
-    step9 = StepState(
-        task_id="0001", stage_id="0001", agent_id="0001",
-        step_intention="下载候选人简历",
-        type="tool",
-        executor="browser_use",
-        text_content="在当前页面上点击候选人简历下载按钮",
-        execute_result={"browser_use":
-            {
-                "执行意图": "下载候选人简历",
-                "执行命令": "<执行命令>",
-                "执行结果": "<点击候选人简历下载按钮,呈现一些页面元素：请先输入账号密码>",
-            }
-        },
-    )
-    step10 = StepState(
-        task_id="0001", stage_id="0001", agent_id="0001",
-        step_intention="进行工具决策",
-        type="skill",
-        executor="tool_decision",
-        text_content="进行工具决策<tool_name>browser_use</tool_name>",
-        execute_result={},
+        text_content="根据上一步工具调用步骤的execute_result执行结果中返回的mcp_server_result具体调用结果，决策当前工具调用目标是否达成\n需要决策的工具名：<tool_name>everything</tool_name>，",
+        instruction_content={},
+        execute_result={'llm_response': '<tool_decision>\n</tool_decision>\n\n<persistent_memory>\n[{"add":"已成功测试everything工具的echo功能，返回结果为\'Echo: 测试回声消息\'，工具调用目标达成"}]\n</persistent_memory>'}
     )
 
     agent_state["agent_step"].add_step(step1)
@@ -461,12 +483,9 @@ if __name__ == "__main__":
     agent_state["agent_step"].add_step(step4)
     agent_state["agent_step"].add_step(step5)
     agent_state["agent_step"].add_step(step6)
-    agent_state["agent_step"].add_step(step7)
-    agent_state["agent_step"].add_step(step8)
-    agent_state["agent_step"].add_step(step9)
-    agent_state["agent_step"].add_step(step10)
 
-    step_id = agent_state["agent_step"].step_list[9].step_id  # 当前为第十个step
+
+    step_id = agent_state["agent_step"].step_list[5].step_id  # 当前为第6个step
 
     tool_decision_skill = ToolDecisionSkill()  # 实例化Tool Decision技能
     execute_output = tool_decision_skill.execute(step_id, agent_state)
