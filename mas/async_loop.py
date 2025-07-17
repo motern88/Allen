@@ -1,5 +1,8 @@
 '''
-该类主要实现一个异步事件循环线程，用于MAS架构中支持每个Agent独立对MCPClient进行异步并行调用。
+该类主要实现在MAS（Multi-Agent System）架构中支持异步调用MCPClient的功能。
+    1. AsyncLoopThread 一个异步事件循环线程，用于MAS架构中支持每个Agent独立对MCPClient进行异步并行调用。
+    2. MCPClientWrapper 一个MCPClient的同步包装器，用于在MAS架构中提供异步调用支持。
+
 
 其中整个MAS架构背景：
     - MAS 主线程：负责初始化系统、创建 Agent、启动 Agent 的线程。
