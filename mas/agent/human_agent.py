@@ -60,7 +60,7 @@ NEWS：
 from mas.agent.base.agent_base import AgentBase
 from mas.agent.state.step_state import StepState, AgentStep
 from mas.agent.state.sync_state import SyncState
-from mas.tools.mcp_client import MCPClient
+from mas.async_loop import MCPClientWrapper
 from mas.utils.monitor import StateMonitor
 
 from mas.agent.base.message import Message
@@ -103,7 +103,7 @@ class HumanAgent(AgentBase):
         self,
         config,  # HumanAgent人类操作端配置文件,接收已经从yaml解析后的字典
         sync_state: SyncState,  # 所有Agents接受同一个状态同步器(整个系统只维护一个SyncState，通过实例化传递给Agent)，由外部实例化后传给所有Agent
-        mcp_client: MCPClient,  # 所有Agents接收同一个MCP客户端(整个系统只维护一个MCPClient，通过实例化传递给Agent)，由外部实例化后传给所有Agent
+        mcp_client_wrapper: MCPClientWrapper,  # 所有Agents接收同一个MCP客户端(整个系统只维护一个MCPClient，通过实例化传递给Agent)，由外部实例化后传给所有Agent
         agent_id: Optional[str] = None,  # 可选的Agent ID，如果未提供则自动生成一个唯一ID
     ):
         if agent_id is not None:  # 如果提供了agent_id，则使用提供的ID
@@ -113,7 +113,7 @@ class HumanAgent(AgentBase):
 
         self.sync_state = sync_state  # 状态同步器
         self.sync_state.register_agent(self)  # 向状态同步器注册自身，以便sync_state可以访问到自身的属性
-        self.mcp_client = mcp_client  # MCP客户端，用于执行工具
+        self.mcp_client_wrapper = mcp_client_wrapper  # MCP客户端，用于执行工具
 
         # 初始化人类操作端Agent状态
         self.agent_state = self.init_agent_state(
