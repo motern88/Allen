@@ -1,5 +1,5 @@
 '''
-工具名称: MCP
+工具名称: MCP Tool
 期望作用: Agent通过调用该工具，从而能够调度任意MCP（Model Context Protocol）的服务器端点。（本mcp tool用于在MAS中兼容MCP协议的服务器端实现。）
     对于Agent而言，MCP工具连接多个MCP的服务端。对于真正的MCP Server端点而言，该MCP Server工具是他们的Client客户端。
 
@@ -29,12 +29,12 @@ Agent通过mcp工具能够实现调用符合MCP协议的任意服务器端点。
     工具决策技能tool decision在get_tool_decision_prompt()方法中包含mcp_base_prompt
 
 2.对于工具调用，有别于技能调用，技能调用直接找到StepState.executor对应的技能executor即可。
-    （如果不接入MCP，则为每一个工具都实现一个Executor，此时执行步骤时传入的StepState.executor对应上相应的工具Executor即可；
+    如果不接入MCP，则为每一个工具都实现一个Executor，此时执行步骤时传入的StepState.executor对应上相应的工具Executor即可；
     然而，我们全盘接入MCP，则始终仅有一个MCPToolExecutor对应所有的MCP Server。
     即所有的工具Step，不论StepState.executor是什么，均会调用这一个MCPToolExecutor。
-    这一部分调用逻辑在Router路由中设置。）
+    （这一部分调用逻辑在Router路由中设置。）
 
-    但是工具中的StepState.executor实际上是MCP Server的名字，而只要是StepState。
+    但是工具中的StepState.executor实际上是MCP Server的名字，而只要是工具 StepState 就会调用该 MCP Tool Executor 。
     因此调用MCPToolExecutor的依据是StepState.type = tool就调用。
 
 
