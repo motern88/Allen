@@ -4,4 +4,4 @@ data/
 example/
 mas/agent/base/__pycache__/executor_base.cpython-310.pyc
 mas/skills/__pycache__/send_message.cpython-310.pyc
-mas/role_config/*
+mas/role_config/
