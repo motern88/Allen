@@ -27,7 +27,7 @@ llm_config:
   api_type: "openai"
   base_url: "https://ark.cn-beijing.volces.com/api/v3"
   model: "doubao-1-5-thinking-pro-250415"
-  api_key: ""
+  api_key: "86033119-97cd-4b7c-aea2-544b16634071"  # yang哥给的API: 1bbe3102-3adb-4f8c-abcf-622eee7d0f76  # 私人免费羊毛 86033119-97cd-4b7c-aea2-544b16634071
   max_tokens: 8192
   temperature: 0.1
   timeout: 600
