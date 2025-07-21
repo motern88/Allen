@@ -2,7 +2,7 @@
 在MAS中，sync_state状态同步器专门负责管理不属于单一Agent的状态，stage_state与task_state。
 相对而言，Agent自身的局部状态，agent_state与step_state会在executor执行过程中更新。无需sync_state参与。
 
-executor执行返回的executor_output用于指导sync_state工作
+executor执行器返回的executor_output用于指导sync_state工作
 
 具体实现：
     SyncState作为task_state与stage_state的管理类

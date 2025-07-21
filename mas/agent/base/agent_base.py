@@ -127,7 +127,7 @@ class AgentBase():
         # 注意：工作记忆不要放到提示词里面，提示词里面放持续性记忆
         agent_state["working_memory"] = working_memory if working_memory else {}
 
-        # 永久追加精简记忆，用于记录Agent的持久性记忆，不会因为任务,阶段,步骤的结束而被清空
+        # 永久追加精简记忆，用于记录Agent的持续性记忆，不会因为任务,阶段,步骤的结束而被清空
         agent_state["persistent_memory"] = {}  # Key为时间戳 %Y%m%dT%H%M%S ，值为md格式纯文本（里面只能用三级标题 ### 及以下！不允许出现一二级标题！）
         # {"20250613T103022":"当前我完成了...", "20250613T103523":"当前我正在..."}
 

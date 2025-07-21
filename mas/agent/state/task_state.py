@@ -27,7 +27,6 @@ class TaskState:
             包含时间戳和对应的消息内容。
             我们将所有的由消息转发器转发的消息都备份一份在共享会话池中，该共享会话池是所有Agent需要展示的群聊的超集。
 
-
         stage_list (List[StageState]): 当前任务下所有阶段的列表（顺序执行不同阶段）
         execution_state (str): 当前任务的执行状态，"init"、"running"、"finished"、"failed"
         task_summary (str): 任务完成后的总结，由系统自动生成
