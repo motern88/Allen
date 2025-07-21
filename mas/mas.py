@@ -100,23 +100,37 @@ class MultiAgentSystem:
         await mcp_client.initialize_servers()
         return mcp_client
 
-    # TODO：关闭MAS系统调用shutdown未实现未测试
+    # TODO：关闭MAS系统调用shutdown未调试成功
     def shutdown(self):
         '''
         关闭MAS系统的所有资源，包括 MCPClient 和事件循环。
         '''
+        print("[MAS][shutdown] 正在关闭 MAS 系统...")
         try:
             # 1. 调用 MCPClient.close_all_server() (异步执行)
             if self.mcp_client:
-                future = self.async_loop.run_coroutine(self.mcp_client.close_all_server())
+
+                # 在 async_loop 中调度一个任务来执行关闭
+                async def _close_mcp():
+                    try:
+                        await self.mcp_client.close_all_server()
+                    # TODO: 这里调用 MCPClient.close_all_server() 出错，但不返回报错信息
+                    except Exception as e:
+                        print(f"[MAS][shutdown] MCPClient close_all_server 出错: {e}")
+
+                future = self.async_loop.run_coroutine(_close_mcp())
                 future.result(timeout=15)  # 等待完成，避免资源泄露
-                print("[MAS] MCPClient 所有连接已关闭。")
+                print("[MAS][shutdown] MCPClient 所有连接已关闭。")
         except Exception as e:
-            print(f"[MAS] MCPClient 关闭时出错: {e}")
-        finally:
+            print(f"[MAS][shutdown] MCPClient 关闭时出错: {e}")
+
+        # 关闭 AsyncLoopThread
+        try:
             # 2. 停止事件循环
-            self.async_loop.stop()
-            print("[MAS] 事件循环已停止。")
+            self.async_loop.loop.call_soon_threadsafe(self.async_loop.loop.stop)
+            print("[MAS][shutdown] async_loop 事件循环已停止。")
+        except Exception as e:
+            print(f"[MAS][shutdown] 停止 async_loop 事件循环时出错: {e}")
 
     def add_llm_agent(self, agent_config):
         '''
@@ -242,77 +256,98 @@ class MultiAgentSystem:
                 return agent
         return None  # 没找到就返回 None，也可以抛出异常
 
+    # 实现MAS系统的启动方法
+    def start_system(self):
+        '''
+        启动 MAS 系统的完整流程:
+
+        1. 先启动消息分发器的循环
+            （在一个线程中异步运行），后续任务的启动和创建均依赖此分发器
+        2. 添加第一个LLM-Agent（管理者）
+            Agent在被实例化时就会启动自己的任务执行线程
+        3. 创建MAS中第一个任务
+            并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
+        4. 启动人类操作端和状态监控（可视化 + 热更新）的统一服务端口
+        5. (调试模式下) 可以启动人类操作端输入循环
+        '''
+
+        # 1. 启动消息分发循环（用线程异步跑）
+        dispatch_thread = threading.Thread(
+            target=mas.run_message_dispatch_loop,
+            daemon=True  # 守护线程，主程序退出时自动关闭
+        )
+        dispatch_thread.start()
+        print(f"[MAS][start_system] 消息分发循环已启动。")
+
+        # 2. 添加第一个 Agent（管理者）
+        llm_agent_id = mas.add_llm_agent("mas/role_config/管理者_灰风.yaml")  # 添加第一个Agent（管理者）
+
+        # 3. 创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
+        first_task_id = mas.init_and_start_first_task(llm_agent_id)  # 传入第一个agent（管理者）的ID
+
+        # 4. 启动状态监控网页服务（可视化 + 热更新）和启动人类操作端服务的统一端口
+        register_mas_instance(mas)  # 注册MAS实例
+        threading.Thread(target=start_interface, daemon=True).start()
+        print(f"[MAS][start_system] 前端界面端口已启动，访问 http://localhost:5000 查看状态。")
+
+        # 5. (调试模式下) 启动人类操作端输入循环
+        self._debug_human_interface(first_task_id, llm_agent_id)
+
+    def _debug_human_interface(self, first_task_id, llm_agent_id):
+        '''
+        仅供调试人类操作端交互使用：
+        1. 传入第一个任务ID和管理者Agent ID
+        2. 添加一个HumanAgent
+        3. 启动人类操作端输入循环
+            （这里是临时调试，所以绑定消息发送是由该HumanAgent发送给管理者Agent。
+            MAS中正常HumanAgent发送消息请调用前端接口）
+
+            在循环中，输入的文本均会作为消息发送给管理者Agent
+        '''
+        # 2. 添加一个HumanAgent
+        human_agent_id = mas.add_human_agent("mas/human_config/人类操作端_测试.yaml")  # 添加一个HumanAgent
+        human_agent = mas.get_agent_from_id(human_agent_id)  # 获取HumanAgent实例
+
+        # 3. 启动人类操作端输入循环
+        while True:
+            # # Debug:打印系统任务状态，MAS是否正确创建任务
+            # all_tasks = mas.sync_state.all_tasks
+            # print(f"sync_state.all_tasks:\n{all_tasks}")
+
+            # # Debug:打印监控状态，监控器是否成功捕获MAS的各种状态
+            # print(f"monitor.get_all_states：\n{StateMonitor().get_all_states()}")
+
+            user_input = input("[DEBUG][HumanAgent] 请输入指令 (输入 'send' 来向当前任务管理者发送消息)：")
+
+            if user_input.strip() == "send":
+                print("[DEBUG][HumanAgent] 请输入要发送的消息内容：")
+                message_content = input("[DEBUG][HumanAgent] 消息内容：")
+                # 调用 HumanAgent 的 send_private_message 方法发送消息
+                human_agent.send_private_message(
+                    task_id=first_task_id,
+                    receiver=[llm_agent_id],  # 发送给管理者Agent
+                    context=message_content,
+                    stage_relative="no_relative",  # 与任务阶段无关
+                    need_reply=True,  # 需要回复
+                    waiting=None,  # 不等待回复
+                )
+
+            if user_input.strip() == "step_list":
+                llm_agent = mas.get_agent_from_id(llm_agent_id)
+                print(f"\n[DEBUG]step_list:\n")
+                llm_agent.agent_state["agent_step"].print_all_steps()
+
+
+            if user_input.strip() == "shutdown":
+                mas.shutdown()
+                break
+
+            # print(".")
+            time.sleep(1)  # 主线程保持活跃
 
 if __name__ == "__main__":
     '''
     测试MAS系统 在在Allen根目录下执行 python -m mas.mas
-    
-    MAS系统的启动方式，
-    1.先启动消息分发器的循环（在一个线程中异步运行），后续任务的启动和创建均依赖此分发器
-    
-    2.添加第一个Agent（管理者），Agent在被实例化时就会启动自己的任务执行线程
-    
-    3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
-    
-    4.启动人类操作端和状态监控（可视化 + 热更新）的统一服务端口
-    
-    5.主线程保持活跃，接受来自人类操作段的输入
-    
     '''
-    # TODO：将MAS启动写成一个函数
-
-    # 1. 实例化MAS
-    mas = MultiAgentSystem()
-
-    # 2. 启动消息分发循环（用线程异步跑）
-    dispatch_thread = threading.Thread(
-        target=mas.run_message_dispatch_loop,
-        daemon=True  # 守护线程，主程序退出时自动关闭
-    )
-    dispatch_thread.start()
-    print(f"[MAS] 消息分发循环已启动。")
-
-    # 3. 初始任务启动
-    llm_agent_id = mas.add_llm_agent("mas/role_config/管理者_灰风.yaml")  # 添加第一个Agent（管理者）
-    first_task_id = mas.init_and_start_first_task(llm_agent_id)  # 传入第一个agent（管理者）的ID
-
-    # 4. 启动状态监控网页服务（可视化 + 热更新）和启动人类操作端服务的统一端口
-    register_mas_instance(mas)  # 注册MAS实例
-    threading.Thread(target=start_interface, daemon=True).start()
-    print(f"[MAS] 前端界面端口已启动，访问 http://localhost:5000 查看状态。")
-
-
-    # 5. 主线程可以执行其他逻辑，接受来自人类操作段的输入
-    # TODO: 这里是临时的调试代码，写死人类操作端agent_id，写死发送对象为灰风，后续可以改为更友好的人类操作端交互方式
-    human_agent_id = mas.add_human_agent("mas/human_config/人类操作端_测试.yaml")  # 添加一个HumanAgent
-    human_agent = mas.get_agent_from_id(human_agent_id)  # 获取HumanAgent实例
-    while True:
-        # # Debug:打印系统任务状态，MAS是否正确创建任务
-        # all_tasks = mas.sync_state.all_tasks
-        # print(f"sync_state.all_tasks:\n{all_tasks}")
-
-        # # Debug:打印监控状态，监控器是否成功捕获MAS的各种状态
-        # print(f"monitor.get_all_states：\n{StateMonitor().get_all_states()}")
-
-        user_input = input("[DEBUG][HumanAgent] 请输入指令 (输入 'send' 来向当前任务管理者发送消息)：")
-
-        if user_input.strip() == "send":
-            print("[DEBUG][HumanAgent] 请输入要发送的消息内容：")
-            message_content = input("[DEBUG][HumanAgent] 消息内容：")
-            # 调用 HumanAgent 的 send_private_message 方法发送消息
-            human_agent.send_private_message(
-                task_id=first_task_id,
-                receiver=[llm_agent_id],  # 发送给管理者Agent
-                context=message_content,
-                stage_relative="no_relative",  # 与任务阶段无关
-                need_reply=True,  # 需要回复
-                waiting=None,  # 不等待回复
-            )
-
-        if user_input.strip() == "step_list":
-            llm_agent = mas.get_agent_from_id(llm_agent_id)
-            print(f"step_list:")
-            llm_agent.agent_state["agent_step"].print_all_steps()
-
-        # print(".")
-        time.sleep(1)  # 主线程保持活跃
+    mas = MultiAgentSystem()  # 实例化MAS系统
+    mas.start_system()  # 启动MAS系统
