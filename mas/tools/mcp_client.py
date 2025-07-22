@@ -231,13 +231,14 @@ class MCPClient:
                         stdio, write = stdio_transport
                         session = await self.exit_stack.enter_async_context(ClientSession(stdio, write))
 
-                    # 如果为baseurl字段则说明是远程的MCP服务器，使用SSE连接
-                    elif "baseurl" in value:
-                        server_url = value["baseurl"]
+                    # 如果为baseurl或url字段则说明是远程的MCP服务器，使用SSE连接
+                    elif "baseurl" in value or "url" in value:
+                    # 优先使用baseurl，如果没有则使用url
+                        server_url = value.get("baseurl") or value.get("url")
 
                         # print(f"[MCPClient] 正在通过url连接远程 MCP 服务器 '{server_name}'")
                         sse_transport = await self.exit_stack.enter_async_context(sse_client(server_url))
-                        write,read = sse_transport
+                        read, write = sse_transport
                         session = await self.exit_stack.enter_async_context(ClientSession(read, write))
 
                     # 如果成功连接到服务器，则记录到 server_sessions 中
@@ -531,17 +532,17 @@ async def test():
 
         # 获取MCP服务的能力描述列表
         server_description = await mcp_client.get_server_descriptions(
-            server_name = "everything",
+            server_name = "milvus-sse",
             capability_type = "tools"  # 可以是 "tools"、"resources" 或 "prompts"
         )
         print("\n服务描述获取结果：\n", server_description)
 
         # 调用 MCP Server 的具体能力
         response = await mcp_client.use_capability(
-            server_name = "everything",
+            server_name = "milvus-sse",
             capability_type = "tools",
-            capability_name = "echo",
-            arguments={"message": "Hello, MCP!"}  # 传入工具调用参数
+            capability_name = 'milvus_list_collections', # "echo",
+            # arguments={"message": "Hello, MCP!"}  # 传入工具调用参数
         )
         print("\n调用 MCP Server 的能力返回结果：\n", response)
 

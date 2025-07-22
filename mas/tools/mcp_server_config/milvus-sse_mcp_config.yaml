@@ -1,0 +1,120 @@
+# Date: 2025/07/02
+# 该文件用于描述MCP Server的描述，以及记录MCP Server的启动配置。
+
+# 技能的简要作用描述，Agent所有可选技能与工具的简要描述会被组装在available_skills_and_tools中
+use_guide:
+  tool_name: "milvus-sse"   # 工具名称需要与mcpServer启动配置中的名称一致
+  description: |
+    该工具用于访问Milvus向量数据库，提供高性能向量存储和检索功能。
+    该工具可以执行以下操作：
+    1. 创建和管理向量集合(Collection)
+    2. 插入、删除和更新向量数据
+    3. 执行向量相似性搜索和查询
+    4. 管理索引和分区
+    5. 执行混合搜索(向量+标量字段)
+    6. 数据库连接状态管理
+    该工具特别适用于AI应用的RAG(检索增强生成)、推荐系统、图像搜索等场景。
+    **请在调用时明确指定所需的操作和参数。**
+
+
+# MCP Server 启动配置
+config: |
+  {
+    "mcpServers": {
+      "milvus-sse": {
+        "url": "http://43.142.97.170:8000/sse",
+        "disabled": false,
+        "autoApprove": []
+      }
+    }
+  }
+
+# Milvus MCP 服务器工具列表
+# 1. milvus_text_search - 文本搜索
+# 功能：在Milvus集合中使用全文检索搜索文档
+# 参数：
+# collection_name (必需)：要搜索的集合名称
+# query_text (必需)：要搜索的文本
+# limit (可选，默认5)：返回结果的最大数量
+# output_fields (可选)：结果中包含的字段
+# drop_ratio (可选，默认0.2)：忽略低频词的比例 (0.0-1.0)
+
+# 2. milvus_list_collections - 列出集合
+# 功能：列出数据库中的所有集合
+# 参数：无
+
+# 3. milvus_query - 查询数据
+# 功能：使用过滤表达式查询集合
+# 参数：
+# collection_name (必需)：要查询的集合名称
+# filter_expr (必需)：过滤表达式 (如 'age > 20')
+# output_fields (可选)：结果中包含的字段
+# limit (可选，默认10)：返回结果的最大数量
+
+# 4. milvus_vector_search - 向量相似性搜索
+# 功能：在集合上执行向量相似性搜索
+# 参数：
+# collection_name (必需)：要搜索的集合名称
+# vector (必需)：查询向量
+# vector_field (可选，默认'vector')：包含向量的字段名
+# limit (可选，默认5)：返回结果的最大数量
+# output_fields (可选)：结果中包含的字段
+# metric_type (可选，默认'COSINE')：距离度量 (COSINE, L2, IP)
+# filter_expr (可选)：可选过滤表达式
+
+# 5. milvus_hybrid_search - 混合搜索
+# 功能：结合文本和向量搜索的混合搜索
+# 参数：
+# collection_name (必需)：要搜索的集合名称
+# query_text (必需)：BM25搜索的文本查询
+# text_field (必需)：文本搜索的字段名
+# vector (必需)：密集向量搜索的查询向量
+# vector_field (必需)：向量搜索的字段名
+# limit (可选，默认5)：返回结果的最大数量
+# output_fields (可选)：结果中返回的字段
+# filter_expr (可选)：可选过滤表达式
+
+# 6. milvus_create_collection - 创建集合
+# 功能：使用指定架构创建新集合
+# 参数：
+# collection_name (必需)：新集合的名称
+# collection_schema (必需)：集合架构定义
+# index_params (可选)：可选索引参数
+
+# 7. milvus_insert_data - 插入数据
+# 功能：向集合中插入数据
+# 参数：
+# collection_name (必需)：集合名称
+# data (必需)：字典列表，每个字典表示一条记录
+
+# 8. milvus_delete_entities - 删除实体
+# 功能：根据过滤表达式从集合中删除实体
+# 参数：
+# collection_name (必需)：集合名称
+# filter_expr (必需)：用于选择要删除实体的过滤表达式
+
+# 9. milvus_load_collection - 加载集合
+# 功能：将集合加载到内存中以供搜索和查询
+# 参数：
+# collection_name (必需)：要加载的集合名称
+# replica_number (可选，默认1)：副本数量
+
+# 10. milvus_release_collection - 释放集合
+# 功能：从内存中释放集合
+# 参数：
+# collection_name (必需)：要释放的集合名称
+
+# 11. milvus_list_databases - 列出数据库
+# 功能：列出Milvus实例中的所有数据库
+# 参数：无
+
+# 12. milvus_use_database - 切换数据库
+# 功能：切换到不同的数据库
+# 参数：
+# db_name (必需)：要使用的数据库名称
+
+# 13. milvus_get_collection_info - 获取集合信息
+# 功能：列出特定集合的详细信息
+# 参数：
+# collection_name (必需)：要获取信息的集合名称
+  
