@@ -116,7 +116,7 @@ from mas.agent.base.executor_base import Executor
 from mas.agent.base.llm_base import LLMContext, LLMClient
 from mas.agent.state.step_state import StepState, AgentStep
 
-from mas.agent.base.message import Message
+from mas.utils.message import Message
 import uuid
 
 # 注册规划技能到类型 "skill", 名称 "send_message"

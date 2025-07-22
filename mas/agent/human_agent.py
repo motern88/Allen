@@ -60,10 +60,10 @@ NEWS：
 from mas.agent.base.agent_base import AgentBase
 from mas.agent.state.step_state import StepState, AgentStep
 from mas.agent.state.sync_state import SyncState
-from mas.async_loop import MCPClientWrapper
+from mas.utils.async_loop import MCPClientWrapper
 from mas.utils.monitor import StateMonitor
 
-from mas.agent.base.message import Message
+from mas.utils.message import Message
 
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from datetime import datetime

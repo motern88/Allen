@@ -48,10 +48,10 @@ from mas.utils.message_dispatcher import MessageDispatcher  # 消息分发器
 # MCP客户端，用于实现工具执行器
 from mas.tools.mcp_client import MCPClient
 # 异步事件循环线程，用于在多线程环境中运行异步任务; MCPClient包装器用于将MCPClient的调用提交到异步事件循环线程中
-from mas.async_loop import AsyncLoopThread, MCPClientWrapper
+from mas.utils.async_loop import AsyncLoopThread, MCPClientWrapper
 
 
-from mas.utils.web.server import register_mas_instance, start_interface  # 状态监控，引用实例，启动接口
+from mas.web.server import register_mas_instance, start_interface  # 状态监控，引用实例，启动接口
 
 import mas.skills.__init__  # 会自动触发所有技能注册器的装饰器调用
 import mas.tools.__init__  # 会自动触发所有工具注册器的装饰器调用

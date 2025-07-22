@@ -46,7 +46,7 @@ from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor
 from mas.agent.state.step_state import StepState, AgentStep
-from mas.async_loop import MCPClientWrapper
+from mas.utils.async_loop import MCPClientWrapper
 
 
 @Executor.register(executor_type="tool", executor_name="mcp_tool")
@@ -272,7 +272,7 @@ if __name__ == "__main__":
     测试mcp_tool需要在Allen根目录下执行 python -m mas.tools.mcp_tool
     '''
     from mas.agent.configs.llm_config import LLMConfig
-    from mas.async_loop import AsyncLoopThread, MCPClientWrapper
+    from mas.utils.async_loop import AsyncLoopThread, MCPClientWrapper
     from mas.tools.mcp_client import MCPClient
 
     agent_state = {

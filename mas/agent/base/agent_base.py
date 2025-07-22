@@ -6,7 +6,7 @@ Agent基础类，这里实现关于LLM驱动的相关基础功能，不涉及到
 from mas.agent.state.step_state import StepState, AgentStep
 from mas.agent.state.stage_state import StageState
 from mas.agent.state.sync_state import SyncState
-from mas.async_loop import MCPClientWrapper
+from mas.utils.async_loop import MCPClientWrapper
 from mas.agent.base.router import Router
 from mas.utils.monitor import StateMonitor
 

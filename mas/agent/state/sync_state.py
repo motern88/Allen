@@ -16,7 +16,7 @@ from mas.agent.state.stage_state import StageState
 if TYPE_CHECKING:  # 避免循环导入和mas.py产生冲突
     from mas.mas import MultiAgentSystem
 from mas.agent.configs.llm_config import LLMConfig
-from mas.agent.base.message import Message
+from mas.utils.message import Message
 import json
 import os
 import yaml

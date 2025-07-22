@@ -5,7 +5,7 @@ MAS系统接收到一个具体任务时，会实例化一个TaskState对象用�
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from mas.agent.state.stage_state import StageState
-from mas.agent.base.message import Message
+from mas.utils.message import Message
 import queue
 from mas.utils.monitor import StateMonitor
 
