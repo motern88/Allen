@@ -1,7 +1,7 @@
 api_type: "openai"
-base_url: "https://ark.cn-beijing.volces.com/api/v3"  # https://ark.cn-beijing.volces.com/api/v3
-model: "doubao-1-5-thinking-pro-250415"  # doubao-1-5-thinking-pro-250415   # rwkv
-api_key: "86033119-97cd-4b7c-aea2-544b16634071"
+base_url: "http://localhost:4141/v1"  # 指向本地代理服务
+model: "gpt-4.1" #"claude-sonnet-4" #"gpt-4.1"
+api_key: "dummy_key"  # 可以使用任意字符串，代理会处理认证
 max_tokens: 8192
 temperature: 0.1
 timeout: 600
