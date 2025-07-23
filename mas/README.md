@@ -24,25 +24,33 @@ mas.py               # 实现了MAS核心类MultiAgentSystem，也是MAS的启�
 
 - `mas/agent`：实现和单个Agent运行相关的组件
 
+  
+
 - `mas/human_config`：人类操作端Agent的配置文件
 
-  ​	定义人类操作端可用的工具权限等
+  定义人类操作端可用的工具权限等
 
 - `mas/role_config`：LLM-Agent 的配置文件
 
-  ​	定义 LLM-Agent 的角色背景、技能与工具权限、LLM API等
+  定义 LLM-Agent 的角色背景、技能与工具权限、LLM API等
+
+  
 
 - `mas/skills`：实现 MAS 中 LLM-Agent 所有可用的技能
 
-  ​	技能是指需要LLM调用的步骤类型
+  技能是指需要LLM调用的步骤类型
 
 - `mas/tools`：实现 MAS 中 Agent 所有可用的工具
 
-  ​	工具是指不需要调用LLM，且能够与实际环境交互的步骤类型
+  工具是指不需要调用LLM，且能够与实际环境交互的步骤类型
+
+  
 
 - `mas/utils`：实现 MAS 中其他基础组件
 
 - `mas/web`：前端服务和静态资源界面在该目录下实现
+
+  
 
 - `mas/mas.py`：实现 MAS 中核心类 `MultiAgentSystem` 
 

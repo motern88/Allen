@@ -28,7 +28,7 @@
     第四级：MCPClient.server_descriptions
         存放了MCP Server中可用工具的详细描述，key为工具名称，value为工具描述。
         server_descriptions 会从第三级中活跃session连接中调用工具名称，描述和使用方式并记录。
-        在Agent获取全部工具和技能提示词时，server_descriptions 相应支持；在Agent执行具体工具Step/组装工具Step提示词时，server_descriptions 也会提供具体工具的描述和调用格式信息。
+        在Agent获取全部工具和技能提示词时，server_descriptions 提供相应支持；在Agent执行具体工具Step/组装工具Step提示词时，server_descriptions 也会提供具体工具的描述和调用格式信息。
 
 3. MCP Client实例应当是全局唯一的，MAS中所有Agent都共享同一个MCP Client实例。
     在MAS启动时创建MCPClient实例，并传入给Executor.execute，使得Executor.execute可以通过MCPClient实例获取MCP Server连接和工具描述
