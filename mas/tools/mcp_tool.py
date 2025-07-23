@@ -20,7 +20,7 @@ Agent通过mcp工具能够实现调用符合MCP协议的任意服务器端点。
         并根据此做出具体调用哪个具体能力的决策。
     3. 调用 MCP Server 的具体能力：
         根据第2步获取到的能力列表，Agent可以选择调用其中的某个能力。并按照其格式
-        MCPTool Executor 通过调用 MCPClient 的 execute 方法，传入具体的能力名称和参数，
+        MCPTool Executor 通过调用 MCPClient 的 use_capability 方法，传入具体的能力名称和参数，
         来执行该能力并获取结果。
 
 说明：

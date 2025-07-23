@@ -151,12 +151,43 @@ MCP Client
 
 > MCP Tool Executor实现详情见文档[Multi-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Multi-Agent-System实现细节.md)中**4.2**节
 
-我们在 `mas/tools/mcp_tool.py` 中实现用于调用 MCP Server 的 Executor。与技能Executor一样，该MCP Tool Executor依然继承自Executor基础类，共享所有基类的方法。与技能Executor的区别在于：
+我们在 `mas/tools/mcp_tool.py` 中实现用于调用 MCP Server 的 Executor。与技能Executor一样，该MCP Tool Executor依然继承自Executor基础类，共享所有基类的方法。
+
+与技能Executor的区别在于：
 
 - 每个技能都实现一个单独的Executor子类用于隔离各个技能不同的调用逻辑
+
 - 所有的工具都共享同一个Executor子类（`MCPTool(Executor)`）
 
+  > `StepState.type`  属性为tool的步骤将会调用 `MCPTool(Executor)` 执行，在 `MCPTool.execute` 中会获取到 `StepState.executor` 作为要调用的 MCP Server Name 。
 
+
+
+在该工具Executor中，会根据 `StepState.instruction_content` 中的指令内容确定要执行逻辑分支，包含两种：
+
+- 获取MCP服务的能力列表描述
+
+  调用 `MCPClient.get_capabilities_list_description()` 方法
+
+- 执行MCP服务的具体能力
+
+  调用 `MCPClient.use_capability()` 方法
+
+
+
+对于在MAS中调用MCP工具的使用流程：
+
+- 获取到 MCP Server 级别描述：
+
+  Agent通过每个技能Executor中提示词 `available_skills_and_tools` 部分，可以获取到每个工具Server写在 `mas/tools/mcp_server_config` 下 `{tool_name}_mcp_config.yaml` 文件中的描述，并根据此做出是否调用的决策。
+
+- 获取到 MCP Server 的具体能力级别的描述：
+
+  `MCPTool(Executor)` 通过调用 MCPClient 获取到当前工具下所有可用的能力的list（根据该MCP Server支持的能力，获取其所有能力对应的调用list）并根据此做出具体调用哪个具体能力的决策。
+
+- 调用 MCP Server 的具体能力：
+
+  根据获取到的能力列表，Agent可以选择调用其中的某个能力。并按照其格式 `MCPTool (Executor)` 通过调用 `MCPClient.use_capability` 方法，传入具体的能力名称和参数，来执行该能力并获取结果。
 
 
 
