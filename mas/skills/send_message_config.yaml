@@ -13,6 +13,8 @@ use_guide:
     因此在MAS中Agent间通讯的类型有两种实现方式：
     - 如果是一个单向消息，则通过Send Message和Process Message可以完成；
     - 如果是长期多轮对话，则通过一系列的Send Message和最后一个Process Message实现。
+    
+    注意：实际使用时，Send Message由决策技能自主规划；而Process Message则是在实际回复时触发系统生成，禁止由决策技能主动规划Process Message。
 
 # 技能实际调用的提示词
 use_prompt:

@@ -41,7 +41,7 @@ use_prompt:
 
 #### 1.2 Skill Executor
 
-> 每种技能的实现详情见文档[Muti-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Muti-Agent-System实现细节.md)中第**3**节。
+> 每种技能的实现详情见文档[Multi-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Multi-Agent-System实现细节.md)中第**3**节。
 
 技能执行器具体实现有关技能步骤Skill Step被执行时的具体逻辑。
 
@@ -109,7 +109,7 @@ class XXXSkill(Executor):
 
   持续性记忆是本系统中Agent的一个重要记忆机制，因为我们在每个Step中重组提示词，每个Step执行时并不一定知晓此前的Step发生了什么。因此我们维护了一个可以跨步骤Step、跨阶段Stage和跨任务Task的持续性记忆帮助Agent自我管理重要的上下文信息。
 
-  > 持续性记忆机制详情见文档[Muti-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Muti-Agent-System实现细节.md)中第**9.3**节。
+  > 持续性记忆机制详情见文档[Multi-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Multi-Agent-System实现细节.md)中第**9.3**节。
 
   这一部分的实现请参考/照搬已有技能的实现即可，不需要额外做出改变。
 

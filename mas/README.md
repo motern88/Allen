@@ -50,7 +50,7 @@ mas.py               # 实现了MAS核心类MultiAgentSystem，也是MAS的启�
 
 ### 2. MultiAgentSystem类
 
-> 详情见文档[Muti-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Muti-Agent-System实现细节.md)中第1.3节。
+> 详情见文档[Multi-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Multi-Agent-System实现细节.md)中第1.3节。
 
 该类是MAS中的主要类，也是多Agent系统的启动入口。
 
