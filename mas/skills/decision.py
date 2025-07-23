@@ -124,7 +124,8 @@ class DecisionSkill(Executor):
 
         return "\n".join(md_output)
 
-    def get_execute_output(self,
+    def get_execute_output(
+        self,
         step_id: str,
         agent_state: Dict[str, Any],
         update_agent_situation: str,
@@ -235,38 +236,38 @@ class DecisionSkill(Executor):
                    or (step["type"] == "tool" and step["executor"] not in agent_state["tools"])
             ]
             if len(not_allowed_executors) != 0:  # 如果超出，给出提示并重新 <2. LLM调用> 进行规划
-                print("Decision技能增加的步骤中包含不在使用权限内的技能与工具，正在重新决策...")
+                print("[Decision]Decision技能增加的步骤中包含不在使用权限内的技能与工具，正在重新决策...")
                 response = llm_client.call(
                     f"以下技能与工具不在使用权限内:{not_allowed_executors}。请确保只使用 available_skills_and_tools 小节中提示的可用技能与工具来添加决策step。**规划结果放在<decision_step>和</decision_step>之间。**",
                     context=chat_context
                 )
                 decision_step = self.extract_decision_step(response)
 
-                # 4. 记录decision反思结果到execute_result，并更新AgentStep中的步骤列表（以插入形式）
-                step = agent_state["agent_step"].get_step(step_id)[0]
-                execute_result = {"decision_step": decision_step}  # 构造符合execute_result格式的执行结果
-                step.update_execute_result(execute_result)
-                # 更新AgentStep中的步骤列表
-                self.add_next_step(decision_step, step_id, agent_state)  # 将规划的步骤列表插入到AgentStep中
+            # 4. 记录decision反思结果到execute_result，并更新AgentStep中的步骤列表（以插入形式）
+            step = agent_state["agent_step"].get_step(step_id)[0]
+            execute_result = {"decision_step": decision_step}  # 构造符合execute_result格式的执行结果
+            step.update_execute_result(execute_result)
+            # 更新AgentStep中的步骤列表
+            self.add_next_step(decision_step, step_id, agent_state)  # 将规划的步骤列表插入到AgentStep中
 
-                # 5. 解析persistent_memory指令内容并应用到Agent持续性记忆中
-                instructions = self.extract_persistent_memory(response)  # 提取<persistent_memory>和</persistent_memory>之间的指令内容
-                self.apply_persistent_memory(agent_state, instructions)  # 将指令内容应用到Agent的持续性记忆中
+            # 5. 解析persistent_memory指令内容并应用到Agent持续性记忆中
+            instructions = self.extract_persistent_memory(response)  # 提取<persistent_memory>和</persistent_memory>之间的指令内容
+            self.apply_persistent_memory(agent_state, instructions)  # 将指令内容应用到Agent的持续性记忆中
 
-                # step状态更新为 finished
-                agent_state["agent_step"].update_step_status(step_id, "finished")
+            # step状态更新为 finished
+            agent_state["agent_step"].update_step_status(step_id, "finished")
 
-                # 6. 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
-                execute_output = self.get_execute_output(
-                    step_id,
-                    agent_state,
-                    update_agent_situation="working",
-                    shared_step_situation="finished"
-                )
+            # 6. 构造execute_output用于更新自己在stage_state.every_agent_state中的状态
+            execute_output = self.get_execute_output(
+                step_id,
+                agent_state,
+                update_agent_situation="working",
+                shared_step_situation="finished"
+            )
 
-                # 清空对话历史
-                chat_context.clear()
-                return execute_output
+            # 清空对话历史
+            chat_context.clear()
+            return execute_output
 
 # Debug
 if __name__ == "__main__":

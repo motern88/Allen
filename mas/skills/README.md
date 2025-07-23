@@ -59,7 +59,9 @@ MAS下所有的技能执行器 Skill Executor 均继承基础执行器类，其�
 >
 > 最终当你确定MAS中已有的技能实现均无法满足你的特定需求时，你可以根据以下说明，同时参考已有的技能实现来制作一个新的Skill。
 
-技能执行器实现需要继承基础执行器类，并且要向基础执行器类注册（以便路由Router能够在具体Step执行时找到相应的执行器Executor）
+需要实现一个**技能执行器**和其调用LLM时的提示词**配置文件**：
+
+技能执行器的实现需要继承基础执行器类，并且要向基础执行器类注册（以便路由Router能够在具体Step执行时找到相应的执行器Executor）
 
 ```python
 @Executor.register(executor_type="skill", executor_name="XXX") # 注册规划技能到类型 "skill", 名称 "XXX"

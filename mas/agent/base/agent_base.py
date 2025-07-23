@@ -184,6 +184,9 @@ class AgentBase():
                 # 如果是工具调用，则需要传入MCPClient
                 executor_output = executor.execute(step_id=step_id, agent_state=self.agent_state, mcp_client_wrapper=self.mcp_client_wrapper)
 
+        # executor_output不应该为None
+        assert executor_output is not None, f"[Error][AgentBase] 任何时候都不应该出现executor_output为None的情况！请排查{step_executor}执行器的实现"
+
         # 3. 使用sync_state专门同步stage_state与task_state
         self.sync_state.sync_state(executor_output)  # 根据executor_output更新stage,task相应状态
 
