@@ -27,11 +27,13 @@ HumanAgent 的核心行为：
 
 2. send_private_message方法实现：
     HumanAgent向其他Agent发送私聊消息，其中return_waiting_id字段由方法自动判定填充。
-    消息默认记录在一对一的私聊对话记录中(conversation_privates)
+    所有群聊消息均会记录在TaskState.shared_conversation_pool中，
+    同时消息默认记录在一对一的私聊对话记录中(conversation_privates)
 
 3. send_group_message方法实现：
     HumanAgent向其他Agent发送群聊消息，其中return_waiting_id字段由传入时人为指定。
-    消息默认同步在一对一的私聊对话记录中(conversation_privates)，
+    所有群聊消息均会记录在TaskState.shared_conversation_pool中，
+    同时消息默认同步在一对一的私聊对话记录中(conversation_privates)，
 
 3. 对于群聊对话记录：
     我们不由HumanAgent维护群聊对话记录，我们将Task下所有的对话记录均收集在TaskState.shared_conversation_pool中，
