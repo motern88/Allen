@@ -34,8 +34,9 @@
 2. 人类操作端 Agent 服务
 
     实现接口：
-        POST /api/send_message       # 人类操作端发送消息
-        POST /api/bind_human_agent   # 人类操作端登录
+        POST /api/send_private_message       # 人类操作端发送私聊消息
+        POST /api/send_group_message         # 人类操作端发送群聊消息
+        POST /api/bind_human_agent           # 人类操作端登录
 
 '''
 # 引入 Flask 框架核心模块：Flask 用于搭建 Web 服务，render_template 渲染前端页面，request 获取请求参数，jsonify 返回 JSON 格式数据
@@ -157,9 +158,9 @@ def human_send_private_message():
         "task_id": "任务ID",
         "receiver": ["接收者ID1", "接收者ID2", ...],
         "content": "消息内容",
-        "stage_relative": "相关阶段ID", // 可选，默认为"no_relative"
-        "need_reply": true,  // 可选，默认为true
-        "waiting": true      // 可选，默认为false
+        "stage_relative": "相关阶段ID", # 可选，默认为"no_relative"
+        "need_reply": true,  # 可选，默认为true
+        "waiting": true      # 可选，默认为false
     }
 
     返回:

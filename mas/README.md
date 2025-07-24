@@ -7,15 +7,15 @@
 ```markdown
 mas/ 
 ├──agent             # 单个Agent所需的基础组件实现
-
+|
 ├──human_config      # HumanAgent的角色配置文件
 ├──role_config       # LLM-Agent的角色配置文件
-
+|
 ├──skills            # 技能库
 ├──tools             # 工具库
-
+|
 ├──utils             # MAS所需的其他基础组件实现
-├──web               # 前端监控与操作界面
+└──web               # 前端监控与操作界面
 
 mas.py               # 实现了MAS核心类MultiAgentSystem，也是MAS的启动入口
 ```
@@ -58,7 +58,7 @@ mas.py               # 实现了MAS核心类MultiAgentSystem，也是MAS的启�
 
 ### 2. MultiAgentSystem类
 
-> 详情见文档[Multi-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Multi-Agent-System实现细节.md)中第1.3节。
+> 详情见文档[Multi-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Multi-Agent-System实现细节.md)中第**1.2**节。
 
 该类是MAS中的主要类，也是多Agent系统的启动入口。
 

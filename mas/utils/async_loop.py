@@ -11,7 +11,7 @@
     - Agent 内部 Action 循环是同步的，不使用 async/await，所以每个 Agent 在执行 MCPClient 调用时会阻塞当前线程，直到 MCPClient 返回结果。
 所以可以这样描述：
     - MAS 架构：多线程并行 + 每个线程内部同步逻辑
-    - MCPClient：异步 API，但你希望在 Agent 内能并发执行多个工具调用（而不是一个个阻塞）。
+    - MCPClient：异步 API，但我们希望在 Agent 内能并发执行多个工具调用（而不是一个个阻塞）。
 
 我们想要目标：
     - MAS 保持不变（多线程并行），不要大改 Agent 的同步逻辑。
