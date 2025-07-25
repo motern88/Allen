@@ -305,7 +305,7 @@ class MultiAgentSystem:
             在循环中，输入的文本均会作为消息发送给管理者Agent
         '''
         # 2. 添加一个HumanAgent
-        human_agent_id = mas.add_human_agent("mas/human_config/人类操作端_测试.yaml")  # 添加一个HumanAgent
+        human_agent_id = mas.add_human_agent("mas/human_config/人类操作端_小黑.yaml")  # 添加一个HumanAgent
         human_agent = mas.get_agent_from_id(human_agent_id)  # 获取HumanAgent实例
 
         # 3. 启动人类操作端输入循环
