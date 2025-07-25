@@ -8,9 +8,9 @@ Allen 是我们实现的一种多Agent系统架构 （Multi-Agent System）
 
 ```python
 Allen
-├── docs				# 文档
-└── mas					# Multi-Agent System 实现代码
-requirements.txt		# 环境依赖
+├── docs                # 文档
+└── mas                 # Multi-Agent System 实现代码
+requirements.txt        # 环境依赖
 ```
 
 
@@ -50,9 +50,9 @@ pip install -r requirements.txt
 ```yaml
 llm_config:
   api_type: "openai"    # 支持openai或ollama
-  base_url: ""			# LLM API 的 URL
-  model: ""				# 模型名
-  api_key: ""			# API Key
+  base_url: ""          # LLM API 的 URL
+  model: ""             # 模型名
+  api_key: ""           # API Key
   max_tokens: 8192
   temperature: 0.1
   timeout: 600
