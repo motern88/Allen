@@ -13,6 +13,7 @@ Allen 是我们实现的一种多Agent系统架构 （Multi-Agent System）
 ```python
 Allen
 ├── docs                # 文档
+├── experiment			# 存放与运行无关的验证与实验
 └── mas                 # Multi-Agent System 实现代码
 requirements.txt        # 环境依赖
 ```
