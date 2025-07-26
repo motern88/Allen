@@ -134,23 +134,23 @@ class MASFocusedKVCacheTest(Executor):
                 true_kv_times.append(response_time)
                 
                 print(f"     响应时间: {response_time:.2f}s")
-                print(f"     完成后Context长度: {len(persistent_context.get_history())}")
+                # print(f"     完成后Context长度: {len(persistent_context.get_history())}")
                 
                 # 只删除非前缀部分，保持MAS基础提示词不动
 
                 current_length = len(persistent_context.get_history())
                 message_to_delete = current_length - initial_length
 
-                print(f"     需要删除的消息数: {message_to_delete}")
+                # print(f"     需要删除的消息数: {message_to_delete}")
 
                 # 逐个删除后续添加的消息
                 for j in range(message_to_delete):
                     if len(persistent_context.get_history()) > initial_length:
                         persistent_context.remove_last_message()
-                        print(f"     已删除第{j+1}条消息, 剩余{len(persistent_context.get_history())}")
+                        # print(f"     已删除第{j+1}条消息, 剩余{len(persistent_context.get_history())}")
                         
                 final_length = len(persistent_context.get_history())
-                print(f"     清理完成，最终Context长度: {final_length}")
+                # print(f"     清理完成，最终Context长度: {final_length}")
 
 
                 # 🔍 验证MAS基础提示词对象是否被动过
@@ -160,10 +160,10 @@ class MASFocusedKVCacheTest(Executor):
                 mas_object_unchanged = (current_mas_id == mas_message_id)
                 mas_content_unchanged = (current_mas_hash == mas_message_content_hash)
                 
-                if mas_object_unchanged and mas_content_unchanged:
-                    print(f"     🎉 MAS基础提示词对象完全未动过！")
-                else:
-                    print(f"     ⚠️  MAS基础提示词对象被改动了！")
+                # if mas_object_unchanged and mas_content_unchanged:
+                #     print(f"     🎉 MAS基础提示词对象完全未动过！")
+                # else:
+                #     print(f"     ⚠️  MAS基础提示词对象被改动了！")
                 
                 time.sleep(2)
             except Exception as e:
