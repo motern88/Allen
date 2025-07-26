@@ -114,8 +114,8 @@ def get_states():
     for state_id, state_dict in all_states.items():
         if state_id.lower().startswith(f"{state_type}"):
             result[state_id] = state_dict
-        # 增加HumanAgent筛选逻辑
-        if state_type == "agent" and state_id.lower().startswith(f"human"):
+        # 增加HumanAgent和LLMAgent筛选逻辑
+        elif state_type == "agent" and state_id.lower().startswith(("llm", "human")):
             result[state_id] = state_dict
 
     # 返回 JSON 格式的结果

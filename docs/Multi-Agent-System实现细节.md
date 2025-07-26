@@ -4098,11 +4098,19 @@ self.agent_state["working_memory"].setdefault(task_id, {}).setdefault(stage_id, 
 
 
 
+## 7. LLMAgent 与人类操作端
 
 
-## 7. HumanAgent 人类操作端
 
-人类操作端是实现人类介入 Muti-Agent System 的唯一方式。在MAS中，人类以HumanAgent的形式出现，与之对应的是由LLM驱动的LLM-Agent。人类与LLM-Agent之间的通信与协作均等同于Agent与Agent之间的通信与协作。
+### 7.1 LLMAgent
+
+LLMAgent的任务逻辑和执行逻辑均已在AgentBase中定义完成，在LLMAgent中仅新增在 `LLMAgent.agent_state` 中维护Agent唯一的 LLM Client 和 LLM Context 。
+
+
+
+### 7.2 HumanAgent 人类操作端
+
+HumanAgent人类操作端是实现人类介入 Muti-Agent System 的唯一方式。在MAS中，人类以HumanAgent的形式出现，与之对应的是由LLM驱动的LLM-Agent。人类与LLM-Agent之间的通信与协作均等同于Agent与Agent之间的通信与协作。
 
 即HumanAgent通过同名receive_message方法接收来自MAS内其他Agent的消息，通过send_message方法向其他Agent发送消息。
 
@@ -4117,7 +4125,7 @@ HumanAgent即人类操作行为会被添加AgentStep来追踪。但实际不执�
 
 
 
-### 7.1 通讯
+#### 7.2.1 通讯
 
 Human-Agent需要同时兼顾实际使用与向人类展示，因此Human-Agent中的agent_state专门维护一个对话池。该对话池仅记录一对一的私聊记录，群聊记录由前端筛选TaskState.shared_conversation_pool实现。
 
@@ -4186,7 +4194,7 @@ Task下所有的通信记录都会存放于 `shared_conversation_pool` ，因此
 
 
 
-### 7.2 执行操作 （TODO）
+#### 7.2.2 执行操作 （TODO）
 
 人类操作端能够手动执行可以调用的工具，同时会在AgentStep中记录工具执行调用结果（绑定在相应stage中）。
 
@@ -4199,7 +4207,7 @@ Task下所有的通信记录都会存放于 `shared_conversation_pool` ，因此
 
 
 
-### 7.3 Receive Message
+#### 7.2.3 Receive Message
 
 接收来自其他Agent的消息（该消息由MAS中的message_dispatcher转发），
 
@@ -4210,7 +4218,9 @@ Task下所有的通信记录都会存放于 `shared_conversation_pool` ，因此
 
 
 
-#### 7.3.1 需要回复的消息
+
+
+##### A. 需要回复的消息
 
 如果消息需要回复 `message["need_reply"]` ，则继续判断消息发送的对方是否等待该消息的回复 `message["waiting"]` ：
 
@@ -4253,7 +4263,9 @@ self.agent_state["conversation_pool"]["global_messages"].append(
 
 
 
-#### 7.3.2 Process Message
+
+
+##### B. Process Message
 
 对于不需要回复的消息，进入消息处理分支
 
@@ -4283,7 +4295,7 @@ self.agent_state["conversation_pool"]["global_messages"].append(
 
 
 
-### 7.4 Send Message
+#### 7.2.4 Send Message
 
 这是人类操作端发送消息的方法，区别于LLM-Agent的send_message技能，这是暴露给外部的消息发送方法。
 
@@ -4303,7 +4315,9 @@ self.agent_state["conversation_pool"]["global_messages"].append(
 
 
 
-#### 7.4.1 人类操作端API
+
+
+##### A. 人类操作端API
 
 于 `mas.utils.web.server` 实现人类操作端发送消息的接口实现后端接口：
 
@@ -4487,14 +4501,14 @@ Router类根据step_state.type和step_state.executor两个字符串，访问Exec
 | 前端     | 可用简单的 HTML + JavaScript，或 Vue/React         |
 | 后台线程 | `threading.Timer` 或 `while True + sleep` 周期推送 |
 
-在`mas.utils`路径下实现推送服务和前端页面的结构：
+在`mas.web`路径下实现推送服务和前端页面的结构：
 
 ```python
-├── web/
-│   ├── server.py         # Flask + SocketIO 服务端
-│   └── templates/
-│		├── assets/       # 静态资源（CSS/JS）
-│       └── index.html    # 前端界面
+mas/web/
+├── server.py         # Flask + SocketIO 服务端
+└── templates
+	├── assets        # 静态资源（CSS/JS）
+    └── index.html    # 前端界面
 ```
 
 
@@ -4520,7 +4534,7 @@ GET /api/states?type=step
 
 
 
-于`mas.utils.web.server.py`中`get_states`方法来进行API调用
+于`mas.web.server.py`中`get_states`方法来进行API调用
 
 
 

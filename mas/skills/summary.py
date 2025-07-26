@@ -41,7 +41,6 @@ import json
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor
-from mas.agent.base.llm_base import LLMContext, LLMClient
 from mas.agent.state.step_state import StepState, AgentStep
 
 
@@ -195,9 +194,8 @@ class SummarySkill(Executor):
         summary_step_prompt = self.get_summary_prompt(step_id, agent_state)  # 包含 # 一级标题的md格式文本
         # print(summary_step_prompt)
         # 2. LLM调用
-        llm_config = agent_state["llm_config"]
-        llm_client = LLMClient(llm_config)  # 创建 LLM 客户端
-        chat_context = LLMContext(context_size=15)  # 创建一个对话上下文, 限制上下文轮数 15
+        llm_client = agent_state["llm_client"]  # 使用agent_state中维护的 LLM 客户端
+        chat_context = agent_state["llm_context"]  # 使用agent_state中维护的 LLM 上下文
 
         chat_context.add_message("assistant", "好的，我会作为你提供的Agent角色，执行summary操作"
                                               "我会根据 history_step，来总结当前阶段完成情况，"

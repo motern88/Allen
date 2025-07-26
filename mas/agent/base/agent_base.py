@@ -8,7 +8,6 @@ from mas.agent.state.stage_state import StageState
 from mas.agent.state.sync_state import SyncState
 from mas.utils.async_loop import MCPClientWrapper
 from mas.agent.base.router import Router
-from mas.utils.monitor import StateMonitor
 
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import threading
@@ -20,7 +19,6 @@ import uuid
 from types import SimpleNamespace  # 用于将字典转换为对象，便于访问配置文件中的属性
 
 
-@StateMonitor.track  # 注册状态监控器，主要监控agent_state
 class AgentBase():
     '''
     基础Agent类，定义各基础模块的流转逻辑

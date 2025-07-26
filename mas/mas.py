@@ -40,7 +40,7 @@ Multi-Agent System (MAS)
 from mas.agent.state.stage_state import StageState
 from mas.agent.state.task_state import TaskState
 from mas.agent.state.sync_state import SyncState
-from mas.agent.base.agent_base import AgentBase
+from mas.agent.llm_agent import LLMAgent  # LLM智能体Agent
 from mas.agent.human_agent import HumanAgent  # 人类操作端Agent
 from mas.utils.message_dispatcher import MessageDispatcher  # 消息分发器
 
@@ -72,7 +72,7 @@ class MultiAgentSystem:
         mcp_client_wrapper (MCPClientWrapper): MCPClient的包装器，用于在各个Agent中将MCPClient的调用提交到异步事件循环线程中
 
         sync_state (SyncState): 全局状态同步器，用于协调所有Agent的状态
-        agents_list (List[AgentBase]): 用于存放所有Agent的列表
+        agents_list (List[LLMAgent或HumanAgent]): 用于存放所有Agent的列表
         message_dispatcher (MessageDispatcher): 消息分发器，用于在Agent之间传递消息
 
     '''
@@ -145,8 +145,8 @@ class MultiAgentSystem:
         else:
             config_data = agent_config
 
-        # 实例化AgentBase对象，并添加到agents_list中。在Agent实例化的同时就启动了Agent自己的任务执行线程。
-        llm_agent = AgentBase(config=config_data, sync_state=self.sync_state,
+        # 实例化LLMAgent对象，并添加到agents_list中。在Agent实例化的同时就启动了Agent自己的任务执行线程。
+        llm_agent = LLMAgent(config=config_data, sync_state=self.sync_state,
                               mcp_client_wrapper=self.mcp_client_wrapper)
         self.agents_list.append(llm_agent)
 
@@ -172,11 +172,11 @@ class MultiAgentSystem:
             for agent in self.agents_list:
                 if agent.agent_id == agent_id:
                     raise ValueError(f"Agent ID '{agent_id}' 已经存在. 请使用唯一ID.")
-            # 实例化指定AgentID的AgentBase对象
+            # 实例化指定AgentID的Agent实例
             human_agent = HumanAgent(agent_id=agent_id, config=config_data, sync_state=self.sync_state,
                                      mcp_client_wrapper=self.mcp_client_wrapper)
         else:
-            # 实例化AgentBase对象，并添加到agents_list中。
+            # 实例化HumanAgent对象，并添加到agents_list中。
             human_agent = HumanAgent(config=config_data, sync_state=self.sync_state,
                                      mcp_client_wrapper=self.mcp_client_wrapper)
 
@@ -187,7 +187,7 @@ class MultiAgentSystem:
 
     def get_agent_dict(self):
         '''
-        提供Agent ID -> AgentBase实例的映射字典
+        提供Agent ID -> Agent实例的映射字典
         '''
         return {agent.agent_id: agent for agent in self.agents_list}
 
@@ -249,7 +249,7 @@ class MultiAgentSystem:
 
     def get_agent_from_id(self, agent_id: str):
         '''
-        根据agent_id获取AgentBase实例。
+        根据agent_id获取Agent实例。
         '''
         for agent in self.agents_list:
             if agent.agent_id == agent_id:

@@ -81,7 +81,7 @@ class StateMonitor:
                 return f"{cls_name}_{cls_instance.stage_id}"
             elif cls_name == 'StepState' and hasattr(cls_instance, 'step_id'):
                 return f"{cls_name}_{cls_instance.step_id}"
-            elif cls_name == 'AgentBase' and hasattr(cls_instance, 'agent_id'):
+            elif cls_name == 'LLMAgent' and hasattr(cls_instance, 'agent_id'):
                 return f"{cls_name}_{cls_instance.agent_id}"
             elif cls_name == 'HumanAgent' and hasattr(cls_instance, 'agent_id'):
                 return f"{cls_name}_{cls_instance.agent_id}"
@@ -246,17 +246,17 @@ class StateMonitor:
 
             }
 
-        # 4. AgentBase.agent_state
-        # 如果是AgentBase实例(或人类操作端HumanAgent实例)，且AgentBase.agent_state是字典
-        elif type(obj).__name__ == "AgentBase": # 不依赖导入类而通过名字判断
+        # 4. LLMAgent.agent_state
+        # 如果是LLMAgent实例(或人类操作端HumanAgent实例)，且LLMAgent.agent_state是字典
+        elif type(obj).__name__ == "LLMAgent": # 不依赖导入类而通过名字判断
             '''
-            只保留AgentBase.agent_state （Dict[str,any]）的特殊字段
+            只保留LLMAgent.agent_state （Dict[str,any]）的特殊字段
             agent_state 中 LLM Config 与 step_lock 不展示
             '''
             agent_state = getattr(obj, "agent_state", None)
 
-            # print("[DEBUG] agent_state type:", type(agent_state))
-            # print("[DEBUG] agent_state content:", agent_state)
+            # print("[Monitor] LLMAgent.agent_state type:", type(agent_state))
+            # print("[Monitor] LLMAgent.agent_state content:", agent_state)
 
             return {
                 "agent_id": getattr(obj, "agent_id", None),

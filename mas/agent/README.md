@@ -17,7 +17,7 @@ mas/agent
     ├──stage_state.py
     ├──step_state.py
     └──sync_state.py
-agent.py  					# LLM-Agent,继承自AgentBase类
+llm_agent.py  				# LLM-Agent,继承自AgentBase类
 human_agent.py				# 人类操作端HumanAgent,继承自AgentBase类
 ```
 
@@ -33,15 +33,25 @@ human_agent.py				# 人类操作端HumanAgent,继承自AgentBase类
 
 
 
-- `mas/agent/agent.py`：这里实现LLM-Agent，继承自 `mas/agent/base/agent_base.py` 的AgentBase类，但当前的LLM-Agent并不会使用到该类，当前LLM-Agent直接从AgentBase实例化。**因此当前该脚本的实现并没有实际被使用**。
+- `mas/agent/llm_agent.py`：这里实现LLMAgent，继承自 `mas/agent/base/agent_base.py` 的AgentBase类。LLMAgent类实现LLM驱动所需的额外方法。
 
 - `mas/agent/human_agent.py`：这里实现HumanAgent类，继承自 `mas/agent/base/agent_base.py` 的AgentBase类。HumanAgent类实现了人类操作端所需的额外的方法。
 
 
 
-### 2. Human Agent
 
-> 详情见文档[Multi-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Multi-Agent-System实现细节.md)中第**7**节。
+
+### 2. LLM Agent
+
+> 详情见文档[Multi-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Multi-Agent-System实现细节.md)中第**7.1**节。
+
+我们在 `mas/agent/llm_agent.py` 实现了LLMAgent，继承AgentBase类。LLMAgent额外维护了一份 LLM Client 和 LLM Context。
+
+
+
+### 3. Human Agent
+
+> 详情见文档[Multi-Agent-System实现细节](https://github.com/motern88/Allen/blob/main/docs/Multi-Agent-System实现细节.md)中第**7.2**节。
 
 我们在 `mas/agent/human_agent.py` 实现了人类操作端 HumanAgent ，继承AgentBase类，拥有和 LLM-Agent 相同的构造与接口。唯一的区别是人类操作端是由人类驱动而非LLM驱动。
 

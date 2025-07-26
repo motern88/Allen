@@ -1,5 +1,5 @@
 '''
-这里实现人类操作端 HumanAgent ，继承Agent基础类，拥有和LLM-Agent相同的构造与接口。
+这里实现人类操作端 HumanAgent ，继承Agent基础类，拥有和LLMAgent相同的构造与接口。
 唯一的区别是人类操作端是由人类驱动而非LLM驱动。
 
 HumanAgent即人类操作行为会被添加AgentStep来追踪。但实际不执行AgentStep:
@@ -70,6 +70,7 @@ from mas.utils.message import Message
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 from datetime import datetime
 import uuid
+
 
 @StateMonitor.track  # 注册状态监控器，主要监控agent_state
 class HumanAgent(AgentBase):
