@@ -236,6 +236,8 @@ class AgentBase():
             - 如果对方在等待该消息的回复，则解析出对应的唯一等待ID，添加在消息内容中
         - 如果不需要回复则考虑执行消息中的指令或添加process_message step
 
+        注：如果自己在等待该消息的回复，该消息处理（send_message/process_message）均应当插入添加!
+
         message格式：
         {
             "task_id": task_id,
@@ -267,15 +269,29 @@ class AgentBase():
                 )
 
             else:
-                # 进入到回复消息的分支，为AgentStep添加send_message step用于回复。
-                self.add_step(
-                    task_id = message["task_id"],
-                    stage_id = message["stage_relative"],  # 可能是no_relative 与阶段无关
-                    step_intention = f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
-                    type = "skill",
-                    executor = "send_message",
-                    text_content = message["message"]
-                )
+                # 如果自己等待该消息的回复，则插入添加
+                if message["return_waiting_id"].strip():  # 如果有返回唯一等待ID
+                    # 进入到回复消息的分支，为AgentStep插队添加send_message step用于回复。
+                    self.add_next_step(
+                        task_id=message["task_id"],
+                        stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
+                        step_intention=f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
+                        type="skill",
+                        executor="send_message",
+                        text_content=message["message"]
+                    )
+
+                # 如果自己不等待该消息的回复，则追加添加
+                else:
+                    # 进入到回复消息的分支，为AgentStep添加send_message step用于回复。
+                    self.add_step(
+                        task_id = message["task_id"],
+                        stage_id = message["stage_relative"],  # 可能是no_relative 与阶段无关
+                        step_intention = f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
+                        type = "skill",
+                        executor = "send_message",
+                        text_content = message["message"]
+                    )
 
         else:
             # 进入到消息处理的分支，处理不需要回复的消息
@@ -316,6 +332,7 @@ class AgentBase():
 
         # 1. 对于需要LLM理解并消化的消息，添加process_message step
         if text:
+            # 如果自己正在等待该消息的回复，则插队添加处理该消息的步骤
             if message["return_waiting_id"] is not None:
                 # 说明自己用步骤锁在等待该消息的回复，则插队添加处理该消息的步骤
                 self.add_next_step(
@@ -327,6 +344,7 @@ class AgentBase():
                     executor="process_message",
                     text_content=message["message"]
                 )
+            # 如果自己不等待该消息的回复，则追加添加处理该消息的步骤
             else:
                 # 为AgentStep添加process_message step用于处理消息。
                 self.add_step(

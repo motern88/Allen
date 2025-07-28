@@ -3971,6 +3971,8 @@ agent_step.todo_list 是一个queue.Queue()共享队列，用于存放待执行�
 - 如果不需要回复则进入process_message分支，
   考虑执行消息中的指令或添加process_message step
 
+同时，如果自己在等待该消息的回复，该消息处理（send_message/process_message）均应当插入添加而非追加添加。
+
 
 
 #### 6.2.1 需要回复的消息
@@ -3979,13 +3981,13 @@ agent_step.todo_list 是一个queue.Queue()共享队列，用于存放待执行�
 
 - 发送方等待该消息回复
 
-  解析出自己对应的唯一等待ID
+  1.解析出自己对应的唯一等待ID
 
   ```python
   return_waiting_id = message["waiting"][message["receiver"].index(self.agent_state["agent_id"])]
   ```
 
-  在步骤列表中插入回复消息步骤，在下一个步骤中立即执行该消息的回复：
+  2.在步骤列表中插入回复消息步骤，在下一个步骤中立即执行该消息的回复：
 
   ```python
   self.add_next_step(
@@ -4002,18 +4004,39 @@ agent_step.todo_list 是一个queue.Queue()共享队列，用于存放待执行�
 
 - 发送方不等待该消息回复
 
-  在步骤列表中追加回复消息步骤
+  > 如果自己在等待该消息的回复，该消息处理（send_message/process_message）均应当插入添加!
 
-  ```python
-  self.add_step(
-      task_id = message["task_id"],
-      stage_id = message["stage_relative"],  # 可能是no_relative 与阶段无关
-      step_intention = f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
-      step_type = "skill",
-      executor = "send_message",
-      text_content = message["message"]
-  )
-  ```
+  - 如果自己正在等待该消息的回复，即对方的消息包含`return_waiting_id`
+  
+    在步骤列表中插入回复消息步骤
+  
+    ```python
+    self.add_next_step(
+        task_id=message["task_id"],
+        stage_id=message["stage_relative"],  # 可能是no_relative 与阶段无关
+        step_intention=f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
+        type="skill",
+        executor="send_message",
+        text_content=message["message"]
+    )
+    ```
+  
+  - 如果自己不等待该消息的回复
+  
+    在步骤列表中追加回复消息步骤
+  
+    ```python
+    self.add_step(
+        task_id = message["task_id"],
+        stage_id = message["stage_relative"],  # 可能是no_relative 与阶段无关
+        step_intention = f"回复来自Agent {message['sender_id']}的消息，**消息内容见当前步骤的text_content**",
+        step_type = "skill",
+        executor = "send_message",
+        text_content = message["message"]
+    )
+    ```
+  
+    
 
 
 
@@ -4036,10 +4059,16 @@ agent_step.todo_list 是一个queue.Queue()共享队列，用于存放待执行�
 解析`message["message"]`中的内容
 
 1. 对于需要LLM理解并消化的消息，添加process_message step
+
+   > 如果自己在等待该消息的回复，该消息处理（send_message/process_message）均应当插入添加
+
 2. 如果instruction字典包含start_stage的key，则执行start_stage：
    当一个任务阶段的所有step都执行完毕后，帮助Agent建立下一个任务阶段的第一个step: planning_step）
+
 3. 如果instruction字典包含finish_stage的key，则执行清除该stage的所有step并且清除相应working_memory
+
 4. 如果instruction字典包含finish_task的key，则执行清除该task的所有step并且清除相应working_memory
+
 5. 如果instruction字典包含update_working_memory的key，则更新Agent的工作记忆
 
 6. 如果instruction字典包含add_tool_decision的key，插入tool_decision步骤
