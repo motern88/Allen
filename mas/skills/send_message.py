@@ -109,7 +109,7 @@ Send Message首先会判断当前Agent已有的信息是否满足发送消息的
         6. 返回用于指导状态同步的execute_output
 '''
 import re
-import json
+import json5
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union, cast
 
 from mas.agent.base.executor_base import Executor
@@ -137,10 +137,10 @@ class SendMessageSkill(Executor):
             message = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
 
             try:
-                message_dict = json.loads(message)
+                message_dict = json5.loads(message)  # 使用json5解析，支持单引号、注释和未转义的双引号等
                 return message_dict
-            except json.JSONDecodeError:
-                print("JSON解析错误:", message)
+            except Exception as e:
+                print(f"[SendMessage]JSON解析错误 {e}:", message)
                 return None
         else:
             # print("没有找到<send_message>标签")

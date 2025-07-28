@@ -30,7 +30,7 @@
     5. 返回用于指导状态同步的execute_output
 '''
 import re
-import json
+import json5
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor
@@ -56,10 +56,10 @@ class DecisionSkill(Executor):
             # print("解析json：",step_content)
             try:
                 # 将字符串解析为 Python 列表
-                decision_step = json.loads(step_content)
+                decision_step = json5.loads(step_content)  # 使用json5解析，支持单引号、注释和未转义的双引号等
                 return decision_step
-            except json.JSONDecodeError:
-                print("解析 JSON 失败，请检查格式")
+            except Exception as e:
+                print(f"[Decision]JSON解析错误 {e}:", step_content)
                 return None
         else:
             print("未找到 <decision_step> 标记")

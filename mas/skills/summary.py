@@ -37,7 +37,6 @@ Summary技能对stage信息的获取来源于第一个步骤Planning_step：
         （更新stage_state.completion_summary的指令，更新stage_state.every_agent_state中自己的状态）
 '''
 import re
-import json
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor

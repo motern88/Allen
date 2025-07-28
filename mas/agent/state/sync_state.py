@@ -329,7 +329,7 @@ class SyncState:
                     task_name=task_instruction["task_name"],
                     task_intention=task_instruction["task_intention"],
                     task_manager=task_instruction["agent_id"],
-                    task_group=None,
+                    task_group=[],
                 )
                 # 添加到任务字典中
                 self.add_task(task_state)

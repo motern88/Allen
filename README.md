@@ -24,7 +24,7 @@ requirements.txt        # 环境依赖
 
 ## 2. Installation
 
-1. 创建虚拟环境，并指定python版本（推荐3.13.1）
+1. 创建虚拟环境，并指定Python版本（推荐Python 3.13.1）
 
 ```powershell
 conda create -n mas python=3.13.1

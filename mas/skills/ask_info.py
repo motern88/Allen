@@ -51,7 +51,7 @@
     6. 返回用于指导状态同步的execute_output
 '''
 import re
-import json
+import json5
 import uuid
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
@@ -76,10 +76,10 @@ class AskInfoSkill(Executor):
             ask_instruction = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
 
             try:
-                ask_instruction_dict = json.loads(ask_instruction)
+                ask_instruction_dict = json5.loads(ask_instruction)  # 使用json5解析，支持单引号、注释和未转义的双引号等
                 return ask_instruction_dict
-            except json.JSONDecodeError:
-                print("JSON解析错误:", ask_instruction)
+            except Exception as e:
+                print(f"[AskInfo]JSON解析错误 {e}:", ask_instruction)
                 return None
         else:
             print("没有找到<task_instruction>标签")

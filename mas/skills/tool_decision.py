@@ -79,7 +79,7 @@ LLM需要获取足够进行决策判断的条件:
     5. 返回用于指导状态同步的execute_output
 '''
 import re
-import json
+import json5
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor
@@ -107,10 +107,10 @@ class ToolDecisionSkill(Executor):
 
             try:
                 # 将字符串解析为 Python 列表
-                tool_decision_step = json.loads(step_content)
+                tool_decision_step = json5.loads(step_content)  # 使用json5解析，支持单引号、注释和未转义的双引号等
                 return tool_decision_step
-            except json.JSONDecodeError:
-                print("解析 JSON 失败，请检查格式")
+            except Exception as e:
+                print(f"[ToolDecision]JSON解析错误 {e}:", step_content)
                 return None
         else:
             print("没有找到 <tool_decision> 标记")

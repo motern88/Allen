@@ -43,7 +43,7 @@ NOTE:
     5. 构造并返回 execute_output(更新stage_state.every_agent_state中自己的状态)
 '''
 import re
-import json
+import json5
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor
@@ -66,10 +66,10 @@ class InstructionGenerationSkill(Executor):
         if match:
             tool_instruction_str = match[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
             try:
-                tool_instruction_json = json.loads(tool_instruction_str)
+                tool_instruction_json = json5.loads(tool_instruction_str)  # 使用json5解析，支持单引号、注释和未转义的双引号等
                 return tool_instruction_json
-            except json.JSONDecodeError as e:
-                print(f"JSON解析失败: {e}")
+            except Exception as e:
+                print(f"[InstructionGeneration]JSON解析失败 {e}:", tool_instruction_str)
                 return None
         else:
             return None

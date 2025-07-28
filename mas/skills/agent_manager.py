@@ -39,7 +39,7 @@
     5. 返回用于指导状态同步的execute_output
 '''
 import re
-import json
+import json5
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor
@@ -64,10 +64,10 @@ class AgentManagerSkill(Executor):
             agent_instruction = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
 
             try:
-                agent_instruction_dict = json.loads(agent_instruction)
+                agent_instruction_dict = json5.loads(agent_instruction)
                 return agent_instruction_dict
-            except json.JSONDecodeError:
-                print("JSON解析错误:", agent_instruction)
+            except Exception as e:
+                print(f"[AgentManger]JSON解析错误 {e}:", agent_instruction)
                 return None
         else:
             print("没有找到<agent_instruction>标签")

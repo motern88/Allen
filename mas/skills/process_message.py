@@ -51,7 +51,7 @@ NOTE: Message内容可能包含md标题，为了防止与其他提示的md标题
     7. 返回用于指导状态同步的execute_output
 '''
 import re
-import json
+import json5
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor
@@ -92,10 +92,10 @@ class ProcessMessageSkill(Executor):
             instruction = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
 
             try:
-                instruction_dict = json.loads(instruction)
+                instruction_dict = json5.loads(instruction)
                 return instruction_dict
-            except json.JSONDecodeError:
-                print("JSON解析错误:", instruction)
+            except Exception as e:
+                print(f"[ProcessMessage]JSON解析错误 {e}:", instruction)
                 return None
         else:
             # print("没有找到<send_message>标签")

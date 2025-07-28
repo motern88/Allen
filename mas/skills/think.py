@@ -27,7 +27,7 @@ MAS中常规的基于历史步骤信息的LLM调用/文本生成。
     5. 生成并返回execute_output指令
 '''
 import re
-import json
+
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor

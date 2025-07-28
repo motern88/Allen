@@ -27,7 +27,7 @@ Planning需要有操作Agent中AgentStep的能力，AgentStep是Agent的执行�
     5. 返回用于指导状态同步的execute_output
 '''
 import re
-import json
+import json5
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 
 from mas.agent.base.executor_base import Executor
@@ -53,10 +53,10 @@ class PlanningSkill(Executor):
             # print("解析json：",step_content)
             try:
                 # 将字符串解析为 Python 列表
-                planned_step = json.loads(step_content)
+                planned_step = json5.loads(step_content)
                 return planned_step
-            except json.JSONDecodeError:
-                print("[Planning] 解析 JSON 失败，请检查格式")
+            except Exception as e:
+                print(f"[Planning]JSON解析错误 {e}:", step_content)
                 return None
         else:
             print("[Planning] 未找到 <planned_step> 标记")
