@@ -298,7 +298,7 @@ class AgentBase():
             self.process_message(message)
 
         # 3. 尝试获取消息中的return_waiting_id，回收步骤锁
-        if message["return_waiting_id"] is not None:
+        if message["return_waiting_id"].strip():
             # 回收步骤锁
             self.agent_state["step_lock"].remove(message["return_waiting_id"])
 
