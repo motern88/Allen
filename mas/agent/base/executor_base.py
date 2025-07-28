@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import datetime
 import yaml
+from json5 import loads
 import json
 import os
 import re
@@ -53,6 +54,19 @@ class Executor(ABC):
     # 上：基础方法
     # --------------------------------------------------------------------------------------------
     # 下：一些通用工具方法
+
+    def fix_message(self, message: str):
+        '''
+        用于自动修复LLM返回的消息中Message字段中的引号问题
+        '''
+        # 尝试替换 message 字段内部未转义的引号
+        def fix_quotes(m):
+            content = m.group(1)
+            content_fixed = re.sub(r'(?<!\\)"', r'\"', content)
+            return f'"message": "{content_fixed}"'
+
+        fixed = re.sub(r'"message"\s*:\s*"(.+?)"', fix_quotes, message, flags=re.DOTALL)
+        return loads(fixed)
 
     # 加载skill的 YAML 配置文件
     def load_skill_config(self, skill_name, config_dir="mas/skills"):

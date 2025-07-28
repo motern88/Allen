@@ -135,7 +135,7 @@ class SendMessageSkill(Executor):
 
         if matches:
             message = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
-
+            message = self.fix_message(message)  # 尝试修复消息内容中的引号和转义字符问题
             try:
                 message_dict = json5.loads(message)  # 使用json5解析，支持单引号、注释和未转义的双引号等
                 return message_dict
@@ -156,10 +156,10 @@ class SendMessageSkill(Executor):
         if matches:
             get_more_info = matches[-1] # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
             try:
-                get_more_info_dict = json.loads(get_more_info)
+                get_more_info_dict = json5.loads(get_more_info)
                 return get_more_info_dict
-            except json.JSONDecodeError:
-                print("JSON解析错误:", get_more_info)
+            except Exception as e:
+                print(f"[SendMessage]JSON解析错误 {e}:", get_more_info)
                 return None
         else:
             # print("没有找到<get_more_info>标签")
