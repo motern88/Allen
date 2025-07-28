@@ -45,10 +45,15 @@ from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO
 from typing import Dict
 import threading
+import logging
 import time
 
 from mas.utils.monitor import StateMonitor
 from mas.agent.human_agent import HumanAgent
+
+# 设置日志记录器，配置日志级别为 ERROR，避免 Werkzeug 的 INFO 日志干扰输出
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 app = Flask(__name__, static_folder="templates", static_url_path="")  # 创建 Flask 实例
 socketio = SocketIO(app)  # 将 Flask 实例封装为支持 WebSocket 的 SocketIO 实例
