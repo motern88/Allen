@@ -36,6 +36,7 @@
 import os
 import json
 import yaml
+import logging
 from typing import Any, Dict, Iterable, List, Optional, Type, TypeVar, Union
 import requests
 import asyncio
@@ -45,6 +46,9 @@ from contextlib import AsyncExitStack
 from mcp.client.session import ClientSession
 from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
+
+# 配置日志级别，忽略 MCP 通知验证的 WARNING 消息，但保留 ERROR 级别的消息
+logging.getLogger().setLevel(logging.ERROR)
 
 class MCPClient:
     def __init__(self):
