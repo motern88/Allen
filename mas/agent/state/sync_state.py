@@ -372,6 +372,8 @@ class SyncState:
                 '''
                 # 获取任务id的task_state
                 task_state = self.all_tasks.get(task_instruction["task_id"])
+                if not task_state:
+                    print(f"[SyncState][task_instruction] 任务ID：{task_instruction['task_id']}不正确无法添加任务阶段")
                 # 遍历阶段列表
                 for stage_info in task_instruction["stages"]:
                     # 1. 实例化一个StageState
@@ -906,18 +908,17 @@ class SyncState:
                         f"{return_format}\n\n"
                     )
 
+                # TODO:需不需要支持获取MCPClient中缓存的具体能力调用参数说明？
+                #     当前仅获取的是MCPServer启动配置中的粗略描述
                 # 遍历所有工具提示文件
-                for file_path, yaml_data in self.load_yaml_recursive("mas/tools"):
+                for file_path, yaml_data in self.load_yaml_recursive("mas/tools/mcp_server_config"):
                     tool_name = yaml_data["use_guide"]["tool_name"]
                     description = yaml_data["use_guide"]["description"]
-                    tool_prompt = yaml_data["use_prompt"]["tool_prompt"]
                     return_format = yaml_data["use_prompt"]["return_format"]
-                    return_ask_info_md.append(f"#### 技能 Tool: {tool_name}\n")
+                    return_ask_info_md.append(f"#### 工具 Tool: {tool_name}\n")
                     return_ask_info_md.append(
-                        f"技能描述 description:\n"
+                        f"MCP Server 工具描述 description:\n"
                         f"{description}\n\n"
-                        f"技能提示词 skill_prompt:\n"
-                        f"{tool_prompt}\n\n"
                         f"返回格式 return_format:\n"
                         f"{return_format}\n\n"
                     )

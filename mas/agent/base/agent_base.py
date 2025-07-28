@@ -252,7 +252,7 @@ class AgentBase():
         if message["need_reply"]:
 
             # 2. 判断对方是否等待该消息的回复
-            if message["waiting"] is not None:
+            if message["waiting"]:
                 # 解析出自己对应的唯一等待ID
                 return_waiting_id = message["waiting"][message["receiver"].index(self.agent_state["agent_id"])]
 
