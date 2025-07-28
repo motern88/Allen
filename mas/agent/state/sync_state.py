@@ -104,8 +104,8 @@ class SyncState:
         llm_config = LLMConfig.from_yaml("mas/agent/configs/default_llm_config.yaml")
         # 合并配置
         agent_config_dict["llm_config"] = llm_config
-        # 实例化AgentBase对象
-        self.system.add_agent(agent_config_dict)
+        # 实例化AgentBase对象，使用add_llm_agent方法
+        self.system.add_llm_agent(agent_config_dict)
 
     def add_task(self, task_state: TaskState):
         '''
