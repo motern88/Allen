@@ -48,9 +48,11 @@ pip install -r requirements.txt
 
 ### 3.1 Finish Agent Config
 
-**配置LLM-Agent的API**
+**1. 配置LLM-Agent的API**
 
 请完善 `mas/role_config` 下所有LLM-Agent的配置文件中 `llm_config` 部分。
+
+> 其中 `mas/role_config/管理者_灰风.yaml` 是**必须配置**的，MAS 系统的启动默认指定其为初始任务管理Agent。
 
 ```yaml
 llm_config:
@@ -63,17 +65,25 @@ llm_config:
   timeout: 600
 ```
 
-其中 `管理者_灰风.yaml` 是必须配置的，MAS 系统的启动默认指定其为初始任务管理Agent。
 
 
-
-**配置Human-Agent**
+**2. 配置Human-Agent**
 
 请完善 `mas/human_config` 下你想要创建的人类操作端Agent的配置。
 
 其中 `人类操作端_小黑.yaml` 是当前MAS启动时固定唤起的人类操作端Agent。
 
 <span style="background-color:yellow">TODO：我们将会完善在Web UI中新建HumanAgent的方式，而不强制需要预定义human config。</span>
+
+
+
+**3. 配置默认LLM Config**
+
+请在 `mas/agent/configs/default_llm_config.yaml` 中配置有效的LLM API。
+
+该处配置的 LLM Config 会在 MAS 创建未在`mas/role_config`中预定义的新Agent时使用。
+
+
 
 
 

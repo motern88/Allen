@@ -4131,7 +4131,7 @@ Human-Agent需要同时兼顾实际使用与向人类展示，因此Human-Agent�
 
 ```python
 agent_state["conversation_pool"] = {
-    "conversation_privates": {"agent_id": <conversation_private>, ...},  # Dict[str,List]  记录所有私聊对话组
+    "conversation_privates": {"agent_id": {"task_id": [<conversation_private>, ...], ...}, ...},  # Dict[str,Dict[str,List]]  记录所有私聊对话组
     "global_messages": [str, ...],  # List[str] 用于通知人类操作员的全局重要消息
 }
 ```
@@ -4144,40 +4144,23 @@ agent_state["conversation_pool"] = {
 
 
 
-> 其中 `<conversation_group>` 是一个字典，包含与其他Agent群聊的对话信息：
->
-> ```python
-> {
->     "group_id": str,  # 对话组的唯一标识符
->     "participants": List[str],  # 参与群聊对话的Agent ID列表，群聊中只允许Human-Agent出现，不允许LLM-Agent出现
->     "messages": [  # 对话消息列表
->         {
->             "sender_id": str,  # 发送者Agent ID
->             "content": str,  # 消息内容
->             "timestamp": str,  # 消息发送时间戳
->         },
->         ...
->     ]
-> }
-> ```
->
-> 
->
 > 其中 `<conversation_private>` 是一个字典，包含与其他Agent的私聊对话信息：
 >
 > ```python
->"agent_id":[
->     {
->         "sender_id": str,  # 发送者Agent ID
->         "content": str,  # 消息内容
->         "stage_relative": str,  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为"no_relative"
->         "timestamp": str,  # 消息发送时间戳
->         "need_reply": bool,  # 是否需要回复
->         "waiting": bool,  # 如果需要回复，发起方是否正在等待该消息回复
->         "return_waiting_id": Optional[str], # 如果发起方正在等待回复，那么需要返回的唯一等待标识ID
->     }
-> ]
-> ```
+> "agent_id": {
+>        "task_id": [
+>            {
+>                "sender_id": str,  # 发送者Agent ID
+>                "content": str,  # 消息内容
+>                "stage_relative": str,  # 如果消息与任务阶段相关，则填写对应阶段Stage ID，否则为"no_relative"
+>                "timestamp": str,  # 消息发送时间戳
+>                "need_reply": bool,  # 是否需要回复
+>                "waiting": bool,  # 如果需要回复，发起方是否正在等待该消息回复
+>                "return_waiting_id": Optional[str], # 如果发起方正在等待回复，那么需要返回的唯一等待标识ID
+>            }
+>     ]
+> }
+>```
 > 
 
 

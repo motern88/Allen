@@ -98,9 +98,10 @@ class SyncState:
 
         agent_config_dict 是一个包含 Agent 配置的字典，包含 name、role、profile 等信息。
         将agent_config_dict和LLM config合并，用于实例化AgentBase对象
+        （我们创建新Agent时不需要由Agent自己去配置LLM Config，而是直接使用我们的默认LLM Config）
         '''
         # 获取LLMconfig
-        llm_config = LLMConfig.from_yaml("mas/role_config/default_llm_config.yaml")
+        llm_config = LLMConfig.from_yaml("mas/agent/configs/default_llm_config.yaml")
         # 合并配置
         agent_config_dict["llm_config"] = llm_config
         # 实例化AgentBase对象

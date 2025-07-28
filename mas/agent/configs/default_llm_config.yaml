@@ -1,3 +1,4 @@
+# 该default llm config用于Agent自主创建其他Agent时所填入的LLM调用配置
 api_type: "openai"
 base_url: "http://localhost:4141/v1"  # 指向本地代理服务
 model: "claude-3.7-sonnet"

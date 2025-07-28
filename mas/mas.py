@@ -329,7 +329,7 @@ class MultiAgentSystem:
                     context=message_content,
                     stage_relative="no_relative",  # 与任务阶段无关
                     need_reply=True,  # 需要回复
-                    waiting=None,  # 不等待回复
+                    waiting=True,  # 等待回复
                 )
 
             if user_input.strip() == "step_list":
