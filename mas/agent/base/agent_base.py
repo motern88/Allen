@@ -270,7 +270,7 @@ class AgentBase():
 
             else:
                 # 如果自己等待该消息的回复，则插入添加
-                if message["return_waiting_id"].strip():  # 如果有返回唯一等待ID
+                if message["return_waiting_id"] is not None and message["return_waiting_id"].strip():  # 如果有返回唯一等待ID
                     # 进入到回复消息的分支，为AgentStep插队添加send_message step用于回复。
                     self.add_next_step(
                         task_id=message["task_id"],
@@ -298,7 +298,7 @@ class AgentBase():
             self.process_message(message)
 
         # 3. 尝试获取消息中的return_waiting_id，回收步骤锁
-        if message["return_waiting_id"].strip():
+        if message["return_waiting_id"] is not None and message["return_waiting_id"].strip():
             # 回收步骤锁
             self.agent_state["step_lock"].remove(message["return_waiting_id"])
 
