@@ -135,7 +135,7 @@ class SendMessageSkill(Executor):
 
         if matches:
             message = matches[-1]  # 获取最后一个匹配内容 排除是在<think></think>思考期间的内容
-            message = self.fix_message(message)  # 尝试修复消息内容中的引号和转义字符问题
+
             try:
                 message_dict = json5.loads(message)  # 使用json5解析，支持单引号、注释和未转义的双引号等
                 return message_dict

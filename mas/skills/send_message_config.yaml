@@ -72,11 +72,11 @@ use_prompt:
     你可以如实回答"你不知道"于消息内容中。没必要反复执行Decision获取更多信息。
 
   return_format: |
-    **请注意你都返回格式中的字典内容会被JSON解析，请避免使用单引号、注释和未转义的双引号等使JSON无法解析的内容。**
+    **请注意你都返回格式中的字典内容会被JSON解析，请避免使用单引号、注释和未转义的双引号等使JSON无法解析的内容。** 
     一.如果"直接消息发送"：
     - 输出格式用字典表示，字段中包含以下字段：
       receiver (List[str]): 接收者的Agent ID列表，表示你要发送消息的对象，你应当填入**接收对象的实际ID**(禁止使用XXX_ID等占位符)。
-      message (str): 发送的实际消息内容
+      message (str): 发送的实际消息内容，但避免使用单引号、注释和未转义的双引号等使JSON无法解析的内容
       stage_relative (str): 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为"no_relative"的字符串
       need_reply (bool): 表示是否需要回复，如果需要回复则为True，否则为False
       waiting (bool): 表示是否需要等待接收方的回复，如果需要等待则为True，否则为False。
@@ -88,7 +88,7 @@ use_prompt:
     <send_message>
     {
       "receiver": [ "<AGENT_ID>", "<AGENT_ID>", ... ],  # **包含接收者实际Agent ID(uuid格式)的列表**
-      "message": "<message_content>",
+      "message": "<message_content>",  # 避免使用单引号、注释和未转义的双引号等使JSON无法解析的内容
       "stage_relative": "<stage_id或None>",  # 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为no_relative的字符串
       "need_reply": <bool>,  # 需要回复则为True，否则为False
       "waiting": <bool>,  # 等待回复则为True，否则为False
