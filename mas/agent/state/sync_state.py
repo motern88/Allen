@@ -915,13 +915,10 @@ class SyncState:
                 for file_path, yaml_data in self.load_yaml_recursive("mas/tools/mcp_server_config"):
                     tool_name = yaml_data["use_guide"]["tool_name"]
                     description = yaml_data["use_guide"]["description"]
-                    return_format = yaml_data["use_prompt"]["return_format"]
                     return_ask_info_md.append(f"#### 工具 Tool: {tool_name}\n")
                     return_ask_info_md.append(
                         f"MCP Server 工具描述 description:\n"
                         f"{description}\n\n"
-                        f"返回格式 return_format:\n"
-                        f"{return_format}\n\n"
                     )
 
             # 构造返回消息，消息内容为md格式的查询结果
