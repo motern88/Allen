@@ -768,7 +768,7 @@ class SyncState:
                                                   f"可用技能 skills：{agent_state['skills']}\n"
                                                   f"可用工具 tools：{agent_state['tools']}\n\n")
 
-            # 7 TODO 获取团队Team中所有Agent的基本信息
+            # 7 获取团队Team中所有Agent的基本信息, TODO：当前Team概念未实现
             if ask_info["type"] == "team_agents":
                 '''
                 {
@@ -779,7 +779,8 @@ class SyncState:
                     "team_id": "<team_id>"  # 要查询的团队ID
                 }
                 '''
-                raise NotImplementedError("Team概念未实现")
+                # raise NotImplementedError("Team概念未实现")
+                return_ask_info_md.append(f"[Error] Team概念未实现，无法获取团队中Agent信息。\n")
 
             # 8 获取指定任务群组中所有Agent的信息
             if ask_info["type"] == "task_agents":

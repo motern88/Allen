@@ -83,7 +83,7 @@ class HumanAgent(AgentBase):
         - 人类操作员主动发起的消息也添加进 conversation_pool 中
     其中：
         agent_state["conversation_pool"] = {
-            "conversation_privates": {"agent_id":[<conversation_private>, ...]},  # Dict[str,List] 所有私聊对话组
+            "conversation_privates": {"agent_id": {"task_id": [<conversation_private>, ...], ...}, ...},  # Dict[str,Dict[str,List]] 所有私聊对话组
             "global_messages": [str, ...],  # 全局消息, 用于提醒该人类操作员自己的信息
         }
     每个 <conversation_private> 是一个字典，代表一条与其他Agent的私聊对话信息：
@@ -400,6 +400,7 @@ class HumanAgent(AgentBase):
                 "stage_relative": stage_relative if stage_relative else "no_relative",  # 是否与任务阶段相关
                 "need_reply": need_reply,  # 是否需要回复
                 "waiting": waiting_ids,  # 如果发送者需要等待回复，则为所有发送对象填写唯一等待ID。不等待则为 None
+                "return_waiting_id": None,  # 这里先以None占用，如果下面自动获取到真正的waiting_id则会覆盖该字段
             }
 
             # 2. 如果在 conversation_pool 的 conversation_privates 中发现该消息是回复上一条等待消息的，
@@ -414,7 +415,7 @@ class HumanAgent(AgentBase):
 
             # 3. 将消息添加到 conversation_pool 中，如果没有则创建。
             if receiver_id not in self.agent_state["conversation_pool"]["conversation_privates"]:
-                self.agent_state["conversation_pool"]["conversation_privates"][receiver_id][task_id] = []
+                self.agent_state["conversation_pool"]["conversation_privates"].setdefault(receiver_id, {})[task_id] = []
 
             self.agent_state["conversation_pool"]["conversation_privates"][receiver_id][task_id].append(
                 {

@@ -44,7 +44,7 @@ use_prompt:
     - Agent相关信息：
        - 获取系统中所有可实例化的Agent的**配置文件** (available_agents_config)
        - 获取多智能体系统MAS中所有Agent的基本信息，不包括持续性记忆 (all_agents)
-       - 获取团队Team中所有Agent的基本信息，不包括持续性记忆 (team_agents)
+       - 获取团队Team中所有Agent的基本信息，不包括持续性记忆 (team_agents)。使用该指令需要指定你已知确定的team_id
        - 获取指定任务群组中所有Agent的信息，需要指定task_id，不包括持续性记忆 (task_agents)
        - 获取指定阶段下协作的所有Agent的信息，需要指定task_id与stage_id，不包括持续性记忆 (stage_agents)
        - 获取指定Agent的详细状态信息 (agent)

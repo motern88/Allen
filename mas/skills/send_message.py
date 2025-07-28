@@ -174,7 +174,7 @@ class SendMessageSkill(Executor):
             return_waiting_id = matches[-1]  # 获取最后一个匹配内容 排除其他干扰内容
             return return_waiting_id
         else:
-            print("[Skill][send_message] 没有找到<return_waiting_id>标签")
+            # print("[Skill][send_message] 没有找到<return_waiting_id>标签")
             return None
 
     def construct_decision_step_and_send_message_step(self, instruction, step_id, agent_state):
