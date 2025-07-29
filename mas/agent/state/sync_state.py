@@ -340,7 +340,8 @@ class SyncState:
                     "task_id": task_state.task_id,
                     "sender_id": task_instruction["agent_id"],
                     "receiver": [task_instruction["agent_id"]],
-                    "message": "<instruction>" + json.dumps(instruction) + "</instruction>",
+                    "message": f"[System]已创建新Task <task_id>{task_state.task_id}</task_id> \n"
+                               f"<instruction>{json.dumps(instruction)}</instruction>",
                     "stage_relative": "no_relative",
                     "need_reply": False,
                     "waiting": None,
