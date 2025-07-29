@@ -76,7 +76,7 @@ use_prompt:
     一.如果"直接消息发送"：
     - 输出格式用字典表示，字段中包含以下字段：
       receiver (List[str]): 接收者的Agent ID列表，表示你要发送消息的对象，你应当填入**接收对象的实际ID**(禁止使用XXX_ID等占位符)。
-      message (str): 发送的实际消息内容，但避免使用单引号、注释和未转义的双引号等使JSON无法解析的内容
+      message (str): 发送的实际消息内容，但避免使用注释和未转义的双引号等使JSON无法解析的内容(请将内容中的"XXX"写成'XXX')
       stage_relative (str): 表示是否与任务阶段相关，是则填对应阶段Stage ID，否则为"no_relative"的字符串
       need_reply (bool): 表示是否需要回复，如果需要回复则为True，否则为False
       waiting (bool): 表示是否需要等待接收方的回复，如果需要等待则为True，否则为False。
