@@ -341,7 +341,7 @@ class SyncState:
                     "sender_id": task_instruction["agent_id"],
                     "receiver": [task_instruction["agent_id"]],
                     "message": f"[System]已创建新Task <task_id>{task_state.task_id}</task_id> \n"
-                               f"<instruction>{json.dumps(instruction)}</instruction>",
+                               f"<instruction>{json.dumps(instruction)}</instruction>",  # 这里同时有指令和文本，文本是触发process_message让Agent知悉TaskID
                     "stage_relative": "no_relative",
                     "need_reply": False,
                     "waiting": None,
