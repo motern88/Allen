@@ -1,5 +1,5 @@
 '''
-Agent基础类，这里实现关于LLM驱动的相关基础功能，不涉及到任何具体Agent_state
+Agent基础类，这里实现关于LLM驱动的相关基础功能，包括Agent_state的初始化
 '''
 
 
@@ -299,6 +299,11 @@ class AgentBase():
 
         # 3. 尝试获取消息中的return_waiting_id，回收步骤锁
         if message["return_waiting_id"] is not None and message["return_waiting_id"].strip():
+            # 确保要清除的return_waiting_id存在于步骤锁中
+            assert message["return_waiting_id"] in self.agent_state["step_lock"],(
+                f"回收步骤锁失败：return_waiting_id: {message["return_waiting_id"]} 不在 step_lock 中。\n"
+                f"当前 step_lock 内容: {self.agent_state['step_lock']}"
+            )
             # 回收步骤锁
             self.agent_state["step_lock"].remove(message["return_waiting_id"])
 

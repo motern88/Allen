@@ -30,9 +30,11 @@ class LLMAgent(AgentBase):
         # 在父类（AgentBase）初始化后，初始化LLM客户端和上下文
         self.init_llm_client_and_context()
 
+    # TODO：这里实现的LLMClient / Context未同步到 base_prompt系统提示词中，
+    #   不过几乎没有影响，Agent本身也感知不到AgentState中这两个字段
     def init_llm_client_and_context(self):
         '''
-        向AgentState中存储唯一的LLM客户端和上下文
+        向AgentState中存储唯一的LLM客户端和上下文。
         {
             "llm_client": LLMClient,
             "llm_context": LLMContext,
