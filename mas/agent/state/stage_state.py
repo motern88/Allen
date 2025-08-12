@@ -77,6 +77,9 @@ class StageState:
         更新阶段中某个Agent的完成情况
 
         更新完成情况时会触发检查，如果发现此时所有Agent都已经提交了完成情况，则触发向管理Agent提交阶段完成情况的逻辑。
+        Note：
+            该完成情况更新操作本质上会调用TaskState中的方法（因为只有TaskState自己能够最方便地增加消息到消息队列），
+            因此StageState要访问TaskState方法只能通过回调函数实现
         '''
         self.completion_summary[agent_id] = completion_summary
 
