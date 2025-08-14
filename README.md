@@ -1,6 +1,6 @@
 # Allen
 
-Allen 是我们实现的一种多Agent系统架构 （Multi-Agent System）
+Allen 是多Agent系统架构(Multi-Agent System)的其中一种构形。其优势在于Agent能够自主改变自身的行为模式，而无需开发者为每个具体任务都编排具体的工作逻辑。
 
 
 
