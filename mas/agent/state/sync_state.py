@@ -145,7 +145,9 @@ class SyncState:
     # 开启任务中的一个阶段(对Agent发送指令)
     def start_stage(self, task_id: str, stage_id: str, sender_id: str):
         '''
-        由SyncState负责开启任务中的一个阶段，使用message中包含相应指令来触发相应Agent去执行
+        由SyncState负责开启任务中的一个阶段：
+        1. 使用message中包含相应指令来触发相应Agent去执行
+        2. 更新Stage状态为running
         '''
         # 构造start_stage指令
         instruction = {"start_stage": {"stage_id": stage_id}}
@@ -154,6 +156,7 @@ class SyncState:
         task_state = self.all_tasks.get(task_id)
         stage_state = self.get_stage_state(task_id, stage_id)
         if stage_state:
+            # 1. 向所有相关执行Agent发送开始阶段的指令
             # 构造包含start_stage指令的消息
             message:Message = {
                 "task_id": task_id,
@@ -168,11 +171,16 @@ class SyncState:
             # 将消息添加到任务的通讯队列中
             task_state.communication_queue.put(message)
 
+            # 2. 更改stage状态为running
+            stage_state.execution_state = "running"
+
     # 结束任务中的一个阶段(对Agent发送指令)
     def finish_stage(self, task_id: str, stage_id: str, sender_id: str):
         '''
-        由SyncState负责结束任务中的一个阶段，使用message中包含相应指令来触发相应Agent去执行
-        主要作用是清除Agent的工作记忆与相关agent_step
+        由SyncState负责结束任务中的一个阶段：
+        1. 使用message中包含相应指令来触发相应Agent去执行
+            主要作用是清除Agent的工作记忆与相关agent_step
+        2. 更新Stage状态为finished
         '''
         # 构造start_stage指令
         instruction = {"finish_stage": {"stage_id": stage_id}}
@@ -194,6 +202,9 @@ class SyncState:
             }
             # 将消息添加到任务的通讯队列中
             task_state.communication_queue.put(message)
+
+            # 2. 更改stage状态为finished
+            stage_state.execution_state = "finished"
 
     # 结束任务(对Agent发送指令)
     def finish_task(self, task_id: str, sender_id: str):

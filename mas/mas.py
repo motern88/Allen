@@ -34,7 +34,7 @@ Multi-Agent System (MAS)
     2.添加第一个Agent（管理者），Agent在被实例化时就会启动自己的任务执行线程
     3.创建MAS中第一个任务，并指定MAS中第一个Agent为管理者，并启动该任务（启动其中的阶段）
     4.启动状态监控网页服务（可视化 + 热更新）
-    5.主线程保持活跃，接受来自人类操作段的输入
+    5.主线程保持活跃，接受来自人类操作端的输入
 
 '''
 from mas.agent.state.stage_state import StageState
@@ -100,7 +100,7 @@ class MultiAgentSystem:
         await mcp_client.initialize_servers()
         return mcp_client
 
-    # TODO：关闭MAS系统调用shutdown未调试成功
+    # TODO：关闭MAS系统调用shutdown未调试成功，目前仍然直接使用ctrl+c关闭
     def shutdown(self):
         '''
         关闭MAS系统的所有资源，包括 MCPClient 和事件循环。
