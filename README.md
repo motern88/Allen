@@ -1,6 +1,6 @@
 # Allen
 
-Allen 是多Agent系统架构(Multi-Agent System)的其中一种构形。其优势在于Agent能够自主改变自身的行为模式，而无需开发者为每个具体任务都编排具体的工作逻辑。
+Allen 是多Agent系统架构(Multi-Agent System)的其中一种构形。其优势在于Agent能够自主改变自身的行为模式，而无需开发者为每个具体任务都编排具体的工作逻辑。我们的技术报告：[Allen: Rethinking MAS Design through Step-Level Policy Autonomy](http://arxiv.org/abs/2508.11294)
 
 
 
@@ -73,7 +73,7 @@ llm_config:
 
 其中 `人类操作端_小黑.yaml` 是当前MAS启动时固定唤起的人类操作端Agent。
 
-<span style="background-color:yellow">TODO：我们将会完善在Web UI中新建HumanAgent的方式，而不强制需要预定义human config。</span>
+<span style="background-color:yellow">TODO：我们需要完善在Web UI中新建HumanAgent的方式，而不强制需要预定义human config。</span>
 
 
 
