@@ -308,6 +308,17 @@ class MultiAgentSystem:
         human_agent_id = mas.add_human_agent("mas/human_config/人类操作端_小黑.yaml")  # 添加一个HumanAgent
         human_agent = mas.get_agent_from_id(human_agent_id)  # 获取HumanAgent实例
 
+        # 将该HumanAgent加入到MAS初始任务进程中
+        instruction = {
+            "agent_instruction": {
+                "agent_id": human_agent_id,  # 发起者Agent id，这里自己给自己发送指令代表系统消息
+                "action": "add_task_participant",
+                "task_id": first_task_id,  # 任务ID
+                "agents": [human_agent_id] # 要加入任务群组的AgentID
+            }
+        }
+        self.sync_state.sync_state(instruction)
+
         # 3. 启动人类操作端输入循环
         while True:
             # # Debug:打印系统任务状态，MAS是否正确创建任务

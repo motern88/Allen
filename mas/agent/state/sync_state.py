@@ -583,7 +583,31 @@ class SyncState:
                     ]
                 }
                 '''
+                # 获取任务id的task_state
+                task_state = self.all_tasks.get(agent_instruction["task_id"])
+                if not task_state:
+                    print(f"[SyncState][agent_instruction] 任务ID：{agent_instruction['task_id']}不正确无法追加Agent进任务群组")
+
+                # 1. 向任务群组中追加Agent
                 self.add_agents_2_task_group(task_id=agent_instruction["task_id"], agents=agent_instruction["agents"])
+
+                # 2. 同步工作记忆到任务参与者
+                instruction = {
+                    "update_working_memory": {"task_id": agent_instruction["task_id"], "stage_id": None}
+                }
+                message: Message = {
+                    "task_id": agent_instruction["task_id"],
+                    "sender_id": agent_instruction["agent_id"],
+                    "receiver": agent_instruction["agents"],
+                    "message": "<instruction>" + json.dumps(instruction) + "</instruction>",
+                    "stage_relative": "no_relative",
+                    "need_reply": False,
+                    "waiting": None,
+                    "return_waiting_id": None
+                }
+                # 将消息添加到任务的通讯队列中
+                task_state.communication_queue.put(message)
+
                 print(f"[SyncState] 已添加Agent{agent_instruction['agents']}于任务群组{agent_instruction['task_id']}中")
 
 
