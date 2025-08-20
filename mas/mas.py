@@ -319,28 +319,28 @@ class MultiAgentSystem:
 
             user_input = input("[DEBUG][HumanAgent] 请输入指令 (输入 'send' 来向当前任务管理者发送消息)：")
 
-            if user_input.strip() == "send":
-                print("[DEBUG][HumanAgent] 请输入要发送的消息内容：")
-                message_content = input("[DEBUG][HumanAgent] 消息内容：")
-                # 调用 HumanAgent 的 send_private_message 方法发送消息
-                human_agent.send_private_message(
-                    task_id=first_task_id,
-                    receiver=[llm_agent_id],  # 发送给管理者Agent
-                    context=message_content,
-                    stage_relative="no_relative",  # 与任务阶段无关
-                    need_reply=True,  # 需要回复
-                    waiting=True,  # 等待回复
-                )
-
-            if user_input.strip() == "step_list":
-                llm_agent = mas.get_agent_from_id(llm_agent_id)
-                print(f"\n[DEBUG]step_list:\n")
-                llm_agent.agent_state["agent_step"].print_all_steps()
-
-
-            if user_input.strip() == "shutdown":
-                mas.shutdown()
-                break
+            # if user_input.strip() == "send":
+            #     print("[DEBUG][HumanAgent] 请输入要发送的消息内容：")
+            #     message_content = input("[DEBUG][HumanAgent] 消息内容：")
+            #     # 调用 HumanAgent 的 send_private_message 方法发送消息
+            #     human_agent.send_private_message(
+            #         task_id=first_task_id,
+            #         receiver=[llm_agent_id],  # 发送给管理者Agent
+            #         context=message_content,
+            #         stage_relative="no_relative",  # 与任务阶段无关
+            #         need_reply=True,  # 需要回复
+            #         waiting=True,  # 等待回复
+            #     )
+            #
+            # if user_input.strip() == "step_list":
+            #     llm_agent = mas.get_agent_from_id(llm_agent_id)
+            #     print(f"\n[DEBUG]step_list:\n")
+            #     llm_agent.agent_state["agent_step"].print_all_steps()
+            #
+            #
+            # if user_input.strip() == "shutdown":
+            #     mas.shutdown()
+            #     break
 
             # print(".")
             time.sleep(1)  # 主线程保持活跃
