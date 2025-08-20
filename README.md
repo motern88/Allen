@@ -11,7 +11,7 @@ Allen 是多Agent系统架构(Multi-Agent System)的其中一种构形。其优�
 
 ## News
 
-
+- **25.8** 由于人员变动，该项目即将不再继续维护。
 
 
 
