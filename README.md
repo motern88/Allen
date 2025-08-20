@@ -2,9 +2,18 @@
 
 Allen 是多Agent系统架构(Multi-Agent System)的其中一种构形。其优势在于Agent能够自主改变自身的行为模式，而无需开发者为每个具体任务都编排具体的工作逻辑。我们的技术报告：[Allen: Rethinking MAS Design through Step-Level Policy Autonomy](http://arxiv.org/abs/2508.11294)
 
+我们的Agent在任务中协作的总览架构图：
 
+![多Agent协同执行](./docs/asset/多Agent协同执行.jpg)
+其中每个Agent执行具体Step示意图：
+
+![v4工作流动图](./docs/asset/v4工作流动图.gif)
 
 ## News
+
+
+
+
 
 
 
@@ -17,8 +26,6 @@ Allen
 └── mas                 # Multi-Agent System 实现代码
 requirements.txt        # 环境依赖
 ```
-
-
 
 
 
@@ -85,8 +92,6 @@ llm_config:
 
 
 
-
-
 ### 3.2 Start System and Web UI
 
 在项目根目录下执行命令：
@@ -104,4 +109,11 @@ http://127.0.0.1:5000
 ```
 
 
+
+## 4. TODO
+
+- 四种状态的离线保存与加载
+- 任务完成后Agent轨迹收集与日志存档
+- 人类操作端使用Agent管理技能
+- 在前端WebUI中增加新建Human-Agent功能，而不强制需要预定义human config
 
