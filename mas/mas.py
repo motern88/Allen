@@ -358,7 +358,7 @@ class MultiAgentSystem:
 
 if __name__ == "__main__":
     '''
-    测试MAS系统 在在Allen根目录下执行 python -m mas.mas
+    测试MAS系统 在Allen根目录下执行 python -m mas.mas
     '''
     mas = MultiAgentSystem()  # 实例化MAS系统
     mas.start_system()  # 启动MAS系统
