@@ -11,7 +11,7 @@ Allen 是多Agent系统架构(Multi-Agent System)的其中一种构形。其优�
 
 ## News
 
-- **25.8** 由于人员变动，该项目即将不再继续维护。
+- **25.8** 该项目即将不再继续维护。
 
 
 
@@ -110,10 +110,23 @@ http://127.0.0.1:5000
 
 
 
-## 4. TODO
+## 4. Todo
 
 - 四种状态的离线保存与加载
 - 任务完成后Agent轨迹收集与日志存档
 - 人类操作端使用Agent管理技能
 - 在前端WebUI中增加新建Human-Agent功能，而不强制需要预定义human config
+
+
+
+## 5. Cite This Work
+
+```latex
+@article{zhou2025allen,
+  title={Allen: Rethinking MAS Design through Step-Level Policy Autonomy},
+  author={Zhou, Qiangong and Wang, Zhiting and Yao, Mingyou and Liu, Zongyang},
+  journal={arXiv preprint arXiv:2508.11294},
+  year={2025}
+}
+```
 
